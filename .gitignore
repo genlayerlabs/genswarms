@@ -1,0 +1,60 @@
+# Dependencies and build artifacts
+/deps
+/_build
+/node_modules
+/priv/static/assets
+
+# Nix build outputs and per-project caches
+/result
+/result-*
+/.nix-mix
+/.nix-hex
+/.direnv
+
+# Generated files
+*.ez
+/.elixir_ls
+erl_crash.dump
+erl_crash.dump.*
+
+# Elixir analysis artifacts
+*.plt
+*.coverdata
+
+# Escript binary
+/swarm
+
+# Environment files
+.env
+.env.local
+*.secret.exs
+
+# Test coverage
+/cover
+
+# Logs
+/log
+*.log
+
+# Database files
+*.db
+*.sqlite3
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Swarm data (runtime)
+/swarms
+/.swarm
+
+# Release artifacts
+/rel
+.test-logs/

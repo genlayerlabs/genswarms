@@ -1,0 +1,176 @@
+#!/usr/bin/env elixir
+# szc-wrapper - Protocol translator for SubzeroclawSwarm orchestrator
+#
+# This script wraps subzeroclaw and translates between:
+# - Orchestrator JSON protocol (stdin)
+# - Subzeroclaw plain text (stdin/stdout)
+# - Agent output patterns (@agent: message) -> JSON routing messages
+#
+# Usage: szc-wrapper <agent_name> <subzeroclaw_path> [skills_dir]
+
+defmodule SzcWrapper do
+  @moduledoc """
+  Protocol translator between orchestrator and subzeroclaw.
+  """
+
+  def main(args) do
+    case args do
+      [agent_name, szc_path] ->
+        run(agent_name, szc_path, nil)
+
+      [agent_name, szc_path, skills_dir] ->
+        run(agent_name, szc_path, skills_dir)
+
+      _ ->
+        IO.puts(:stderr, "Usage: szc-wrapper <agent_name> <subzeroclaw_path> [skills_dir]")
+        System.halt(1)
+    end
+  end
+
+  defp run(agent_name, szc_path, skills_dir) do
+    # Set up environment
+    env = build_env(agent_name, skills_dir)
+
+    # Start subzeroclaw process
+    port = Port.open({:spawn_executable, szc_path}, [
+      :binary,
+      :exit_status,
+      {:line, 16_384},
+      {:env, env},
+      :use_stdio,
+      :stderr_to_stdout
+    ])
+
+    # Start tasks for reading stdin and handling port output
+    stdin_task = Task.async(fn -> read_stdin_loop(port) end)
+
+    # Handle port output
+    output_loop(port, agent_name, "")
+
+    Task.shutdown(stdin_task, :brutal_kill)
+  end
+
+  defp build_env(agent_name, skills_dir) do
+    env = [
+      {~c"SUBZEROCLAW_AGENT_NAME", String.to_charlist(agent_name)}
+    ]
+
+    env =
+      if skills_dir do
+        [{~c"SUBZEROCLAW_SKILLS", String.to_charlist(skills_dir)} | env]
+      else
+        env
+      end
+
+    # Pass through API key
+    case System.get_env("SUBZEROCLAW_API_KEY") do
+      nil -> env
+      key -> [{~c"SUBZEROCLAW_API_KEY", String.to_charlist(key)} | env]
+    end
+  end
+
+  defp read_stdin_loop(port) do
+    case IO.read(:stdio, :line) do
+      :eof ->
+        :ok
+
+      {:error, _} ->
+        :ok
+
+      line ->
+        # Parse JSON from orchestrator
+        case Jason.decode(String.trim(line)) do
+          {:ok, msg} ->
+            # Translate to plain text for subzeroclaw
+            text = translate_to_text(msg)
+            Port.command(port, text <> "\n")
+
+          {:error, _} ->
+            # Pass through as-is if not JSON
+            Port.command(port, line)
+        end
+
+        read_stdin_loop(port)
+    end
+  end
+
+  defp translate_to_text(%{"type" => "task", "content" => content, "from" => from}) do
+    "[From #{from}] #{content}"
+  end
+
+  defp translate_to_text(%{"type" => "message", "content" => content, "from" => from}) do
+    "[From #{from}] #{content}"
+  end
+
+  defp translate_to_text(%{"type" => "system", "command" => "status"}) do
+    "/status"
+  end
+
+  defp translate_to_text(%{"type" => "system", "command" => cmd}) do
+    "/#{cmd}"
+  end
+
+  defp translate_to_text(msg) do
+    # Unknown message type, convert to string
+    inspect(msg)
+  end
+
+  defp output_loop(port, agent_name, buffer) do
+    receive do
+      {^port, {:data, {:eol, line}}} ->
+        full_line = buffer <> line
+        process_output(full_line, agent_name)
+        output_loop(port, agent_name, "")
+
+      {^port, {:data, {:noeol, chunk}}} ->
+        output_loop(port, agent_name, buffer <> chunk)
+
+      {^port, {:exit_status, status}} ->
+        # Flush remaining buffer
+        if buffer != "" do
+          process_output(buffer, agent_name)
+        end
+
+        # Output exit status
+        IO.puts(Jason.encode!(%{type: "exit", status: status}))
+        System.halt(status)
+
+      _ ->
+        output_loop(port, agent_name, buffer)
+    end
+  end
+
+  defp process_output(line, _agent_name) do
+    # Check for @agent: patterns
+    case parse_agent_mentions(line) do
+      [] ->
+        # No mentions, output as regular output
+        IO.puts(Jason.encode!(%{type: "output", content: line}))
+
+      mentions ->
+        # Output mentions as routing messages
+        for {target, content} <- mentions do
+          if target == "all" do
+            IO.puts(Jason.encode!(%{type: "broadcast", content: content}))
+          else
+            IO.puts(Jason.encode!(%{type: "send", to: target, content: content}))
+          end
+        end
+
+        # Also output the full line
+        IO.puts(Jason.encode!(%{type: "output", content: line}))
+    end
+  end
+
+  defp parse_agent_mentions(line) do
+    # Pattern: @agent_name: message content
+    # Matches until next @mention or end of line
+    pattern = ~r/@([a-zA-Z_][a-zA-Z0-9_]*):\s*(.+?)(?=@[a-zA-Z_]|$)/
+
+    Regex.scan(pattern, line)
+    |> Enum.map(fn [_, target, content] -> {target, String.trim(content)} end)
+  end
+end
+
+# Run the wrapper
+SzcWrapper.main(System.argv())

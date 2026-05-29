@@ -1,0 +1,18 @@
+# Bwrap Skills Test - Verify skills are loaded in bwrap sandbox
+#
+# Usage: mix swarm.start examples/bwrap-skills/config.exs
+#        mix swarm.task bwrap-skills agent_1 "What is the secret number?"
+
+%{
+  name: "bwrap-skills",
+  agents: [
+    %{
+      name: :agent_1,
+      backend: :bwrap,
+      skills: ["secret.md"],
+      presets: [:base],
+      model: "minimax/minimax-m2.7"
+    }
+  ],
+  topology: []
+}
