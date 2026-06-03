@@ -106,6 +106,7 @@ defmodule SubzeroclawSwarm.Config.SwarmConfig do
           :bwrap
           | {:bwrap, map()}
           | :local
+          | {:local, map()}
           | {:docker, String.t()}
           | {:docker, String.t(), map()}
           | {:ssh, String.t()}
@@ -207,6 +208,7 @@ defmodule SubzeroclawSwarm.Config.SwarmConfig do
   def backend_module(:bwrap), do: SubzeroclawSwarm.Backends.BwrapBackend
   def backend_module({:bwrap, _}), do: SubzeroclawSwarm.Backends.BwrapBackend
   def backend_module(:local), do: SubzeroclawSwarm.Backends.LocalBackend
+  def backend_module({:local, _}), do: SubzeroclawSwarm.Backends.LocalBackend
   def backend_module({:docker, _}), do: SubzeroclawSwarm.Backends.DockerBackend
   def backend_module({:docker, _, _}), do: SubzeroclawSwarm.Backends.DockerBackend
   def backend_module({:ssh, _}), do: SubzeroclawSwarm.Backends.SSHBackend
@@ -221,6 +223,7 @@ defmodule SubzeroclawSwarm.Config.SwarmConfig do
   def backend_config(:bwrap), do: %{}
   def backend_config({:bwrap, opts}), do: opts
   def backend_config(:local), do: %{}
+  def backend_config({:local, opts}), do: opts
   def backend_config({:docker, image}), do: %{image: image}
   def backend_config({:docker, image, opts}), do: Map.merge(%{image: image}, opts)
   def backend_config(:mock), do: %{}
@@ -280,6 +283,7 @@ defmodule SubzeroclawSwarm.Config.SwarmConfig do
   defp validate_backend(:bwrap), do: :ok
   defp validate_backend({:bwrap, opts}) when is_map(opts), do: :ok
   defp validate_backend(:local), do: :ok
+  defp validate_backend({:local, opts}) when is_map(opts), do: :ok
   defp validate_backend({:docker, container}) when is_binary(container), do: :ok
 
   defp validate_backend({:docker, container, opts}) when is_binary(container) and is_map(opts),
