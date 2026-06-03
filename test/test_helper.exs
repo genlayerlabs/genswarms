@@ -9,4 +9,11 @@ ExUnit.after_suite(fn _ ->
   File.rm_rf(test_events)
 end)
 
+# Start the Phoenix endpoint (server: false in test) so Phoenix.ConnTest can
+# dispatch requests in-process for controller tests.
+case Supervisor.start_child(SubzeroclawSwarm.Supervisor, SubzeroclawSwarmWeb.Endpoint) do
+  {:ok, _} -> :ok
+  {:error, {:already_started, _}} -> :ok
+end
+
 ExUnit.start()

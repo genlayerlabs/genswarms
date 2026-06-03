@@ -6,6 +6,14 @@ defmodule SubzeroclawSwarmWeb.Router do
     plug Corsica, origins: "*", allow_headers: :all, allow_methods: :all
   end
 
+  # Read-only observability surface for the dashboard (token-gated when
+  # DASHBOARD_API_TOKEN is set). Never attach mutating routes to this pipeline.
+  pipeline :read_api do
+    plug :accepts, ["json"]
+    plug Corsica, origins: "*", allow_headers: :all, allow_methods: :all
+    plug SubzeroclawSwarmWeb.Plugs.ReadAuth
+  end
+
   # API root - returns API info
   scope "/", SubzeroclawSwarmWeb do
     pipe_through :api
@@ -76,4 +84,11 @@ defmodule SubzeroclawSwarmWeb.Router do
     post "/config/validate", ConfigController, :validate
   end
 
+  # Read-only dashboard surface
+  scope "/api", SubzeroclawSwarmWeb do
+    pipe_through :read_api
+
+    get "/swarms/:name/dashboard", DashboardController, :show
+    get "/swarms/:name/sessions/:session_id/history", DashboardController, :session_history
+  end
 end
