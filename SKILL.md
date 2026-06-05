@@ -1,6 +1,6 @@
 ---
-name: genswarms
-description: Use when operating or orchestrating genswarms agent swarms — defining swarm configs, building the CLI, and starting/managing/observing/scaling swarms via the genswarms CLI or the REST API.
+name: operating-genswarms
+description: Operate and orchestrate genswarms agent swarms — author swarm configs (.exs/.json/.yaml), build the CLI, and start/manage/observe/scale swarms via the genswarms CLI or REST API. Use when working in a genswarms repo, defining or running a swarm, wiring agent topologies/backends/skills, or driving swarms over HTTP/WebSocket. Do NOT use for developing the genswarms Elixir codebase itself, or for unrelated multi-agent frameworks.
 ---
 
 # genswarms
@@ -42,6 +42,21 @@ working directory (searching up to 5 parents). Key env vars (full list in gettin
 | `SWARM_API_URL` | Base URL CLI uses to reach the server | `http://localhost:4000` |
 
 ## Core workflow
+
+Copy this checklist and check off each step as you go:
+
+```
+Swarm bring-up:
+- [ ] 1. Scaffold a project        (genswarms init)
+- [ ] 2. Set SUBZEROCLAW_API_KEY   (cp .env.example .env)
+- [ ] 3. Validate the config       (genswarms config validate)
+- [ ] 4. Start the API server      (genswarms up — optional)
+- [ ] 5. Start the swarm daemon    (genswarms start)
+- [ ] 6. Inspect status            (genswarms status)
+- [ ] 7. Task an agent             (genswarms task)
+- [ ] 8. Observe logs/events       (genswarms logs -f / events)
+- [ ] 9. Stop                      (genswarms stop / down)
+```
 
 ```bash
 # 1. Scaffold a project (swarms/, skills/, docker/, .env.example, .genswarms/)
