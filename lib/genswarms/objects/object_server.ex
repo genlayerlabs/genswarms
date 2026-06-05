@@ -381,9 +381,9 @@ defmodule Genswarms.Objects.ObjectServer do
 
         {:send_many, messages, handler_state} ->
           Enum.each(messages, fn
-            {to, msg} -> route_message(state.swarm_name, state.name, to, msg)
             {:send, to, msg} -> route_message(state.swarm_name, state.name, to, msg)
             {:broadcast, msg} -> Router.broadcast(state.swarm_name, state.name, msg)
+            {to, msg} -> route_message(state.swarm_name, state.name, to, msg)
           end)
 
           {:noreply, %{state | handler_state: handler_state, last_activity: DateTime.utc_now()}}
@@ -609,9 +609,9 @@ defmodule Genswarms.Objects.ObjectServer do
       {:send_many, messages, handler_state} ->
         # Send multiple messages (keyword/tuple format: [{target, msg}, ...])
         Enum.each(messages, fn
-          {to, msg} -> route_message(state.swarm_name, state.name, to, msg)
           {:send, to, msg} -> route_message(state.swarm_name, state.name, to, msg)
           {:broadcast, msg} -> Router.broadcast(state.swarm_name, state.name, msg)
+          {to, msg} -> route_message(state.swarm_name, state.name, to, msg)
         end)
 
         new_state = %{
