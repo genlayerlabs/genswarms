@@ -15,11 +15,11 @@ Every subcommand can be invoked two ways, with the same arguments and flags:
 ```bash
 # As the escript binary
 genswarms status
-genswarms start swarms/example-swarm.exs
+genswarms start swarms/example_swarm.exs
 
 # As a Mix task (dot-separated subcommand)
 mix genswarms.status
-mix genswarms.start swarms/example-swarm.exs
+mix genswarms.start swarms/example_swarm.exs
 ```
 
 A `.env` file in the working directory is auto-loaded before most commands run.
@@ -59,7 +59,7 @@ genswarms events -h
 | `clean` | Remove stopped/crashed swarms (optionally clear all events) |
 | `status` | Show status of all swarms or one swarm in detail |
 | `logs` | View or stream agent logs and conversation history |
-| `events` | Query and stream events from the centralized event store |
+| `events` | Query events from the centralized event store |
 | `task` | Send a task to an agent |
 | `msg` | Route a message between two agents |
 | `env` | Manage environment variables in `.env` files |
@@ -124,7 +124,7 @@ Subcommands: `start` (default), `stop`, `status`.
 
 ### `init`
 
-Scaffold a new project (`.env`, `swarms/`, `skills/`, `docker/`, etc.).
+Scaffold a new project (`.env`, `swarms/`, `skills/`, `docker/`, etc.). The generated config is written to `swarms/example_swarm.exs` (note the underscore in the file name) and declares a swarm whose `name:` is `example-swarm` (hyphenated). Use the file path when starting/validating it, and the hyphenated name when referring to the running swarm.
 
 ```bash
 genswarms init                  # in the current directory
@@ -141,8 +141,8 @@ genswarms init ~/projects/swarm # absolute path
 Start a swarm from a config file (`.exs` / `.json` / `.yaml`). Runs as a background daemon by default; state is tracked in `.genswarms/swarms.db`.
 
 ```bash
-genswarms start swarms/example-swarm.exs
-genswarms start swarms/example-swarm.exs --foreground
+genswarms start swarms/example_swarm.exs
+genswarms start swarms/example_swarm.exs --foreground
 ```
 
 | Flag | Alias | Description |
@@ -172,7 +172,7 @@ genswarms restart example-swarm --delete  # clean restart (wipe old logs/events/
 
 ### `pause`
 
-Freeze every Docker container belonging to the swarm (`docker pause szc-<swarm>-<agent>`). Processes are suspended but containers stay alive.
+Freeze every Docker container belonging to the swarm (`docker pause szc-<swarm>-<agent>`). Processes are suspended but containers stay alive. If no matching running containers are found, the command reports `No running containers found for swarm` and exits non-zero.
 
 ```bash
 genswarms pause example-swarm
@@ -282,7 +282,7 @@ genswarms logs example-swarm --tail 100     # last 100 entries
 
 ### `events`
 
-Query and stream events from the centralized event store. With no flags it prints the last 50 events.
+Query events from the centralized event store. With no flags it prints the last 50 events. (This is a one-shot query — see the note below about `--follow`/`--stats`.)
 
 ```bash
 genswarms events                          # last 50 events
@@ -293,8 +293,6 @@ genswarms events -s example-swarm -a coder# filter by swarm + agent
 genswarms events --category backend       # backend events only
 genswarms events --type message_routed    # filter by event type
 genswarms events --limit 200              # raise the result cap
-genswarms events --follow                 # stream in real time
-genswarms events --stats                  # event statistics
 ```
 
 | Flag | Alias | Description |
@@ -307,8 +305,8 @@ genswarms events --stats                  # event statistics
 | `--category CAT` | | Filter by category: `backend`, `routing`, `agent`, `object`, `swarm`, `system` |
 | `--type TYPE` | | Filter by event type (e.g. `stdout`, `message_routed`, `task_sent`) |
 | `--limit N` | | Maximum events to return (default: 50) |
-| `--follow` | `-f` | Stream events in real time |
-| `--stats` | | Show event statistics |
+
+> **Not yet implemented:** the parser also accepts `--follow` / `-f` and `--stats`, but they are currently silent no-ops. `run/1` always performs a one-shot query and `build_query_opts/1` never consults either flag — there is no live-stream loop or statistics computation in `lib/mix/tasks/genswarms/events.ex`. For live event streaming, use `genswarms logs <swarm> --follow` instead.
 
 See [observability.md](observability.md) for the full category/event-type catalog.
 
@@ -319,10 +317,10 @@ See [observability.md](observability.md) for the full category/event-type catalo
 Validate one or more config files using the real loader: file format, required fields, agent/object config, topology validity, skill-file existence, and handler-module existence. Globs are expanded. `check` is a shorthand alias.
 
 ```bash
-genswarms config validate swarms/example-swarm.exs
+genswarms config validate swarms/example_swarm.exs
 genswarms config validate "swarms/*.exs"
 genswarms config validate config.json --quiet
-genswarms check swarms/example-swarm.exs   # alias
+genswarms check swarms/example_swarm.exs   # alias
 ```
 
 | Flag | Alias | Description |
