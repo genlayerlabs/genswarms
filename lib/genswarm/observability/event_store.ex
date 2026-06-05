@@ -52,6 +52,14 @@ defmodule Genswarm.Observability.EventStore do
   @doc "Durably persist one event. Fire-and-forget; a backend may batch internally."
   @callback persist(event()) :: :ok
 
+  @doc """
+  Durably persist a batch of events in one operation.
+
+  Optional: backends that can write efficiently in bulk (e.g. one transaction)
+  implement it; otherwise the facade falls back to N× `persist/1`.
+  """
+  @callback persist_many([event()]) :: :ok
+
   @doc "Query persisted events (filters: :level/:category/:swarm/:agent/:event_type/:minutes/:limit)."
   @callback query(keyword()) :: [event()]
 
@@ -67,7 +75,7 @@ defmodule Genswarm.Observability.EventStore do
   """
   @callback child_specs() :: [:supervisor.child_spec() | {module(), term()} | module()]
 
-  @optional_callbacks child_specs: 0
+  @optional_callbacks child_specs: 0, persist_many: 1
 
   @default_backend Genswarm.Observability.EventStore.Sqlite
 
@@ -79,6 +87,18 @@ defmodule Genswarm.Observability.EventStore do
 
   @spec persist(event()) :: :ok
   def persist(event), do: backend().persist(event)
+
+  @spec persist_many([event()]) :: :ok
+  def persist_many(events) do
+    mod = backend()
+
+    if function_exported?(mod, :persist_many, 1) do
+      mod.persist_many(events)
+    else
+      Enum.each(events, &mod.persist/1)
+      :ok
+    end
+  end
 
   @spec query(keyword()) :: [event()]
   def query(opts \\ []), do: backend().query(opts)

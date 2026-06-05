@@ -32,6 +32,9 @@ defmodule Genswarm.Observability.EventStore.Sqlite do
   end
 
   @impl true
+  def persist_many(events), do: SwarmRegistry.log_events_bulk(events)
+
+  @impl true
   def query(opts), do: SwarmRegistry.query_events(opts)
 
   @impl true

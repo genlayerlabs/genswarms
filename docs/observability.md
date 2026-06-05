@@ -183,15 +183,31 @@ The durable log sits behind one swappable interface,
 `Genswarm.Observability.EventStore` (a behaviour + facade). Everything that
 persists, reads, or tails events goes through it — `LogStore`, `EventRelay`, the
 controllers, the channel and the CLI — never a concrete backend. Backend is
-config:
+config — and the default already batches writes (every 100ms, one transaction per
+flush) on top of SQLite:
 
 ```elixir
-config :genswarm, :event_store, Genswarm.Observability.EventStore.Sqlite
+config :genswarm, :event_store, Genswarm.Observability.EventStore.Buffered
+
+config :genswarm, Genswarm.Observability.EventStore.Buffered,
+  inner: Genswarm.Observability.EventStore.Sqlite,
+  interval_ms: 100,
+  max_buffer: 1_000
 ```
 
-The callbacks: `persist/1`, `query/1`, `events_since/2`, `max_event_id/0`, and an
-optional `child_specs/0` (processes the backend needs supervised — the app splices
-them into its tree at boot).
+The callbacks: `persist/1`, `query/1`, `events_since/2`, `max_event_id/0`, an
+optional `persist_many/1` (bulk write), and an optional `child_specs/0` (processes
+the backend needs supervised — the app splices them into its tree at boot).
+
+`EventStore.Buffered` is an engine-independent decorator: it buffers `persist/1`
+in a `Writer` GenServer and flushes the batch via the inner backend's
+`persist_many/1` on a timer or at `max_buffer`. This keeps disk writes off
+`LogStore`'s critical path and lets the inner backend amortize them — with
+`EventStore.Sqlite`, one `open → BEGIN → inserts → COMMIT → close` per flush
+instead of a connection per event. The tradeoff is a small durability window
+(≤ one flush interval) on a hard crash; the live in-node path (ETS + PubSub) is
+synchronous and unaffected. Tests run with the plain synchronous `Sqlite` backend
+for determinism.
 
 **Why this matters at scale.** The default `…EventStore.Sqlite` opens a
 short-lived connection per write — fine at moderate load, but with, say, two
@@ -215,13 +231,14 @@ send the high-volume firehose to a sampled / TTL'd / separate sink.
 
 ### When it saturates — a playbook
 
-The default SQLite backend opens a short-lived connection **per write** and SQLite
-allows **one writer at a time**. That is the ceiling. As a rough guide: LLM agents
-emit modest event rates (model latency dominates), so ~1000 agents is typically a
-few **thousand** events/sec at peak. Connect-per-write SQLite tops out around the
-**hundreds–~1k writes/sec** before lock contention; batched SQLite does tens of
-thousands/sec; pooled Postgres, more. So you will hit the wall via the *write
-pattern*, not the engine — fix it in that order.
+Writes already batch (`EventStore.Buffered`, one transaction per 100ms flush), so
+the per-event connection cost is gone. The remaining SQLite ceiling is that it
+allows **one writer at a time** and lives in one file — so multiple daemons
+contend, and a single node's flush throughput is bounded. As a rough guide: LLM
+agents emit modest event rates (model latency dominates), so ~1000 agents is
+typically a few **thousand** events/sec at peak. Batched SQLite handles tens of
+thousands/sec on one writer; the pressure shows up as multi-writer contention and
+durable-write latency. Work the write path in this order.
 
 Work the steps top-down; each is independent and behind the `EventStore` facade,
 so callers never change.
@@ -237,23 +254,21 @@ so callers never change.
   contending on one file).
 - `swarm events` / `/api/events` visibly lagging real time.
 
-**Step 1 — Batch writes (biggest win, same engine).** Add a backend that buffers
-and flushes in one transaction over a single held connection, instead of one
-open-write-close per event. It's a process, declared via `child_specs/0`:
+**Step 1 — Batch writes (biggest win, same engine).** *Already in place* —
+`EventStore.Buffered` is the default and batches every 100ms in one transaction
+(see above). First lever when you saturate: **tune it**. Raise `max_buffer` and/or
+`interval_ms` so flushes coalesce more events per transaction (fewer, larger
+commits), trading a bit more latency/durability window for throughput:
 
 ```elixir
-# sketch — Genswarm.Observability.EventStore.SqliteBatched
-@behaviour Genswarm.Observability.EventStore
-def child_specs, do: [__MODULE__.Writer]          # a GenServer holding one conn
-def persist(event), do: GenServer.cast(__MODULE__.Writer, {:enqueue, event})
-def query(opts), do: SwarmRegistry.query_events(opts)        # reads unchanged
-def events_since(id, n), do: SwarmRegistry.events_since(id, n)
-def max_event_id, do: SwarmRegistry.max_event_id()
-# Writer: accumulate casts, flush every ~100ms or N events in a BEGIN..COMMIT.
+config :genswarm, Genswarm.Observability.EventStore.Buffered,
+  inner: Genswarm.Observability.EventStore.Sqlite,
+  interval_ms: 250,
+  max_buffer: 5_000
 ```
 
-Then `config :genswarm, :event_store, …EventStore.SqliteBatched`. Nothing else
-changes — `application.ex` starts the Writer from `child_specs/0`.
+If a single SQLite file / single writer is still the limit (many daemons
+contending), batching has done its job — go to Step 2.
 
 **Step 2 — Move to Postgres (pooled, partitioned).** When a single file / single
 writer across multiple daemons is the limit, switch engines:

@@ -427,6 +427,54 @@ defmodule Genswarm.CLI.SwarmRegistry do
   end
 
   @doc """
+  Persists many events in a single connection + single transaction.
+
+  This is the batched write path: one `open` → `BEGIN` → all inserts → `COMMIT`
+  → `close`, instead of a connection per event. A bad batch is rolled back; the
+  connection is always closed.
+  """
+  def log_events_bulk([]), do: :ok
+
+  def log_events_bulk(events) do
+    ensure_db_exists()
+    {:ok, db} = open_db()
+
+    try do
+      Exqlite.Sqlite3.execute(db, "BEGIN")
+      Enum.each(events, &insert_event(db, &1))
+      Exqlite.Sqlite3.execute(db, "COMMIT")
+      :ok
+    rescue
+      e ->
+        Exqlite.Sqlite3.execute(db, "ROLLBACK")
+        reraise e, __STACKTRACE__
+    after
+      Exqlite.Sqlite3.close(db)
+    end
+  end
+
+  defp insert_event(db, event) do
+    {:ok, stmt} =
+      Exqlite.Sqlite3.prepare(db, """
+        INSERT INTO events (timestamp, level, category, swarm, agent, event_type, message, metadata)
+        VALUES (datetime('now', 'subsec'), ?, ?, ?, ?, ?, ?, ?)
+      """)
+
+    Exqlite.Sqlite3.bind(stmt, [
+      to_string(event.level),
+      to_string(event.category),
+      event[:swarm],
+      if(event[:agent], do: to_string(event[:agent]), else: nil),
+      to_string(event.event_type),
+      event.message,
+      Jason.encode!(event[:metadata] || %{})
+    ])
+
+    Exqlite.Sqlite3.step(db, stmt)
+    Exqlite.Sqlite3.release(db, stmt)
+  end
+
+  @doc """
   Queries events from SQLite.
   """
   def query_events(opts \\ []) do
