@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Genswarms is an Elixir/OTP orchestrator for managing swarms of AI agents with pluggable backends (Local/Docker/SSH/Bwrap/Mock), arbitrary directed graph topologies, per-agent skills with template variable resolution, file-based messaging (inbox/outbox), and fault tolerance via OTP supervision trees.
 
+Full user/developer documentation lives in [`docs/`](docs/README.md) (configuration DSL, CLI, REST/WebSocket APIs, backends, observability, etc.). This file is the quick-reference for working in the codebase.
+
 ## Build & Development Commands
 
 ```bash
@@ -24,9 +26,6 @@ mix test --cover
 
 # Format code
 mix format
-
-# Static analysis
-mix credo
 
 # Start Phoenix API server (development)
 mix phx.server
@@ -306,8 +305,11 @@ Skills support template variables resolved at deploy time:
 
 ### Per-Agent Workspaces
 
-When `count: N` is used, workspace path is auto-appended with agent name:
-- `agent :fixer, count: 20` with `workspace: "/tmp/ws"` gives `fixer_1` the path `/tmp/ws/fixer_1/`
+There is no config-time `count:` key — an agent definition maps to one agent.
+To run a pool, scale the group at runtime (`genswarms scale <swarm> <base> <n>`
+or `SwarmManager.scale_agent_group/4`). Scaling creates `base_1`, `base_2`, …
+and each replica's `workspace` is renamed accordingly (suffix-replaced if it
+already ends in the template name, otherwise the replica name is appended).
 
 ## Environment Variables
 
@@ -380,7 +382,7 @@ Objects can return `{:send_many, [{target, msg}], state}` from `handle_message/3
 
 ### Mock Backend for Testing
 
-Use `backend: :mock` (or `{:mock, %{script: [...]}}`) to test without LLM calls. Pattern-matches incoming messages and returns canned responses. The `SUBZEROCLAW_MOCK_SCRIPT` env var is passed through to bwrap sandboxes.
+Use `backend: :mock` to test orchestration without LLM calls. The `:mock` backend is a no-op stub: it spawns no process and produces no output (an optional `%{script: [...]}` is stored for introspection only — it does not generate responses). To run *real* agents without an LLM, set `SUBZEROCLAW_MOCK_SCRIPT` (passed through to sandboxes) so subzeroclaw returns canned responses.
 
 ### E2E Testing (`mix genswarms.test`)
 
