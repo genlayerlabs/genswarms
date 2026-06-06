@@ -882,12 +882,20 @@ defmodule GenswarmsWeb.SwarmController do
     {opts, spec_params} = extract_topology_opts(params)
     spec = parse_agent_spec(spec_params)
 
-    case SwarmManager.add_agent(swarm, spec, Keyword.put(opts, :persist, true)) do
-      {:ok, name} ->
-        conn |> put_status(:created) |> json(%{status: "added", name: name})
+    case forbidden_config_keys(spec.config) do
+      [] ->
+        case SwarmManager.add_agent(swarm, spec, Keyword.put(opts, :persist, true)) do
+          {:ok, name} ->
+            conn |> put_status(:created) |> json(%{status: "added", name: name})
 
-      {:error, reason} ->
-        conn |> put_status(:bad_request) |> json(%{error: format_error(reason)})
+          {:error, reason} ->
+            conn |> put_status(:bad_request) |> json(%{error: format_error(reason)})
+        end
+
+      bad ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{error: "Disallowed config keys: #{Enum.join(bad, ", ")}"})
     end
   end
 
@@ -1050,6 +1058,25 @@ defmodule GenswarmsWeb.SwarmController do
   defp parse_backend(%{"type" => "bwrap", "opts" => opts}), do: {:bwrap, opts}
   defp parse_backend(%{"type" => t}), do: safe_atom(t)
   defp parse_backend(other), do: other
+
+  # Backend config keys that grant host filesystem / binary access. These are
+  # legitimate in an operator-authored .exs config but must not be settable
+  # through the dynamic add_agent API, where they would let a caller mount host
+  # paths or run an arbitrary binary inside an agent sandbox. (Defense in depth:
+  # JSON delivers string keys, which today don't match the atom-keyed backend
+  # extraction, but this stays correct if that ever changes.)
+  @forbidden_agent_config_keys ~w(subzeroclaw_path extra_ro_binds extra_rw_binds extra_path)
+
+  defp forbidden_config_keys(config) when is_map(config) do
+    config
+    |> Map.keys()
+    |> Enum.map(&to_string/1)
+    |> Enum.filter(&(&1 in @forbidden_agent_config_keys))
+    |> Enum.uniq()
+    |> Enum.sort()
+  end
+
+  defp forbidden_config_keys(_), do: []
 
   defp safe_atom(nil), do: nil
   defp safe_atom(a) when is_atom(a), do: a
