@@ -230,8 +230,17 @@ defmodule Genswarms.Config.SwarmConfig do
 
   # Private validation functions
 
+  # A safe identifier: starts with a letter, then alphanumerics / underscore / hyphen.
+  # Used for both swarm and agent names because these flow into OS process names,
+  # container names, file paths, and (historically) shell command strings.
+  @name_regex ~r/^[a-zA-Z][a-zA-Z0-9_-]*$/
+
+  defp valid_identifier?(name) when is_atom(name), do: valid_identifier?(Atom.to_string(name))
+  defp valid_identifier?(name) when is_binary(name), do: String.match?(name, @name_regex)
+  defp valid_identifier?(_), do: false
+
   defp validate_name(%{name: name}) when is_binary(name) and byte_size(name) > 0 do
-    if String.match?(name, ~r/^[a-zA-Z][a-zA-Z0-9_-]*$/) do
+    if valid_identifier?(name) do
       {:ok, name}
     else
       {:error,
@@ -257,7 +266,8 @@ defmodule Genswarms.Config.SwarmConfig do
 
   defp validate_agent(%{name: name, backend: backend} = agent)
        when (is_binary(name) or is_atom(name)) and name != "" do
-    with :ok <- validate_backend(backend),
+    with :ok <- validate_agent_name(name),
+         :ok <- validate_backend(backend),
          :ok <- validate_skills(agent),
          :ok <- validate_tools(agent),
          :ok <- validate_presets(agent) do
@@ -268,7 +278,8 @@ defmodule Genswarms.Config.SwarmConfig do
   # Allow agents without explicit backend (will default to bwrap)
   defp validate_agent(%{name: name} = agent)
        when (is_binary(name) or is_atom(name)) and name != "" do
-    with :ok <- validate_skills(agent),
+    with :ok <- validate_agent_name(name),
+         :ok <- validate_skills(agent),
          :ok <- validate_tools(agent),
          :ok <- validate_presets(agent) do
       {:ok, agent}
@@ -276,6 +287,16 @@ defmodule Genswarms.Config.SwarmConfig do
   end
 
   defp validate_agent(_), do: {:error, :invalid_agent_config}
+
+  defp validate_agent_name(name) do
+    if valid_identifier?(name) do
+      :ok
+    else
+      {:error,
+       {:invalid_agent_name,
+        "Agent name must start with a letter and contain only alphanumeric, underscore, or hyphen characters"}}
+    end
+  end
 
   defp validate_backend(:bwrap), do: :ok
   defp validate_backend({:bwrap, opts}) when is_map(opts), do: :ok
