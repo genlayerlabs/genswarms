@@ -82,6 +82,10 @@ markdown_extensions:
 
 plugins:
   - search
+  - social:
+      cards_layout_options:
+        background_color: "#101114"
+        color: "#FBFBF8"
   - blog:
       blog_dir: blog
       blog_toc: true

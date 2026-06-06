@@ -25,8 +25,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install imaging deps (for social cards)
+        run: sudo apt-get update && sudo apt-get install -y libcairo2-dev libfreetype6-dev libffi-dev libjpeg-dev libpng-dev libz-dev pngquant
+
       - name: Install MkDocs Material
-        run: pip install "mkdocs-material>=9.5,<10"
+        run: pip install "mkdocs-material[imaging]>=9.5,<10"
 
       - name: Build docs into _site/docs
         run: mkdocs build --strict --site-dir _site/docs
