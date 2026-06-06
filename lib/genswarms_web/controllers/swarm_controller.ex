@@ -1103,7 +1103,9 @@ defmodule GenswarmsWeb.SwarmController do
       added: Enum.map(a, &to_string/1),
       removed: Enum.map(r, &to_string/1),
       failed:
-        Enum.map(f, fn {name, reason} -> %{name: to_string(name), reason: inspect(reason)} end)
+        Enum.map(f, fn {name, reason} ->
+          %{name: to_string(name), reason: format_error(reason)}
+        end)
     }
   end
 end
