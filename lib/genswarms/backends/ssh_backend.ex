@@ -330,9 +330,10 @@ defmodule Genswarms.Backends.SSHBackend do
          remote_user,
          config
        ) do
-    api_key = Map.get(config, :api_key) || System.get_env("SUBZEROCLAW_API_KEY")
+    # EndpointPolicy withholds the server-env API key from an untrusted/custom
+    # endpoint (SSRF key-exfil guard, finding 28).
+    {endpoint, api_key} = Genswarms.Backends.EndpointPolicy.resolve(config)
     model = Map.get(config, :model) || System.get_env("SUBZEROCLAW_MODEL")
-    endpoint = Map.get(config, :endpoint) || System.get_env("SUBZEROCLAW_ENDPOINT")
 
     # Build command with environment
     env_vars = [
