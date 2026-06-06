@@ -31,6 +31,9 @@
   --md-typeset-a-color:  var(--gs-accent-ink);
   --md-accent-fg-color:  var(--gs-accent);
 
+  /* logo: blue mark on the light header */
+  --gs-logo: var(--gs-accent);
+
   /* header = warm paper with ink text (like the landing nav), not a blue bar */
   --md-primary-fg-color:        var(--gs-paper);
   --md-primary-fg-color--light: var(--gs-paper);
@@ -62,6 +65,9 @@
   --md-typeset-a-color:  var(--gs-accent-soft);
   --md-accent-fg-color:  var(--gs-accent-soft);
 
+  /* logo: white mark on the dark header */
+  --gs-logo: #ffffff;
+
   --md-primary-fg-color: var(--gs-night);
   --md-primary-bg-color: rgba(255, 255, 255, 0.92);
 
@@ -91,3 +97,18 @@
 .md-typeset h2 { font-weight: 700; }
 
 .md-typeset pre > code { border-radius: 10px; }
+
+/* ===================== LOGO ===================== */
+/* Material renders the logo as an <img>, so we can't recolor it directly.
+   Mask the same SVG and tint it via --gs-logo so it follows the color scheme:
+   white on the dark header, blue on the light one. */
+.md-header__button.md-logo img { display: none; }
+.md-header__button.md-logo::after {
+  content: "";
+  display: block;
+  width: 1.5rem;
+  height: 1.5rem;
+  background-color: var(--gs-logo);
+  -webkit-mask: url("logo.svg") center / contain no-repeat;
+          mask: url("logo.svg") center / contain no-repeat;
+}
