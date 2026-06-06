@@ -132,7 +132,7 @@ h1.hero-title{font-family:"Bricolage Grotesque";font-weight:800;font-size:clamp(
 .inst-cap em{color:#fff;font-style:normal}
 
 /* ============ MARQUEE / DIFFERENTIATOR ============ */
-.diff{border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-top:clamp(48px,6vw,86px);background:var(--paper-2)}
+.diff{border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-top:clamp(28px,4vw,52px);background:var(--paper-2)}
 .diff-in{display:grid;grid-template-columns:1fr 1fr;gap:0}
 .diff-col{padding:clamp(30px,4vw,52px) clamp(20px,3vw,40px)}
 .diff-col:first-child{border-right:1px solid var(--line)}
@@ -145,7 +145,7 @@ h1.hero-title{font-family:"Bricolage Grotesque";font-weight:800;font-size:clamp(
 .diff-col.them p{color:var(--ink-3)}
 
 /* ============ SECTION SCAFFOLD ============ */
-section.block{padding:clamp(64px,9vw,118px) 0}
+section.block{padding:clamp(40px,5vw,72px) 0}
 .sec-head{display:flex;align-items:baseline;gap:16px;margin-bottom:36px}
 /* consistent section text rhythm */
 .sec-lead{font-size:16.5px;line-height:1.6;color:var(--ink-2);max-width:660px;margin:0 0 34px}
@@ -223,7 +223,7 @@ section.block{padding:clamp(64px,9vw,118px) 0}
 .cap p{font-size:13px;color:var(--ink-2)}
 
 /* CTA band */
-.band{margin:clamp(50px,7vw,90px) 0;border:1px solid var(--line);border-radius:20px;background:var(--night);color:#fff;padding:clamp(40px,6vw,68px);text-align:center;position:relative;overflow:hidden}
+.band{margin:clamp(36px,5vw,64px) 0;border:1px solid var(--line);border-radius:20px;background:var(--night);color:#fff;padding:clamp(40px,6vw,68px);text-align:center;position:relative;overflow:hidden}
 .band h3{font-family:"Bricolage Grotesque";font-weight:800;font-size:clamp(26px,4vw,44px);letter-spacing:-.03em;line-height:1.02;margin-bottom:14px}
 .band p{color:rgba(255,255,255,.6);font-size:16px;max-width:46ch;margin:0 auto 28px}
 .band .cta-row{justify-content:center}
@@ -577,6 +577,14 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px}
 (function(){
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   requestAnimationFrame(function(){ document.body.classList.add('loaded'); });
+
+  // The hero-title lines clip with overflow:hidden for the slide-up reveal, which
+  // also cuts the accent underline that sits just below the text. Once the reveal
+  // (and the underline draw) finish, stop clipping so the underline shows fully.
+  (function(){
+    function unclip(){ document.querySelectorAll('.hero-title .line').forEach(function(l){ l.style.overflow='visible'; }); }
+    if(reduce) unclip(); else setTimeout(unclip, 2000);
+  })();
 
   // nav border on scroll
   var nav = document.getElementById('nav');
