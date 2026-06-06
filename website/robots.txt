@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://genswarms.com/sitemap.xml
+Sitemap: https://genswarms.com/docs/sitemap.xml
