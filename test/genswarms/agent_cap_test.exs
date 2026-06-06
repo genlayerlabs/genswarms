@@ -56,4 +56,18 @@ defmodule Genswarms.AgentCapTest do
     assert {:ok, %{added: added}} = SwarmManager.scale_agent_group(swarm, :a1, @cap)
     assert added == [:a1_1, :a1_2, :a1_3]
   end
+
+  test "start_from_config refuses a config with more agents than the cap" do
+    name = "cap-create-#{System.unique_integer([:positive])}"
+
+    config = %{
+      name: name,
+      agents: for(i <- 1..(@cap + 1), do: %{name: :"c#{i}", backend: :mock}),
+      topology: []
+    }
+
+    assert {:error, {:agent_limit_reached, @cap}} = SwarmManager.start_from_config(config)
+    # Nothing was started.
+    assert {:error, :not_found} = SwarmManager.status(name)
+  end
 end

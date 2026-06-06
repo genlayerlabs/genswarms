@@ -29,7 +29,12 @@ defmodule Genswarms.SwarmManager do
   end
 
   defp agent_count(swarm_name) do
-    length(AgentSupervisor.list_agents(swarm_name))
+    # Count :agent entries for this swarm straight from the Registry — cheap and
+    # does not depend on each AgentServer being responsive (unlike list_agents,
+    # which calls get_status on every agent).
+    Registry.count_select(Genswarms.AgentRegistry, [
+      {{{swarm_name, :_}, :_, :agent}, [], [true]}
+    ])
   end
 
   defstruct swarms: %{}
@@ -556,110 +561,122 @@ defmodule Genswarms.SwarmManager do
   defp do_start_swarm(config, config_path, state) do
     swarm_name = config.name
 
-    if Map.has_key?(state.swarms, swarm_name) do
-      LogStore.log(
-        :error,
-        :swarm,
-        :already_running,
-        "Cannot start swarm '#{swarm_name}': already running",
-        swarm: swarm_name,
-        metadata: %{config_path: config_path}
-      )
+    cond do
+      Map.has_key?(state.swarms, swarm_name) ->
+        LogStore.log(
+          :error,
+          :swarm,
+          :already_running,
+          "Cannot start swarm '#{swarm_name}': already running",
+          swarm: swarm_name,
+          metadata: %{config_path: config_path}
+        )
 
-      {:reply, {:error, :already_exists}, state}
+        {:reply, {:error, :already_exists}, state}
+
+      # Initial creation is the largest spawn surface — cap it too, not just the
+      # dynamic add/scale paths, so a config with thousands of agents can't
+      # exhaust the host (CWE-770).
+      length(config.agents) > max_agents_per_swarm() ->
+        {:reply, {:error, {:agent_limit_reached, max_agents_per_swarm()}}, state}
+
+      true ->
+        do_start_swarm_unchecked(config, config_path, state, swarm_name)
+    end
+  end
+
+  defp do_start_swarm_unchecked(config, config_path, state, swarm_name) do
+    object_count = length(config.objects || [])
+
+    Logger.info(
+      "Starting swarm #{swarm_name} with #{length(config.agents)} agents and #{object_count} objects"
+    )
+
+    swarm_info = %{
+      config: config,
+      config_path: config_path,
+      started_at: DateTime.utc_now(),
+      status: :starting
+    }
+
+    new_state = %{state | swarms: Map.put(state.swarms, swarm_name, swarm_info)}
+
+    # Register topology
+    Router.register_topology(swarm_name, config.topology)
+
+    # Build adjacency map to get connections for each agent
+    adjacency_map = SwarmConfig.build_adjacency_map(config.topology)
+
+    # Start agents
+    agent_results =
+      Enum.map(config.agents, fn agent ->
+        # Get connections for this agent from topology
+        connections = Map.get(adjacency_map, agent.name, [])
+
+        agent_config = %{
+          name: agent.name,
+          swarm_name: swarm_name,
+          backend: agent.backend,
+          skills: Map.get(agent, :skills, []),
+          model: Map.get(agent, :model),
+          endpoint: Map.get(agent, :endpoint),
+          presets: Map.get(agent, :presets, []),
+          config: Map.get(agent, :config, %{}),
+          connections: connections
+        }
+
+        AgentSupervisor.start_agent(agent_config)
+      end)
+
+    # Start objects
+    object_results =
+      Enum.map(config.objects || [], fn object ->
+        object_config = %{
+          name: object.name,
+          swarm_name: swarm_name,
+          handler: Map.get(object, :handler),
+          backend: Map.get(object, :backend),
+          config: Map.get(object, :config, %{})
+        }
+
+        ObjectSupervisor.start_object(object_config)
+      end)
+
+    # Check if all agents and objects started successfully
+    all_results = agent_results ++ object_results
+    errors = Enum.filter(all_results, &match?({:error, _}, &1))
+
+    final_status = if Enum.empty?(errors), do: :running, else: :error
+
+    updated_info = %{swarm_info | status: final_status}
+    final_state = %{new_state | swarms: Map.put(new_state.swarms, swarm_name, updated_info)}
+
+    # Broadcast start event
+    Phoenix.PubSub.broadcast(
+      Genswarms.PubSub,
+      "swarm:#{swarm_name}",
+      {:swarm_started, swarm_name, final_status}
+    )
+
+    error_details = Enum.map(errors, fn {:error, reason} -> inspect(reason) end)
+
+    emit_telemetry(:swarm_started, %{
+      swarm: swarm_name,
+      agent_count: length(config.agents),
+      object_count: object_count,
+      status: final_status,
+      error_count: length(errors),
+      errors: error_details,
+      level: if(errors == [], do: :info, else: :error)
+    })
+
+    if Enum.empty?(errors) do
+      # Replay overlay events on top of the freshly started seed
+      replayed_state = replay_overlay(swarm_name, final_state)
+
+      {:reply, {:ok, swarm_name}, replayed_state}
     else
-      object_count = length(config.objects || [])
-
-      Logger.info(
-        "Starting swarm #{swarm_name} with #{length(config.agents)} agents and #{object_count} objects"
-      )
-
-      swarm_info = %{
-        config: config,
-        config_path: config_path,
-        started_at: DateTime.utc_now(),
-        status: :starting
-      }
-
-      new_state = %{state | swarms: Map.put(state.swarms, swarm_name, swarm_info)}
-
-      # Register topology
-      Router.register_topology(swarm_name, config.topology)
-
-      # Build adjacency map to get connections for each agent
-      adjacency_map = SwarmConfig.build_adjacency_map(config.topology)
-
-      # Start agents
-      agent_results =
-        Enum.map(config.agents, fn agent ->
-          # Get connections for this agent from topology
-          connections = Map.get(adjacency_map, agent.name, [])
-
-          agent_config = %{
-            name: agent.name,
-            swarm_name: swarm_name,
-            backend: agent.backend,
-            skills: Map.get(agent, :skills, []),
-            model: Map.get(agent, :model),
-            endpoint: Map.get(agent, :endpoint),
-            presets: Map.get(agent, :presets, []),
-            config: Map.get(agent, :config, %{}),
-            connections: connections
-          }
-
-          AgentSupervisor.start_agent(agent_config)
-        end)
-
-      # Start objects
-      object_results =
-        Enum.map(config.objects || [], fn object ->
-          object_config = %{
-            name: object.name,
-            swarm_name: swarm_name,
-            handler: Map.get(object, :handler),
-            backend: Map.get(object, :backend),
-            config: Map.get(object, :config, %{})
-          }
-
-          ObjectSupervisor.start_object(object_config)
-        end)
-
-      # Check if all agents and objects started successfully
-      all_results = agent_results ++ object_results
-      errors = Enum.filter(all_results, &match?({:error, _}, &1))
-
-      final_status = if Enum.empty?(errors), do: :running, else: :error
-
-      updated_info = %{swarm_info | status: final_status}
-      final_state = %{new_state | swarms: Map.put(new_state.swarms, swarm_name, updated_info)}
-
-      # Broadcast start event
-      Phoenix.PubSub.broadcast(
-        Genswarms.PubSub,
-        "swarm:#{swarm_name}",
-        {:swarm_started, swarm_name, final_status}
-      )
-
-      error_details = Enum.map(errors, fn {:error, reason} -> inspect(reason) end)
-
-      emit_telemetry(:swarm_started, %{
-        swarm: swarm_name,
-        agent_count: length(config.agents),
-        object_count: object_count,
-        status: final_status,
-        error_count: length(errors),
-        errors: error_details,
-        level: if(errors == [], do: :info, else: :error)
-      })
-
-      if Enum.empty?(errors) do
-        # Replay overlay events on top of the freshly started seed
-        replayed_state = replay_overlay(swarm_name, final_state)
-
-        {:reply, {:ok, swarm_name}, replayed_state}
-      else
-        {:reply, {:error, {:partial_start, errors}}, final_state}
-      end
+      {:reply, {:error, {:partial_start, errors}}, final_state}
     end
   end
 
