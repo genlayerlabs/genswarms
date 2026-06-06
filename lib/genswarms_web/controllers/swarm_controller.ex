@@ -930,12 +930,21 @@ defmodule GenswarmsWeb.SwarmController do
     {opts, spec_params} = extract_topology_opts(params)
     spec = parse_object_spec(spec_params)
 
-    case SwarmManager.add_object(swarm, spec, Keyword.put(opts, :persist, true)) do
-      {:ok, name} ->
-        conn |> put_status(:created) |> json(%{status: "added", name: name})
+    # parse_object_spec only resolves handler to a module that implements the
+    # ObjectHandler behaviour; anything else becomes nil. Reject here so a
+    # request can't make ObjectServer invoke an arbitrary or nonexistent module.
+    if is_nil(spec.handler) do
+      conn
+      |> put_status(:bad_request)
+      |> json(%{error: "Invalid or missing object handler"})
+    else
+      case SwarmManager.add_object(swarm, spec, Keyword.put(opts, :persist, true)) do
+        {:ok, name} ->
+          conn |> put_status(:created) |> json(%{status: "added", name: name})
 
-      {:error, reason} ->
-        conn |> put_status(:bad_request) |> json(%{error: format_error(reason)})
+        {:error, reason} ->
+          conn |> put_status(:bad_request) |> json(%{error: format_error(reason)})
+      end
     end
   end
 
@@ -1063,15 +1072,33 @@ defmodule GenswarmsWeb.SwarmController do
   end
 
   defp safe_module(nil), do: nil
-  defp safe_module(m) when is_atom(m), do: m
+  defp safe_module(m) when is_atom(m), do: if(object_handler?(m), do: m, else: nil)
 
   defp safe_module(s) when is_binary(s) do
+    # Resolve to an EXISTING module only: Module.safe_concat raises (no atom is
+    # minted) when the module atom does not already exist. The module must also
+    # implement the ObjectHandler behaviour, so a request cannot point
+    # ObjectServer at an arbitrary module.
     try do
-      Module.concat([s])
+      s
+      |> List.wrap()
+      |> Module.safe_concat()
+      |> then(&if(object_handler?(&1), do: &1, else: nil))
     rescue
-      _ -> nil
+      ArgumentError -> nil
     end
   end
+
+  # True only for a loaded module that implements the core ObjectHandler
+  # callbacks (init/1, handle_message/3, interface/0).
+  defp object_handler?(mod) when is_atom(mod) do
+    Code.ensure_loaded?(mod) and
+      function_exported?(mod, :init, 1) and
+      function_exported?(mod, :handle_message, 3) and
+      function_exported?(mod, :interface, 0)
+  end
+
+  defp object_handler?(_), do: false
 
   defp serialize_scale_result(%{added: a, removed: r, failed: f}) do
     %{
