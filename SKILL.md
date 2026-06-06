@@ -40,6 +40,7 @@ working directory (searching up to 5 parents). Key env vars (full list in gettin
 | `SUBZEROCLAW_MOCK_SCRIPT` | Run real agents w/o LLM (canned responses) | — |
 | `PORT` | API server port | `4000` |
 | `SWARM_API_URL` | Base URL CLI uses to reach the server | `http://localhost:4000` |
+| `GENSWARMS_API_TOKEN` | Bearer token securing the REST + WebSocket API (see [Securing the API](#securing-the-api)) | — (unset = localhost-only) |
 
 ## Core workflow
 
@@ -168,24 +169,47 @@ for live streaming. Full reference: [docs/cli.md](docs/cli.md).
 
 ## Driving via REST API
 
-Server runs at `http://localhost:4000` (JSON only, CORS open). Start it with `genswarms up`.
+Server runs at `http://localhost:4000` (JSON only). Start it with `genswarms up`.
 Many runtime ops (add/remove agents, edit topology, restart-agent, edit skills) are API-only.
+Read [Securing the API](#securing-the-api) before exposing the server beyond localhost.
 
 ```bash
-curl http://localhost:4000/api/swarms                          # list swarms
+# When GENSWARMS_API_TOKEN is set, send it as a Bearer token on every request.
+# Omit the -H line when running token-less against localhost.
+AUTH="Authorization: Bearer ${GENSWARMS_API_TOKEN}"
+
+curl -H "$AUTH" http://localhost:4000/api/swarms               # list swarms
 
 curl -X POST http://localhost:4000/api/swarms \                # create from server-side config
-  -H 'Content-Type: application/json' \
+  -H "$AUTH" -H 'Content-Type: application/json' \
   -d '{"config_path": "swarms/example_swarm.exs"}'             # or {"config": {...}} inline
 
 curl -X POST http://localhost:4000/api/swarms/example-swarm/agents/researcher/task \
-  -H 'Content-Type: application/json' \
+  -H "$AUTH" -H 'Content-Type: application/json' \
   -d '{"task": "Summarize the latest results."}'
 
 curl -X POST http://localhost:4000/api/swarms/example-swarm/agents \   # add + wire a live agent
-  -H 'Content-Type: application/json' \
+  -H "$AUTH" -H 'Content-Type: application/json' \
   -d '{"name": "reviewer", "backend": {"type": "docker", "image": "code"}, "incoming": ["coder"]}'
 ```
+
+### Securing the API
+
+The REST API and the `swarm:{name}` WebSocket are gated by `Genswarms.Auth` with a
+fail-closed policy:
+
+- **`GENSWARMS_API_TOKEN` set** → every request must present a matching `Bearer` token
+  (compared in constant time). Missing/wrong token → `401`. Set this before exposing the
+  server to any non-local network.
+- **`GENSWARMS_API_TOKEN` unset** → only loopback callers (`127.0.0.0/8`, `::1`) are
+  allowed; remote callers are refused. The server is therefore never silently open to the
+  network — bind to a public interface *and* set a token to expose it.
+
+The CLI reads the **same** `GENSWARMS_API_TOKEN` variable and attaches the Bearer header
+automatically, so a token-protected server stays transparent to `genswarms` commands.
+
+WebSocket clients pass the token either as the `token` connect param
+(`/swarm/websocket?token=...`) or an `Authorization: Bearer ...` header.
 
 Other useful routes: `GET /api/swarms/:name` (detailed status), `GET .../topology`,
 `PATCH .../topology` (`{"add":[...],"remove":[...]}`), `POST .../agents/:base/scale` (`{"count":N}`),
@@ -230,5 +254,9 @@ Authoring details: [docs/skills.md](docs/skills.md). Inter-agent messaging (`@ag
   500ms. Confirm the daemon is up (`genswarms status`) and check `genswarms events --category agent`.
 - **Docker agents** are named `szc-{swarm}-{agent}` and run with `--rm` (no container left on crash —
   check `genswarms events --category backend`).
+- **`401` from the API / remote calls refused:** the API is fail-closed. With no
+  `GENSWARMS_API_TOKEN` only localhost is allowed; with one set, every request (and the
+  WebSocket) needs a matching `Bearer` token. Export `GENSWARMS_API_TOKEN` for both server
+  and client. See [Securing the API](#securing-the-api).
 
 More: [docs/troubleshooting.md](docs/troubleshooting.md) and [docs/observability.md](docs/observability.md).
