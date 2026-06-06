@@ -62,3 +62,6 @@ Thumbs.db
 # MkDocs / Pages build output
 _site/
 site/
+
+# MkDocs social plugin cache
+.cache/
