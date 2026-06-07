@@ -37,12 +37,16 @@ defmodule Genswarms.Backends.EgressGuard do
   relays bytes and the destination host:port is fixed on the host, not chosen by
   the agent.
 
-  ## Caveat
+  ## Endpoint allowlist
 
-  The forwarder destination is the *resolved* endpoint. If a per-agent
-  `:endpoint` is attacker-influenced (the dynamic add-agent API), isolation only
-  holds when that endpoint is operator-controlled. Use alongside an endpoint
-  allowlist for agents created through the API.
+  The forwarder destination is the resolved endpoint, and a per-agent `:endpoint`
+  is attacker-influenceable (the dynamic add-agent API). To stop an isolated agent
+  being pinned to an untrusted host (which would turn the forwarder itself into an
+  exfiltration channel), a per-agent endpoint is honored only if its host is
+  allowlisted — the server's own endpoint host, or `GENSWARMS_ALLOWED_ENDPOINTS`
+  (comma-separated). The operator-controlled env/default endpoint is always
+  trusted. An isolated agent whose endpoint is not allowed fails to start
+  (fail closed) rather than forwarding to an arbitrary destination.
   """
 
   require Logger
@@ -83,7 +87,70 @@ defmodule Genswarms.Backends.EgressGuard do
   @doc "Effective LLM endpoint URL: explicit config, then env, then default."
   @spec resolve_endpoint(map()) :: String.t()
   def resolve_endpoint(config) do
-    Map.get(config, :endpoint) || System.get_env("SUBZEROCLAW_ENDPOINT") || @default_endpoint
+    Map.get(config, :endpoint) || operator_endpoint()
+  end
+
+  # The operator-controlled endpoint (env or built-in default). Always trusted
+  # because it cannot be set through the per-agent API surface.
+  defp operator_endpoint do
+    System.get_env("SUBZEROCLAW_ENDPOINT") || @default_endpoint
+  end
+
+  @doc """
+  Resolves the endpoint the forwarder is pinned to, enforcing the allowlist for
+  attacker-influenceable endpoints.
+
+    * No per-agent `:endpoint` → the operator-controlled env/default endpoint
+      (always allowed).
+    * A per-agent `:endpoint` → honored only if its host is allowlisted (the
+      server's own endpoint host, or `GENSWARMS_ALLOWED_ENDPOINTS`). Otherwise
+      `{:error, {:endpoint_not_allowed, endpoint}}` — fail closed, so an isolated
+      agent is never pinned to an untrusted exfiltration target.
+  """
+  @spec resolve_allowed_endpoint(map()) :: {:ok, String.t()} | {:error, term()}
+  def resolve_allowed_endpoint(config) do
+    case Map.get(config, :endpoint) do
+      nil ->
+        {:ok, operator_endpoint()}
+
+      endpoint when is_binary(endpoint) ->
+        if endpoint_host_allowed?(endpoint) do
+          {:ok, endpoint}
+        else
+          {:error, {:endpoint_not_allowed, endpoint}}
+        end
+
+      _ ->
+        {:error, :invalid_endpoint}
+    end
+  end
+
+  @doc """
+  Hosts a per-agent config may point an isolated forwarder at: the server's own
+  endpoint host plus `GENSWARMS_ALLOWED_ENDPOINTS` (comma-separated hosts).
+  """
+  @spec allowed_endpoint_hosts() :: [String.t()]
+  def allowed_endpoint_hosts do
+    server_host =
+      case endpoint_target(operator_endpoint()) do
+        {:ok, {host, _port}} -> [String.downcase(host)]
+        _ -> []
+      end
+
+    configured =
+      (System.get_env("GENSWARMS_ALLOWED_ENDPOINTS") || "")
+      |> String.split(",", trim: true)
+      |> Enum.map(&(&1 |> String.trim() |> String.downcase()))
+      |> Enum.reject(&(&1 == ""))
+
+    Enum.uniq(server_host ++ configured)
+  end
+
+  defp endpoint_host_allowed?(url) do
+    case endpoint_target(url) do
+      {:ok, {host, _port}} -> String.downcase(host) in allowed_endpoint_hosts()
+      _ -> false
+    end
   end
 
   @doc """
@@ -131,9 +198,8 @@ defmodule Genswarms.Backends.EgressGuard do
   """
   @spec start_forwarder(String.t(), map()) :: {:ok, t()} | {:error, term()}
   def start_forwarder(workspace, config) do
-    endpoint = resolve_endpoint(config)
-
-    with {:ok, {host, port}} <- endpoint_target(endpoint) do
+    with {:ok, endpoint} <- resolve_allowed_endpoint(config),
+         {:ok, {host, port}} <- endpoint_target(endpoint) do
       socket_path = host_socket_path(workspace)
       File.rm(socket_path)
       File.write!(Path.join(workspace, ".curlrc"), curlrc_content())

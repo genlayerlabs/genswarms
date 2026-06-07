@@ -324,9 +324,13 @@ transport) through it. Inside the sandbox: `curl localhost:4000` and `curl evil`
 both fail; only the pinned LLM endpoint is reachable. The forwarder destination is
 fixed on the host, so the agent cannot redirect it. Requires `socat` on the host.
 
-Caveat: the forwarder targets the *resolved* endpoint, so for agents created via
-the dynamic API the endpoint should be operator-controlled (pair with an endpoint
-allowlist). Docker support is tracked separately.
+Endpoint allowlist: the forwarder destination is the resolved endpoint, and a
+per-agent `:endpoint` is attacker-influenceable (dynamic add-agent API). So a
+per-agent endpoint is honored only if its host is allowlisted — the server's own
+endpoint host, or `GENSWARMS_ALLOWED_ENDPOINTS` (comma-separated hosts). The
+operator's env/default endpoint is always trusted. An isolated agent with a
+disallowed endpoint fails to start (fail closed), never forwarding to an arbitrary
+host. Docker support is tracked separately.
 
 ### Skill Templating
 

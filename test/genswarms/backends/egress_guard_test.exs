@@ -47,6 +47,67 @@ defmodule Genswarms.Backends.EgressGuardTest do
     end
   end
 
+  describe "resolve_allowed_endpoint/1 (endpoint allowlist)" do
+    setup do
+      saved_ep = System.get_env("SUBZEROCLAW_ENDPOINT")
+      saved_allow = System.get_env("GENSWARMS_ALLOWED_ENDPOINTS")
+      System.put_env("SUBZEROCLAW_ENDPOINT", "https://llm.server.test/v1")
+      System.delete_env("GENSWARMS_ALLOWED_ENDPOINTS")
+
+      on_exit(fn ->
+        restore("SUBZEROCLAW_ENDPOINT", saved_ep)
+        restore("GENSWARMS_ALLOWED_ENDPOINTS", saved_allow)
+      end)
+    end
+
+    test "no per-agent endpoint -> operator endpoint, always allowed" do
+      assert EgressGuard.resolve_allowed_endpoint(%{}) ==
+               {:ok, "https://llm.server.test/v1"}
+    end
+
+    test "per-agent endpoint on the server's own host is allowed" do
+      assert EgressGuard.resolve_allowed_endpoint(%{endpoint: "https://llm.server.test/other"}) ==
+               {:ok, "https://llm.server.test/other"}
+    end
+
+    test "per-agent endpoint on an untrusted host is rejected (fail closed)" do
+      assert EgressGuard.resolve_allowed_endpoint(%{endpoint: "https://attacker.test/v1"}) ==
+               {:error, {:endpoint_not_allowed, "https://attacker.test/v1"}}
+    end
+
+    test "GENSWARMS_ALLOWED_ENDPOINTS extends the allowlist" do
+      System.put_env("GENSWARMS_ALLOWED_ENDPOINTS", "api.anthropic.com, openrouter.ai")
+
+      assert EgressGuard.resolve_allowed_endpoint(%{endpoint: "https://api.anthropic.com/v1"}) ==
+               {:ok, "https://api.anthropic.com/v1"}
+
+      assert {:error, {:endpoint_not_allowed, _}} =
+               EgressGuard.resolve_allowed_endpoint(%{endpoint: "https://evil.test/v1"})
+    end
+
+    test "allowed_endpoint_hosts includes the server host and configured hosts" do
+      System.put_env("GENSWARMS_ALLOWED_ENDPOINTS", "Foo.Example.COM ,bar.test")
+      hosts = EgressGuard.allowed_endpoint_hosts()
+      assert "llm.server.test" in hosts
+      # normalized to lowercase + trimmed
+      assert "foo.example.com" in hosts
+      assert "bar.test" in hosts
+    end
+
+    test "start_forwarder refuses a disallowed endpoint without writing .curlrc" do
+      ws = Path.join(System.tmp_dir!(), "szc_egress_allowlist_test")
+      File.rm_rf!(ws)
+      File.mkdir_p!(ws)
+      on_exit(fn -> File.rm_rf!(ws) end)
+
+      assert {:error, {:endpoint_not_allowed, _}} =
+               EgressGuard.start_forwarder(ws, %{endpoint: "https://attacker.test/v1"})
+
+      refute File.exists?(Path.join(ws, ".curlrc"))
+      refute File.exists?(Path.join(ws, ".llm.sock"))
+    end
+  end
+
   describe "endpoint_target/1" do
     test "uses the scheme default port when none is given" do
       assert EgressGuard.endpoint_target("https://api.example.com/v1") ==
@@ -106,7 +167,16 @@ defmodule Genswarms.Backends.EgressGuardTest do
       ws = Path.join(System.tmp_dir!(), "szc_egress_guard_test")
       File.rm_rf!(ws)
       File.mkdir_p!(ws)
-      on_exit(fn -> File.rm_rf!(ws) end)
+
+      # Allow the test endpoint through the allowlist.
+      saved_allow = System.get_env("GENSWARMS_ALLOWED_ENDPOINTS")
+      System.put_env("GENSWARMS_ALLOWED_ENDPOINTS", "api.example.com")
+
+      on_exit(fn ->
+        File.rm_rf!(ws)
+        restore("GENSWARMS_ALLOWED_ENDPOINTS", saved_allow)
+      end)
+
       {:ok, ws: ws}
     end
 
@@ -136,6 +206,9 @@ defmodule Genswarms.Backends.EgressGuardTest do
       assert EgressGuard.stop_forwarder(nil) == :ok
     end
   end
+
+  defp restore(var, nil), do: System.delete_env(var)
+  defp restore(var, value), do: System.put_env(var, value)
 
   # socat creates the listener socket asynchronously after spawn
   defp wait_for_socket(path, attempts \\ 50)
