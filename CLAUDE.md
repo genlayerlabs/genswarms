@@ -298,7 +298,35 @@ For bwrap agents, backend keys are separated from domain keys in agent config. B
 }
 ```
 
-Backend keys: `workspace`, `extra_path`, `extra_ro_binds`, `extra_rw_binds`, `memory_limit`, `cpu_shares`, `tasks_max`, `subzeroclaw_path`, `presets`
+Backend keys: `workspace`, `extra_path`, `extra_ro_binds`, `extra_rw_binds`, `memory_limit`, `cpu_shares`, `tasks_max`, `subzeroclaw_path`, `presets`, `network`
+
+### Network Isolation (`network: :isolated`)
+
+By default agents share the host network namespace (bwrap) and can therefore
+reach the orchestrator API on `localhost` plus the open internet. Set
+`network: :isolated` in an agent's `config` to contain that:
+
+```elixir
+%{name: :researcher, backend: :bwrap, config: %{network: :isolated}}
+```
+
+**Use it whenever an agent ingests untrusted/external content** (web pages,
+third-party files, messages from outside users) — i.e. anything that can
+prompt-inject the agent. Isolation prevents an injected agent from (a) escalating
+into the swarm via the orchestrator API and (b) exfiltrating secrets/context to
+an arbitrary host.
+
+Implementation (`Genswarms.Backends.EgressGuard`): the sandbox gets **no network**
+(`--unshare-net`); the only egress is a bind-mounted Unix socket that a host-side
+`socat` forwarder pins to the resolved LLM endpoint. A `.curlrc` injected into the
+sandbox (`CURL_HOME=/workspace`) routes the agent's `curl` (subzeroclaw's
+transport) through it. Inside the sandbox: `curl localhost:4000` and `curl evil`
+both fail; only the pinned LLM endpoint is reachable. The forwarder destination is
+fixed on the host, so the agent cannot redirect it. Requires `socat` on the host.
+
+Caveat: the forwarder targets the *resolved* endpoint, so for agents created via
+the dynamic API the endpoint should be operator-controlled (pair with an endpoint
+allowlist). Docker support is tracked separately.
 
 ### Skill Templating
 
