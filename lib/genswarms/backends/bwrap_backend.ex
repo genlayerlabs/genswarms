@@ -360,10 +360,10 @@ defmodule Genswarms.Backends.BwrapBackend do
     # Use full path for bwrap (required for Port.open which uses /bin/sh)
     bwrap_path = find_executable("bwrap")
 
-    # Get environment variables to pass to sandbox
-    api_key = Map.get(config, :api_key) || System.get_env("SUBZEROCLAW_API_KEY")
+    # Get environment variables to pass to sandbox. EndpointPolicy withholds the
+    # server-env API key from an untrusted/custom endpoint (SSRF guard, #28).
+    {endpoint, api_key} = Genswarms.Backends.EndpointPolicy.resolve(config)
     model = Map.get(config, :model) || System.get_env("SUBZEROCLAW_MODEL")
-    endpoint = Map.get(config, :endpoint) || System.get_env("SUBZEROCLAW_ENDPOINT")
     mock_script = Map.get(config, :mock_script) || System.get_env("SUBZEROCLAW_MOCK_SCRIPT")
     # If recording enabled, always write to workspace inside bwrap
     record_script =
@@ -585,8 +585,10 @@ defmodule Genswarms.Backends.BwrapBackend do
       {~c"SSL_CERT_FILE", ~c"/nix/store/cacert/etc/ssl/certs/ca-bundle.crt"}
     ]
 
+    {policy_endpoint, policy_api_key} = Genswarms.Backends.EndpointPolicy.resolve(config)
+
     api_key_env =
-      case Map.get(config, :api_key) || System.get_env("SUBZEROCLAW_API_KEY") do
+      case policy_api_key do
         nil -> []
         key -> [{~c"SUBZEROCLAW_API_KEY", String.to_charlist(key)}]
       end
@@ -598,7 +600,7 @@ defmodule Genswarms.Backends.BwrapBackend do
       end
 
     endpoint_env =
-      case Map.get(config, :endpoint) || System.get_env("SUBZEROCLAW_ENDPOINT") do
+      case policy_endpoint do
         nil -> []
         endpoint -> [{~c"SUBZEROCLAW_ENDPOINT", String.to_charlist(endpoint)}]
       end

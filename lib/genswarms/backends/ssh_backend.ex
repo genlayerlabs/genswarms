@@ -373,9 +373,10 @@ defmodule Genswarms.Backends.SSHBackend do
   # passed through shell_escape/1, so metacharacters are treated as literal
   # data and cannot inject additional commands.
   def build_remote_command(name, subzeroclaw_path, remote_skills_dir, remote_user, config) do
-    api_key = Map.get(config, :api_key) || System.get_env("SUBZEROCLAW_API_KEY")
+    # EndpointPolicy withholds the server-env API key from an untrusted/custom
+    # endpoint (SSRF key-exfil guard, #30).
+    {endpoint, api_key} = Genswarms.Backends.EndpointPolicy.resolve(config)
     model = Map.get(config, :model) || System.get_env("SUBZEROCLAW_MODEL")
-    endpoint = Map.get(config, :endpoint) || System.get_env("SUBZEROCLAW_ENDPOINT")
 
     env_vars =
       [

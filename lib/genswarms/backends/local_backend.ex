@@ -156,9 +156,11 @@ defmodule Genswarms.Backends.LocalBackend do
   end
 
   defp maybe_add_api_key_env(config) do
-    case Map.get(config, :api_key) || System.get_env("SUBZEROCLAW_API_KEY") do
-      nil -> []
-      key -> [{~c"SUBZEROCLAW_API_KEY", String.to_charlist(key)}]
+    # api_key is resolved via EndpointPolicy so the server-env key is not
+    # forwarded alongside an untrusted/custom endpoint (SSRF key-exfil guard).
+    case Genswarms.Backends.EndpointPolicy.resolve(config) do
+      {_endpoint, nil} -> []
+      {_endpoint, key} -> [{~c"SUBZEROCLAW_API_KEY", String.to_charlist(key)}]
     end
   end
 
@@ -170,9 +172,9 @@ defmodule Genswarms.Backends.LocalBackend do
   end
 
   defp maybe_add_endpoint_env(config) do
-    case Map.get(config, :endpoint) || System.get_env("SUBZEROCLAW_ENDPOINT") do
-      nil -> []
-      endpoint -> [{~c"SUBZEROCLAW_ENDPOINT", String.to_charlist(endpoint)}]
+    case Genswarms.Backends.EndpointPolicy.resolve(config) do
+      {nil, _key} -> []
+      {endpoint, _key} -> [{~c"SUBZEROCLAW_ENDPOINT", String.to_charlist(endpoint)}]
     end
   end
 

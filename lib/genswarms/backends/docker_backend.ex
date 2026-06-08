@@ -66,10 +66,11 @@ defmodule Genswarms.Backends.DockerBackend do
     swarm_name = Map.get(config, :swarm_name, "default")
     container_name = Map.get(config, :container) || "szc-#{swarm_name}-#{name}"
     skills_dir = Map.get(config, :skills_dir)
-    api_key = Map.get(config, :api_key) || System.get_env("SUBZEROCLAW_API_KEY")
+    # EndpointPolicy withholds the server-env API key from an untrusted/custom
+    # endpoint (SSRF key-exfil guard, finding 28).
+    {endpoint, api_key} = Genswarms.Backends.EndpointPolicy.resolve(config)
     # Model can come from agent config, or fall back to environment
     model = Map.get(config, :model) || System.get_env("SUBZEROCLAW_MODEL")
-    endpoint = Map.get(config, :endpoint) || System.get_env("SUBZEROCLAW_ENDPOINT")
 
     # Check if container already exists
     case check_container_state(container_name) do
