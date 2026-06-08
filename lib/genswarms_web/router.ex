@@ -9,6 +9,10 @@ defmodule GenswarmsWeb.Router do
       origins: {GenswarmsWeb.Cors, :allowed_origin?, []},
       allow_headers: :all,
       allow_methods: :all
+
+    # Corsica handles (and halts) CORS preflight OPTIONS before this point, so
+    # authentication only applies to actual API requests.
+    plug GenswarmsWeb.Plugs.ApiAuth
   end
 
   # API root - returns API info
