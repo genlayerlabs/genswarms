@@ -138,7 +138,7 @@ defmodule Genswarms.Backends.DockerBackend do
 
     # Network isolation (network: :isolated): give the agent a per-container
     # workspace (the default workspace is shared, which would collide sockets),
-    # then start the egress forwarder before `docker run` so the socket/.curlrc
+    # then start the egress sidecar before `docker run` so the socket/.curlrc
     # exist when the agent first calls the LLM.
     isolated = EgressGuard.isolated?(config)
 
@@ -162,9 +162,9 @@ defmodule Genswarms.Backends.DockerBackend do
       end
 
     with {:ok, egress} <- egress_result do
-      # Build docker run command
-      cmd =
-        build_docker_command(
+      # Build docker run argv (list, not a shell string)
+      args =
+        build_docker_args(
           container_name,
           image,
           skills_dir,
@@ -175,8 +175,11 @@ defmodule Genswarms.Backends.DockerBackend do
           config
         )
 
-      Logger.info("Starting NixOS Docker container for agent #{name}: #{container_name}")
-      Logger.info("Docker command: #{cmd}")
+      docker_bin = System.find_executable("docker") || "docker"
+
+      Logger.info(
+        "Starting NixOS Docker container for agent #{name}: #{container_name} (#{image})"
+      )
 
       port_opts = [
         :binary,
@@ -187,7 +190,9 @@ defmodule Genswarms.Backends.DockerBackend do
       ]
 
       try do
-        port = Port.open({:spawn, cmd}, port_opts)
+        # spawn_executable + argv (no /bin/sh): container name, image, env values,
+        # volumes, and the container command cannot be shell-injected on the host.
+        port = Port.open({:spawn_executable, docker_bin}, [{:args, args} | port_opts])
 
         ref = %__MODULE__{
           port: port,
@@ -220,14 +225,14 @@ defmodule Genswarms.Backends.DockerBackend do
             "Failed to start container: #{inspect(e)}",
             swarm: swarm_name,
             agent: String.to_atom(name),
-            metadata: %{image: image, container: container_name, error: inspect(e), cmd: cmd}
+            metadata: %{image: image, container: container_name, error: inspect(e)}
           )
 
           {:error, {:start_failed, e}}
       end
     else
       {:error, reason} ->
-        # Egress forwarder failed (e.g. endpoint not allowlisted): do not run an
+        # Egress sidecar failed (e.g. endpoint not allowlisted): do not run an
         # "isolated" container that would actually have no network.
         Logger.error("Egress forwarder failed for agent #{name}: #{inspect(reason)}")
 
@@ -434,10 +439,18 @@ defmodule Genswarms.Backends.DockerBackend do
     Application.get_env(:genswarms, :project_root, ".")
   end
 
+  # Default in-container bootstrap, as an argv list (["sh", "-c", script]) so it is
+  # passed to `docker run IMAGE sh -c <script>` as discrete arguments — the script
+  # runs in the *container's* shell, never the host's.
+  @default_container_cmd [
+    "sh",
+    "-c",
+    "export HOME=/root && mkdir -p /root/.subzeroclaw /root/build && echo \"skills_dir = /skills\" > /root/.subzeroclaw/config && cp -r /src/subzeroclaw/* /root/build/ && cd /root/build && make -s 2>/dev/null && exec ./subzeroclaw"
+  ]
+
   @doc false
-  # Exposed for tests: builds the full `docker run` command string. Pure given
-  # its inputs (no docker invocation).
-  def build_docker_command(
+  # Exposed for tests: builds the `docker run` argv list. Pure given its inputs.
+  def build_docker_args(
         container_name,
         image,
         skills_dir,
@@ -447,19 +460,13 @@ defmodule Genswarms.Backends.DockerBackend do
         agent_name,
         config
       ) do
-    base_args = [
-      "docker",
-      "run",
-      "-i",
-      "--rm",
-      "--name",
-      container_name
-    ]
+    base_args = ["run", "-i", "--rm", "--name", to_string(container_name)]
 
     env_args = build_env_args(api_key, model, endpoint, agent_name, config)
     volume_args = build_volume_args(skills_dir, config)
     network_args = build_network_args(config)
     resource_args = build_resource_args(config)
+    container_cmd = normalize_container_cmd(Map.get(config, :cmd))
 
     # Isolation: mount the shared egress volume so the agent reaches the sidecar
     # socat over /egress/llm.sock (its only path out, since --network none).
@@ -468,34 +475,28 @@ defmodule Genswarms.Backends.DockerBackend do
         do: EgressGuard.docker_agent_volume_args(container_name),
         else: []
 
-    # Build and run subzeroclaw inside the container
-    # Source is mounted read-only at /src/subzeroclaw, we copy and compile in ~/build
-    # We use ~/build (not /tmp/build) to avoid conflicts since /tmp is shared via mount
-    # Create config with skills_dir pointing to /skills mount
-    # swarm-msg is baked into szc-agent-* containers via nix/container.nix
-    # Use /root/.subzeroclaw explicitly since ~ expansion doesn't work reliably in sh -c
-    default_cmd =
-      "sh -c 'export HOME=/root && mkdir -p /root/.subzeroclaw /root/build && echo \"skills_dir = /skills\" > /root/.subzeroclaw/config && cp -r /src/subzeroclaw/* /root/build/ && cd /root/build && make -s 2>/dev/null && exec ./subzeroclaw'"
-
-    container_cmd = Map.get(config, :cmd, default_cmd)
-
-    all_args =
-      base_args ++
-        env_args ++
-        volume_args ++ egress_args ++ network_args ++ resource_args ++ [image, container_cmd]
-
-    Enum.join(all_args, " ")
+    base_args ++
+      env_args ++
+      volume_args ++
+      egress_args ++ network_args ++ resource_args ++ [to_string(image)] ++ container_cmd
   end
 
+  # A user-supplied :cmd runs *inside the container*. A list is used as argv; a
+  # bare string is wrapped as `sh -c <string>` (container shell, host-safe).
+  defp normalize_container_cmd(nil), do: @default_container_cmd
+  defp normalize_container_cmd(cmd) when is_list(cmd), do: Enum.map(cmd, &to_string/1)
+  defp normalize_container_cmd(cmd) when is_binary(cmd), do: ["sh", "-c", cmd]
+
   defp build_env_args(api_key, model, endpoint, agent_name, config) do
-    # Quote values with single quotes to prevent shell interpretation
+    # Values are passed as literal argv elements ("-e", "KEY=VALUE"); docker does
+    # not run them through a shell, so no quoting/escaping is needed or wanted.
     envs = [
-      {"-e", "SUBZEROCLAW_AGENT_NAME='#{agent_name}'"}
+      {"-e", "SUBZEROCLAW_AGENT_NAME=#{agent_name}"}
     ]
 
-    envs = if api_key, do: envs ++ [{"-e", "SUBZEROCLAW_API_KEY='#{api_key}'"}], else: envs
-    envs = if model, do: envs ++ [{"-e", "SUBZEROCLAW_MODEL='#{model}'"}], else: envs
-    envs = if endpoint, do: envs ++ [{"-e", "SUBZEROCLAW_ENDPOINT='#{endpoint}'"}], else: envs
+    envs = if api_key, do: envs ++ [{"-e", "SUBZEROCLAW_API_KEY=#{api_key}"}], else: envs
+    envs = if model, do: envs ++ [{"-e", "SUBZEROCLAW_MODEL=#{model}"}], else: envs
+    envs = if endpoint, do: envs ++ [{"-e", "SUBZEROCLAW_ENDPOINT=#{endpoint}"}], else: envs
 
     # Isolation: route the agent's curl through the bind-mounted LLM socket.
     envs =
@@ -511,7 +512,7 @@ defmodule Genswarms.Backends.DockerBackend do
 
         connections ->
           topology_str = connections |> Enum.map(&to_string/1) |> Enum.join(",")
-          envs ++ [{"-e", "SWARM_TOPOLOGY='#{topology_str}'"}]
+          envs ++ [{"-e", "SWARM_TOPOLOGY=#{topology_str}"}]
       end
 
     # Expand ${VAR} patterns in additional env vars
@@ -519,7 +520,7 @@ defmodule Genswarms.Backends.DockerBackend do
       Map.get(config, :env, %{})
       |> Enum.map(fn {k, v} -> {k, expand_env_var(v)} end)
       |> Enum.filter(fn {_k, v} -> v != nil and v != "" end)
-      |> Enum.map(fn {k, v} -> {"-e", "#{k}='#{v}'"} end)
+      |> Enum.map(fn {k, v} -> {"-e", "#{k}=#{v}"} end)
 
     Enum.flat_map(envs ++ additional_envs, fn {flag, val} -> [flag, val] end)
   end
