@@ -1,7 +1,26 @@
 defmodule Genswarms.Backends.SSHBackendTest do
-  use ExUnit.Case, async: true
+  # not async: build_remote_command/5 falls back to SUBZEROCLAW_* env vars, so
+  # these tests must control the process environment (which is global).
+  use ExUnit.Case, async: false
 
   alias Genswarms.Backends.SSHBackend
+
+  # Clear the SUBZEROCLAW_* env fallbacks so "only when configured" assertions are
+  # deterministic regardless of the host environment (e.g. a loaded .env).
+  setup do
+    vars = ~w(SUBZEROCLAW_API_KEY SUBZEROCLAW_MODEL SUBZEROCLAW_ENDPOINT)
+    saved = Map.new(vars, fn v -> {v, System.get_env(v)} end)
+    Enum.each(vars, &System.delete_env/1)
+
+    on_exit(fn ->
+      Enum.each(saved, fn
+        {v, nil} -> System.delete_env(v)
+        {v, val} -> System.put_env(v, val)
+      end)
+    end)
+
+    :ok
+  end
 
   describe "backend_type/0" do
     test "returns :ssh" do
