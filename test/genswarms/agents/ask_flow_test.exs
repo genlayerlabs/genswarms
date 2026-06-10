@@ -38,7 +38,9 @@ defmodule Genswarms.Agents.AskFlowTest do
     def init(_config), do: {:ok, %{}}
     @impl true
     def handle_message(_from, _content, state),
-      do: {:reply, ~s({"error":{"code":"http_404","message":"page not found","type":"permanent"}}), state}
+      do:
+        {:reply, ~s({"error":{"code":"http_404","message":"page not found","type":"permanent"}}),
+         state}
 
     @impl true
     def interface(), do: %{}

@@ -49,12 +49,18 @@ defmodule Genswarms.Agents.AgentServer do
     # --- reply auto-delivery (genswarms#53 G2) ---
     # When `reply_to` (agent config) names an object, the turn's derived reply
     # text (TurnOutput.reply_text/1) is delivered there once per turn — unless
-    # the agent already explicitly sent to that target this turn, or a newer
-    # turn started during the grace window. nil ⇒ feature off (default).
+    # the agent already explicitly sent to that target during that turn. A
+    # COMPLETED turn's delivery is never invalidated by the next turn starting
+    # (its text answers its own message); only a wall-clock-expired turn is
+    # discarded. nil ⇒ feature off (default).
     reply_to: nil,
     reply_grace_ms: 1_000,
     turn_seq: 0,
-    turn_sends: MapSet.new(),
+    # target => turn_seq at the time of the agent's last explicit send to it.
+    # Deliberately NOT reset per turn: a pending delivery for turn N must be
+    # suppressible even after turn N+1 has begun (bounded: one entry per
+    # distinct send target).
+    turn_sends: %{},
     # --- per-turn wall clock (genswarms#53 G3) ---
     # `turn_timeout_ms` (agent config) bounds a single turn end-to-end. On
     # expiry the turn is marked expired (telemetry :turn_timeout) and a LATE
@@ -412,27 +418,24 @@ defmodule Genswarms.Agents.AgentServer do
     end
   end
 
-  # G2: the grace window after a completed turn has elapsed — deliver the
-  # turn's reply text to the configured reply sink, unless the turn was
-  # superseded (a newer turn started; its text may answer a different message —
-  # discard rather than deliver stale, and let the application's recovery act)
-  # or the agent already explicitly sent to the sink this turn.
+  # G2: the grace window after a completed turn has elapsed — deliver that
+  # turn's reply text to the configured reply sink. A completed turn's answer
+  # stays valid even if the next turn has already begun (it answers its own
+  # message; rapid follow-ups must not lose replies). The ONLY suppression is
+  # an explicit send to the sink noted at-or-after that turn began — the
+  # agent already delivered this answer itself, don't double it. (Expired
+  # turns were never scheduled; see schedule_auto_deliver.)
   def handle_info({:auto_deliver, seq, text}, state) do
-    cond do
-      seq != state.turn_seq ->
-        emit_telemetry(:auto_deliver_skipped, state, %{reason: :superseded, turn: seq})
-
-      MapSet.member?(state.turn_sends, state.reply_to) ->
-        emit_telemetry(:auto_deliver_skipped, state, %{reason: :explicit_send, turn: seq})
-
-      true ->
-        # Delivered DIRECTLY to the sink object, not via Router.route: the
-        # target is operator configuration (agent config), not model output,
-        # so topology validation adds nothing — and routing would arm the
-        # async-reply ordering guard if the sink had a back-edge, gating the
-        # agent's inbox for a delivery that expects no reply.
-        ObjectServer.deliver_message(state.swarm_name, state.reply_to, state.name, text)
-        emit_telemetry(:auto_delivered, state, %{turn: seq, bytes: byte_size(text)})
+    if Map.get(state.turn_sends, state.reply_to, -1) >= seq do
+      emit_telemetry(:auto_deliver_skipped, state, %{reason: :explicit_send, turn: seq})
+    else
+      # Delivered DIRECTLY to the sink object, not via Router.route: the
+      # target is operator configuration (agent config), not model output,
+      # so topology validation adds nothing — and routing would arm the
+      # async-reply ordering guard if the sink had a back-edge, gating the
+      # agent's inbox for a delivery that expects no reply.
+      ObjectServer.deliver_message(state.swarm_name, state.reply_to, state.name, text)
+      emit_telemetry(:auto_delivered, state, %{turn: seq, bytes: byte_size(text)})
     end
 
     {:noreply, state}
@@ -470,8 +473,7 @@ defmodule Genswarms.Agents.AgentServer do
                 "[#{state.swarm_name}/#{state.name}] Task queued in Inbox (awaiting reply)"
               )
 
-              {:reply, :ok,
-               %{state | inbox: new_inbox, history: [history_entry | state.history]}}
+              {:reply, :ok, %{state | inbox: new_inbox, history: [history_entry | state.history]}}
 
             {:error, :inbox_full} ->
               Logger.warning(
@@ -712,12 +714,11 @@ defmodule Genswarms.Agents.AgentServer do
 
     Logger.debug("[#{state.swarm_name}/#{state.name}] Cleared awaiting-reply flag")
 
-    {:noreply,
-     %{state | awaiting_reply: false, awaiting_since: nil, awaiting_timer_ref: nil}}
+    {:noreply, %{state | awaiting_reply: false, awaiting_since: nil, awaiting_timer_ref: nil}}
   end
 
   def handle_cast({:note_agent_send, to}, state) do
-    {:noreply, %{state | turn_sends: MapSet.put(state.turn_sends, to)}}
+    {:noreply, %{state | turn_sends: Map.put(state.turn_sends, to, state.turn_seq)}}
   end
 
   # Answer to one of this agent's asks: write the envelope where the blocked
@@ -856,7 +857,7 @@ defmodule Genswarms.Agents.AgentServer do
       # Legacy stdout-protocol sends (parsed above) count as this turn's
       # explicit sends too; outbox-file sends are recorded by the LogWatcher
       # via note_agent_send/3.
-      legacy_sends = for %{type: :send, to: to} <- messages, into: MapSet.new(), do: to
+      legacy_sends = for %{type: :send, to: to} <- messages, into: %{}, do: {to, state.turn_seq}
 
       # The turn ended — its wall clock (if any) is done.
       if state.turn_timer_ref, do: Process.cancel_timer(state.turn_timer_ref)
@@ -868,7 +869,7 @@ defmodule Genswarms.Agents.AgentServer do
           message_count: state.message_count + length(messages),
           history: history_entries ++ state.history,
           last_activity: DateTime.utc_now(),
-          turn_sends: MapSet.union(state.turn_sends, legacy_sends),
+          turn_sends: Map.merge(state.turn_sends, legacy_sends),
           turn_timer_ref: nil
       }
 
@@ -893,9 +894,12 @@ defmodule Genswarms.Agents.AgentServer do
   # ── G2 reply auto-delivery helpers ──────────────────────────────────────────
 
   # A new piece of work is being handed to the backend: a new turn begins.
-  # Bump the sequence (invalidates any pending auto-delivery from the previous
-  # turn), forget the previous turn's explicit sends, and arm the per-turn
-  # wall clock if configured.
+  # Bump the sequence and arm the per-turn wall clock if configured.
+  # `turn_sends` is deliberately NOT reset here: a COMPLETED previous turn may
+  # still have its auto-delivery pending in the grace window, and its
+  # suppression mark must survive this turn starting (see handle_info
+  # {:auto_deliver, ...} — suppression compares per-target send seq, not a
+  # per-turn flag).
   defp begin_turn(state) do
     if state.turn_timer_ref, do: Process.cancel_timer(state.turn_timer_ref)
     seq = state.turn_seq + 1
@@ -905,13 +909,7 @@ defmodule Genswarms.Agents.AgentServer do
         Process.send_after(self(), {:turn_timeout, seq}, state.turn_timeout_ms)
       end
 
-    %{
-      state
-      | turn_seq: seq,
-        turn_sends: MapSet.new(),
-        turn_timer_ref: timer_ref,
-        turn_expired: false
-    }
+    %{state | turn_seq: seq, turn_timer_ref: timer_ref, turn_expired: false}
   end
 
   defp normalize_reply_to(nil), do: nil

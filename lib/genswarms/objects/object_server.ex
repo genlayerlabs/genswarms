@@ -535,14 +535,35 @@ defmodule Genswarms.Objects.ObjectServer do
           "[#{state.swarm_name}/#{state.name}] Object in error state, refusing ask from #{from}"
         )
 
-        ask_reply(state, from, corr, Ask.error_envelope(corr, "object_error_state", "object #{state.name} is in error state", "transient"))
+        ask_reply(
+          state,
+          from,
+          corr,
+          Ask.error_envelope(
+            corr,
+            "object_error_state",
+            "object #{state.name} is in error state",
+            "transient"
+          )
+        )
+
         {:noreply, state}
 
       state.mode != :native ->
         # A process-mode object's replies arrive asynchronously on its own
         # stdout — there is nothing to correlate the ask against. Answer with
         # a typed permanent error instead of letting the asker time out.
-        ask_reply(state, from, corr, Ask.error_envelope(corr, "not_supported", "object #{state.name} is process-mode; ask requires a native object"))
+        ask_reply(
+          state,
+          from,
+          corr,
+          Ask.error_envelope(
+            corr,
+            "not_supported",
+            "object #{state.name} is process-mode; ask requires a native object"
+          )
+        )
+
         {:noreply, state}
 
       true ->

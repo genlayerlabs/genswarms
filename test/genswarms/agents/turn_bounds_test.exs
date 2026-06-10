@@ -138,7 +138,9 @@ defmodule Genswarms.Agents.TurnBoundsTest do
     end
 
     test "docker default bootstrap appends max_turns to the in-container config" do
-      args = DockerBackend.build_docker_args("c1", "img", nil, nil, nil, nil, "a1", %{max_turns: 16})
+      args =
+        DockerBackend.build_docker_args("c1", "img", nil, nil, nil, nil, "a1", %{max_turns: 16})
+
       script = List.last(args)
 
       assert script =~ ~s(echo "max_turns = 16" >> /root/.subzeroclaw/config)

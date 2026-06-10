@@ -75,25 +75,8 @@ defmodule Genswarms.Agents.Ask do
 
   def envelope(response, corr, duration_ms) when is_binary(response) do
     case Jason.decode(response) do
-      {:ok, %{"error" => err} = decoded} ->
-        %{
-          ok: false,
-          result: decoded,
-          error: normalize_error(err),
-          timeout: false,
-          correlation_id: corr,
-          duration_ms: duration_ms
-        }
-
       {:ok, decoded} ->
-        %{
-          ok: true,
-          result: decoded,
-          error: nil,
-          timeout: false,
-          correlation_id: corr,
-          duration_ms: duration_ms
-        }
+        wrap_decoded(decoded, corr, duration_ms)
 
       {:error, _} ->
         # Not JSON — pass the raw text through rather than guessing.
@@ -108,8 +91,39 @@ defmodule Genswarms.Agents.Ask do
     end
   end
 
+  # A native handler may reply with a map directly (instead of an encoded
+  # binary) — same semantics as its decoded-JSON equivalent.
+  def envelope(response, corr, duration_ms) when is_map(response),
+    do: wrap_decoded(response, corr, duration_ms)
+
   def envelope(response, corr, duration_ms),
     do: envelope(inspect(response), corr, duration_ms)
+
+  defp wrap_decoded(decoded, corr, duration_ms) do
+    case decoded do
+      %{} = map when is_map_key(map, "error") or is_map_key(map, :error) ->
+        err = Map.get(map, "error", Map.get(map, :error))
+
+        %{
+          ok: false,
+          result: decoded,
+          error: normalize_error(err),
+          timeout: false,
+          correlation_id: corr,
+          duration_ms: duration_ms
+        }
+
+      _ ->
+        %{
+          ok: true,
+          result: decoded,
+          error: nil,
+          timeout: false,
+          correlation_id: corr,
+          duration_ms: duration_ms
+        }
+    end
+  end
 
   @doc """
   Build an engine-generated failure envelope (route denied, target missing,
@@ -161,13 +175,15 @@ defmodule Genswarms.Agents.Ask do
   end
 
   # An object's "error" value may be a bare string ("not_allowed") or a map
-  # ({"code": "...", "message": "...", "type": "permanent"}). Normalize both to
-  # {code, message, type}; the object's own fields win.
+  # ({"code": "...", "message": "...", "type": "permanent"} — string or atom
+  # keys). Normalize both to {code, message, type}; the object's fields win.
   defp normalize_error(err) when is_map(err) do
+    code = err_field(err, :code, "error")
+
     %{
-      code: to_string(Map.get(err, "code", "error")),
-      message: to_string(Map.get(err, "message", Map.get(err, "code", "error"))),
-      type: to_string(Map.get(err, "type", "unknown"))
+      code: to_string(code),
+      message: to_string(err_field(err, :message, code)),
+      type: to_string(err_field(err, :type, "unknown"))
     }
   end
 
@@ -176,4 +192,7 @@ defmodule Genswarms.Agents.Ask do
 
   defp normalize_error(err),
     do: %{code: "error", message: inspect(err), type: "unknown"}
+
+  defp err_field(map, key, default),
+    do: Map.get(map, to_string(key), Map.get(map, key, default))
 end

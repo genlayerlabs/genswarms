@@ -68,6 +68,16 @@ defmodule Genswarms.Agents.AskTest do
       assert env.result == %{"raw" => "plain text"}
     end
 
+    test "a native handler's map reply gets the same semantics as encoded JSON" do
+      env = Ask.envelope(%{"campaigns" => [1]}, "c5m", 2)
+      assert env.ok == true
+      assert env.result == %{"campaigns" => [1]}
+
+      err = Ask.envelope(%{error: %{code: "nope", type: "permanent"}}, "c5e", 2)
+      assert err.ok == false
+      assert err.error == %{code: "nope", message: "nope", type: "permanent"}
+    end
+
     test "envelope is JSON-encodable (the contract with swarm-msg)" do
       assert {:ok, _} = Jason.encode(Ask.envelope(~s({"a":1}), "c6", 2))
       assert {:ok, _} = Jason.encode(Ask.error_envelope("c7", "route_denied", "no edge"))

@@ -319,56 +319,17 @@ defmodule Genswarms.Routing.Router do
   end
 
   def handle_cast({:route_ask, swarm_name, from, to, content, corr}, state) do
-    case Map.get(state.topologies, swarm_name) do
-      nil ->
-        Logger.warning("Unknown swarm: #{swarm_name}")
-        ask_error(swarm_name, from, corr, "unknown_swarm", "unknown swarm #{swarm_name}")
+    cond do
+      # Only agents can ask: the reply lands in the asker's workspace reply
+      # file via AgentServer — answering a non-agent would cast an unknown
+      # message into an ObjectServer (agents and objects share the Registry
+      # keyspace) and crash it.
+      sender_type(swarm_name, from) != :agent ->
+        Logger.warning("Ask from non-agent #{from} in swarm #{swarm_name} — dropped")
         {:noreply, state}
 
-      topology ->
-        if can_route?(topology, from, to) do
-          # NO set_awaiting here: the reply returns inline through the reply
-          # file, inside the same agent turn — there is no async reply for the
-          # ordering guard to defend against.
-          case Registry.lookup(Genswarms.AgentRegistry, {swarm_name, to}) do
-            [{_pid, :object}] ->
-              ObjectServer.deliver_ask(swarm_name, to, from, content, corr)
-
-            [] ->
-              Logger.warning("Ask target #{to} not found in swarm #{swarm_name}")
-              ask_error(swarm_name, from, corr, "target_not_found", "no such object: #{to}")
-
-            _agent_or_unknown ->
-              # Asks are object calls; an agent cannot answer synchronously.
-              ask_error(swarm_name, from, corr, "not_an_object", "#{to} is not an object")
-          end
-
-          log_entry = %{
-            timestamp: DateTime.utc_now(),
-            swarm: swarm_name,
-            from: from,
-            to: to,
-            type: :ask,
-            content_preview: String.slice(content, 0, 100)
-          }
-
-          emit_telemetry(:message_routed, log_entry)
-          broadcast_to_subscribers(swarm_name, :message_routed, log_entry)
-
-          {:noreply, add_to_log(state, log_entry)}
-        else
-          Logger.warning("Invalid ask route: #{from} -> #{to} in swarm #{swarm_name}")
-
-          emit_telemetry(:invalid_route, %{
-            swarm: swarm_name,
-            from: from,
-            to: to,
-            allowed_targets: Map.get(topology, from, [])
-          })
-
-          ask_error(swarm_name, from, corr, "route_denied", "no edge #{from} -> #{to}")
-          {:noreply, state}
-        end
+      true ->
+        do_route_ask(swarm_name, from, to, content, corr, state)
     end
   end
 
@@ -465,6 +426,61 @@ defmodule Genswarms.Routing.Router do
     end
   end
 
+  # The validated body of a route_ask (the asker is known to be an agent).
+  defp do_route_ask(swarm_name, from, to, content, corr, state) do
+    case Map.get(state.topologies, swarm_name) do
+      nil ->
+        Logger.warning("Unknown swarm: #{swarm_name}")
+        ask_error(swarm_name, from, corr, "unknown_swarm", "unknown swarm #{swarm_name}")
+        {:noreply, state}
+
+      topology ->
+        if can_route?(topology, from, to) do
+          # NO set_awaiting here: the reply returns inline through the reply
+          # file, inside the same agent turn — there is no async reply for the
+          # ordering guard to defend against.
+          case Registry.lookup(Genswarms.AgentRegistry, {swarm_name, to}) do
+            [{_pid, :object}] ->
+              ObjectServer.deliver_ask(swarm_name, to, from, content, corr)
+
+            [] ->
+              Logger.warning("Ask target #{to} not found in swarm #{swarm_name}")
+              ask_error(swarm_name, from, corr, "target_not_found", "no such object: #{to}")
+
+            _agent_or_unknown ->
+              # Asks are object calls; an agent cannot answer synchronously.
+              ask_error(swarm_name, from, corr, "not_an_object", "#{to} is not an object")
+          end
+
+          log_entry = %{
+            timestamp: DateTime.utc_now(),
+            swarm: swarm_name,
+            from: from,
+            to: to,
+            type: :ask,
+            content_preview: String.slice(content, 0, 100)
+          }
+
+          emit_telemetry(:message_routed, log_entry)
+          broadcast_to_subscribers(swarm_name, :message_routed, log_entry)
+
+          {:noreply, add_to_log(state, log_entry)}
+        else
+          Logger.warning("Invalid ask route: #{from} -> #{to} in swarm #{swarm_name}")
+
+          emit_telemetry(:invalid_route, %{
+            swarm: swarm_name,
+            from: from,
+            to: to,
+            allowed_targets: Map.get(topology, from, [])
+          })
+
+          ask_error(swarm_name, from, corr, "route_denied", "no edge #{from} -> #{to}")
+          {:noreply, state}
+        end
+    end
+  end
+
   # Answer a failed ask with a typed error envelope so the blocked swarm-msg
   # ask returns immediately instead of waiting out its timeout.
   defp ask_error(swarm_name, from, corr, code, message) do
@@ -520,5 +536,4 @@ defmodule Genswarms.Routing.Router do
       [] -> :unknown
     end
   end
-
 end

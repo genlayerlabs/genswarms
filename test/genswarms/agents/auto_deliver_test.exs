@@ -141,6 +141,24 @@ defmodule Genswarms.Agents.AutoDeliverTest do
     assert second == "ANSWER to: [From orchestrator] second"
   end
 
+  test "a completed turn's reply still delivers when the NEXT message arrives within the grace window",
+       %{workspace: ws, fixture: fixture} do
+    # Regression: the first cut invalidated a pending delivery whenever a new
+    # turn began (turn_seq bump), silently dropping the completed turn's
+    # answer on rapid consecutive messages — the exact failure class this
+    # feature exists to fix.
+    swarm = start_swarm(ws, fixture, self(), 800)
+
+    :ok = AgentServer.send_task(swarm, :writer, "first")
+    # let the first turn complete (fixture answers in ms) but stay inside its
+    # 800ms grace, then start the next turn
+    Process.sleep(300)
+    :ok = AgentServer.send_task(swarm, :writer, "second")
+
+    assert_receive {:sink_got, :writer, "ANSWER to: [From orchestrator] first"}, 8_000
+    assert_receive {:sink_got, :writer, "ANSWER to: [From orchestrator] second"}, 8_000
+  end
+
   test "a turn with no stdout answer emits no_final_text and delivers nothing",
        %{workspace: ws, fixture: fixture} do
     handler_id = "no-final-text-#{System.unique_integer([:positive])}"
