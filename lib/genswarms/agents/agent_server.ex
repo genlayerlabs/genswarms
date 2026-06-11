@@ -13,9 +13,10 @@ defmodule Genswarms.Agents.AgentServer do
   use GenServer
   require Logger
 
-  alias Genswarms.Agents.{AgentProtocol, Inbox}
+  alias Genswarms.Agents.{AgentProtocol, Ask, Inbox}
   alias Genswarms.Observability.LogStore
   alias Genswarms.Config.SwarmConfig
+  alias Genswarms.Objects.ObjectServer
   alias Genswarms.Routing.Router
 
   # How long (ms) to wait for an async object reply before giving up and
@@ -45,6 +46,32 @@ defmodule Genswarms.Agents.AgentServer do
     history: [],
     started_at: nil,
     last_activity: nil,
+    # --- reply auto-delivery (genswarms#53 G2) ---
+    # When `reply_to` (agent config) names an object, the turn's derived reply
+    # text (AgentProtocol.reply_text/1) is delivered there once per turn — unless
+    # the agent already explicitly sent to that target during that turn. A
+    # COMPLETED turn's delivery is never invalidated by the next turn starting
+    # (its text answers its own message); only a wall-clock-expired turn is
+    # discarded. nil ⇒ feature off (default).
+    reply_to: nil,
+    reply_grace_ms: 1_000,
+    turn_seq: 0,
+    # Set of {target, turn_seq} marks: the agent explicitly sent to `target`
+    # during turn `turn_seq` ({:__broadcast__, seq} marks a broadcast, which
+    # reaches the sink too if it's in the topology). Attribution is exact: the
+    # synchronous outbox sweep at TURN_COMPLETE stamps turn N's sends with N
+    # even though the next turn may begin in the same handle_info. Pruned as
+    # pending deliveries consume them (bounded). Survives turn transitions by
+    # design — a pending delivery for turn N is checked after N+1 has begun.
+    turn_sends: MapSet.new(),
+    # --- per-turn wall clock (genswarms#53 G3) ---
+    # `turn_timeout_ms` (agent config) bounds a single turn end-to-end. On
+    # expiry the turn is marked expired (telemetry :turn_timeout) and a LATE
+    # <<TURN_COMPLETE>> no longer auto-delivers its stale text. nil ⇒ off
+    # (default — current behavior).
+    turn_timeout_ms: nil,
+    turn_timer_ref: nil,
+    turn_expired: false,
     # --- async-reply ordering guard ---
     # When the agent has sent a message to an object that can reply (the object
     # is in the agent's incoming topology), we set awaiting_reply: true.  Any
@@ -111,6 +138,33 @@ defmodule Genswarms.Agents.AgentServer do
   """
   def deliver_message(swarm_name, agent_name, from, content) do
     GenServer.cast(via_tuple(swarm_name, agent_name), {:deliver_message, from, content})
+  end
+
+  @doc """
+  Records that this agent explicitly sent a message to `to` during its current
+  turn (called by the LogWatcher when it routes an outbox send). Auto-delivery
+  consults this so an explicit `swarm-msg send <reply_to>` is never doubled by
+  the automatic one.
+  """
+  def note_agent_send(swarm_name, agent_name, to) do
+    GenServer.cast(via_tuple(swarm_name, agent_name), {:note_agent_send, to})
+  end
+
+  @doc """
+  Delivers the envelope answering one of this agent's asks (`swarm-msg ask`).
+
+  Written to `{workspace}/.inbox/replies/{correlation_id}.json`, where the
+  agent's blocked `swarm-msg ask` is polling — NOT injected as a new
+  conversational turn, and the awaiting-reply flag is untouched (an ask is
+  synchronous from the agent's perspective; there is no async reply to guard).
+  A dead or unknown agent makes this a no-op: the reply is dropped and the
+  asker's own timeout envelope is the catch-all.
+  """
+  def deliver_ask_reply(swarm_name, agent_name, correlation_id, envelope) do
+    GenServer.cast(
+      via_tuple(swarm_name, agent_name),
+      {:deliver_ask_reply, correlation_id, envelope}
+    )
   end
 
   @doc """
@@ -205,7 +259,8 @@ defmodule Genswarms.Agents.AgentServer do
     # Backend keys control the execution environment (workspace, mounts, resources)
     # Domain keys are application-specific (population_size, max_iterations, etc.)
     backend_keys = ~w(workspace extra_path extra_ro_binds extra_rw_binds extra_env
-                      memory_limit cpu_shares tasks_max subzeroclaw_path presets network)a
+                      memory_limit cpu_shares tasks_max subzeroclaw_path presets network
+                      max_turns)a
 
     {backend_overrides, _domain_config} = Map.split(agent_config, backend_keys)
 
@@ -224,7 +279,12 @@ defmodule Genswarms.Agents.AgentServer do
       backend_config: backend_config,
       inbox: Inbox.new(),
       skills: skills,
-      started_at: DateTime.utc_now()
+      started_at: DateTime.utc_now(),
+      # G2 opt-in: deliver each turn's final text to this object automatically.
+      reply_to: agent_config |> Map.get(:reply_to) |> normalize_reply_to(),
+      reply_grace_ms: positive_int(agent_config, :reply_grace_ms, 1_000),
+      # G3 opt-in: per-turn wall clock.
+      turn_timeout_ms: positive_int(agent_config, :turn_timeout_ms, nil)
     }
 
     # Start backend asynchronously
@@ -344,6 +404,54 @@ defmodule Genswarms.Agents.AgentServer do
     end
   end
 
+  # G3: the per-turn wall clock fired. Only meaningful if the SAME turn is
+  # still running — a stale timer (the turn completed; a new one may even have
+  # started) is a no-op. The engine's job ends at making the timeout visible:
+  # it does not kill the backend (that policy belongs to the application).
+  def handle_info({:turn_timeout, seq}, state) do
+    if seq == state.turn_seq and state.state == :working do
+      Logger.warning(
+        "[#{state.swarm_name}/#{state.name}] Turn #{seq} exceeded #{state.turn_timeout_ms}ms wall clock — late output will not be auto-delivered"
+      )
+
+      emit_telemetry(:turn_timeout, state, %{turn: seq, timeout_ms: state.turn_timeout_ms})
+      {:noreply, %{state | turn_expired: true, turn_timer_ref: nil}}
+    else
+      {:noreply, state}
+    end
+  end
+
+  # G2: the grace window after a completed turn has elapsed — deliver that
+  # turn's reply text to the configured reply sink. A completed turn's answer
+  # stays valid even if the next turn has already begun (it answers its own
+  # message; rapid follow-ups must not lose replies). The ONLY suppression is
+  # an explicit send (or broadcast) the agent itself made DURING that exact
+  # turn — exact {target, seq} match, stamped by the synchronous sweep, so a
+  # send in one turn can never eat a different turn's answer. Consumed marks
+  # are pruned. (Expired turns were never scheduled; see schedule_auto_deliver.)
+  def handle_info({:auto_deliver, seq, text}, state) do
+    explicit? =
+      MapSet.member?(state.turn_sends, {state.reply_to, seq}) or
+        MapSet.member?(state.turn_sends, {:__broadcast__, seq})
+
+    state =
+      if explicit? do
+        emit_telemetry(:auto_deliver_skipped, state, %{reason: :explicit_send, turn: seq})
+        state
+      else
+        deliver_to_sink(state, seq, text)
+      end
+
+    # Prune everything this turn could still consume — marks for seqs <= this
+    # one are spent (deliveries fire in seq order).
+    pruned =
+      state.turn_sends
+      |> Enum.reject(fn {_target, s} -> s <= seq end)
+      |> MapSet.new()
+
+    {:noreply, %{state | turn_sends: pruned}}
+  end
+
   def handle_info(msg, state) do
     Logger.debug("[#{state.swarm_name}/#{state.name}] Unhandled message: #{inspect(msg)}")
     {:noreply, state}
@@ -353,12 +461,17 @@ defmodule Genswarms.Agents.AgentServer do
   def handle_call({:send_task, task}, _from, state) do
     case state.state do
       s when s in [:idle, :working] ->
-        # If the agent is waiting for an async object reply, queue the task in
-        # the Inbox instead of forwarding it to the backend.  It will be
-        # released (in order) via maybe_process_inbox/1 after the reply turn
-        # completes.  This prevents rapid follow-up user messages from
-        # interleaving with in-flight async replies and mis-correlating turns.
-        if state.awaiting_reply do
+        # Queue the task in the Inbox instead of forwarding it to the backend
+        # when the agent is (a) waiting for an async object reply, or (b) still
+        # WORKING on a previous turn. (b) makes turns strictly serial: the old
+        # behavior wrote the task straight into the backend's stdin FIFO mid-
+        # turn, which broke turn accounting — the in-flight turn's output was
+        # attributed to the new sequence, and the queued task's own completion
+        # arrived with the agent already :idle, so its reply was never
+        # auto-delivered and no telemetry fired. Queued tasks are released (in
+        # order) via maybe_process_inbox/1 on the next TURN_COMPLETE; the
+        # backend sees the same serial order it always effectively processed.
+        if state.awaiting_reply or state.state == :working do
           history_entry = %{
             type: :task,
             content: task,
@@ -373,11 +486,10 @@ defmodule Genswarms.Agents.AgentServer do
                }) do
             {:ok, new_inbox} ->
               Logger.debug(
-                "[#{state.swarm_name}/#{state.name}] Task queued in Inbox (awaiting reply)"
+                "[#{state.swarm_name}/#{state.name}] Task queued in Inbox (#{if state.awaiting_reply, do: "awaiting reply", else: "turn in progress"})"
               )
 
-              {:reply, :ok,
-               %{state | inbox: new_inbox, history: [history_entry | state.history]}}
+              {:reply, :ok, %{state | inbox: new_inbox, history: [history_entry | state.history]}}
 
             {:error, :inbox_full} ->
               Logger.warning(
@@ -387,6 +499,7 @@ defmodule Genswarms.Agents.AgentServer do
               {:reply, :ok, state}
           end
         else
+          state = begin_turn(state)
           message = AgentProtocol.encode_task(task)
           send_to_backend(state, message)
           emit_telemetry(:task_sent, state, %{task: task})
@@ -556,6 +669,7 @@ defmodule Genswarms.Agents.AgentServer do
 
         # Send to agent immediately if idle
         if state.state == :idle do
+          state = begin_turn(state)
           message = AgentProtocol.encode_message(content, from)
           send_to_backend(state, message)
           emit_telemetry(:message_delivered, state, %{from: from})
@@ -616,14 +730,42 @@ defmodule Genswarms.Agents.AgentServer do
 
     Logger.debug("[#{state.swarm_name}/#{state.name}] Cleared awaiting-reply flag")
 
-    {:noreply,
-     %{state | awaiting_reply: false, awaiting_since: nil, awaiting_timer_ref: nil}}
+    {:noreply, %{state | awaiting_reply: false, awaiting_since: nil, awaiting_timer_ref: nil}}
+  end
+
+  # Periodic-poll path: a send observed while the turn is still in flight
+  # belongs to the current turn (files that survive to the turn boundary are
+  # consumed by the synchronous sweep instead, with exact attribution).
+  def handle_cast({:note_agent_send, to}, state) do
+    {:noreply, %{state | turn_sends: MapSet.put(state.turn_sends, {to, state.turn_seq})}}
+  end
+
+  # Answer to one of this agent's asks: write the envelope where the blocked
+  # `swarm-msg ask` is polling. No state change — in particular this does NOT
+  # touch awaiting_reply and does NOT inject a turn (that is the whole point
+  # of the ask path). Failures are logged and dropped; the asker's timeout
+  # envelope is the catch-all.
+  def handle_cast({:deliver_ask_reply, corr, envelope}, state) do
+    workspace = Map.get(state.backend_config, :workspace)
+
+    case Ask.write_reply(workspace, corr, envelope) do
+      :ok ->
+        Logger.debug("[#{state.swarm_name}/#{state.name}] Ask reply written: #{corr}")
+
+      {:error, reason} ->
+        Logger.warning(
+          "[#{state.swarm_name}/#{state.name}] Dropping ask reply #{corr}: #{inspect(reason)}"
+        )
+    end
+
+    {:noreply, state}
   end
 
   @impl true
   def terminate(_reason, state) do
-    # Clear any pending timer so it doesn't fire into a dead process.
+    # Clear any pending timers so they don't fire into a dead process.
     cancel_awaiting_timer(state.awaiting_timer_ref)
+    if state.turn_timer_ref, do: Process.cancel_timer(state.turn_timer_ref)
 
     if state.backend_ref do
       state.backend_module.stop(state.backend_ref)
@@ -673,11 +815,13 @@ defmodule Genswarms.Agents.AgentServer do
       (String.ends_with?(full_data, "> ") or full_data == "> ") and state.state == :starting
 
     if turn_complete or initial_idle do
+      # Keep the raw turn output: reply-text derivation (G2) does its own
+      # marker/prompt stripping (AgentProtocol owns the stdout grammar).
+      raw_turn = full_data
+      working_turn? = turn_complete and state.state == :working
+
       # Remove markers from output before processing
-      full_data =
-        full_data
-        |> String.replace("<<TURN_COMPLETE>>", "")
-        |> String.replace(~r/\n?> $/, "")
+      full_data = AgentProtocol.strip_turn_markers(full_data)
 
       # Log stdout output to LogStore
       unless full_data == "" or String.trim(full_data) == "" do
@@ -726,14 +870,44 @@ defmodule Genswarms.Agents.AgentServer do
           }
         end)
 
+      # This turn's explicit sends, with EXACT attribution to this turn's seq:
+      #   - legacy stdout-protocol sends parsed above;
+      #   - outbox files swept SYNCHRONOUSLY right now — the agent cannot
+      #     write more files after emitting <<TURN_COMPLETE>>, so everything
+      #     on disk belongs to this turn. This is what makes auto-delivery
+      #     suppression independent of the watcher's poll latency (the racy
+      #     async note path only covers sends observed mid-turn).
+      legacy_sends = for %{type: :send, to: to} <- messages, do: {to, state.turn_seq}
+
+      swept_sends =
+        if working_turn? and state.reply_to != nil do
+          for to <- sweep_outbox(state), do: {to, state.turn_seq}
+        else
+          []
+        end
+
+      # The turn ended — its wall clock (if any) is done.
+      if state.turn_timer_ref, do: Process.cancel_timer(state.turn_timer_ref)
+
       new_state = %{
         state
         | buffer: "",
           state: :idle,
           message_count: state.message_count + length(messages),
           history: history_entries ++ state.history,
-          last_activity: DateTime.utc_now()
+          last_activity: DateTime.utc_now(),
+          turn_sends: MapSet.union(state.turn_sends, MapSet.new(legacy_sends ++ swept_sends)),
+          turn_timer_ref: nil
       }
+
+      # G2: schedule auto-delivery of this turn's reply text (only for a real
+      # completed working turn — never for the startup banner).
+      new_state =
+        if working_turn? do
+          schedule_auto_deliver(new_state, raw_turn)
+        else
+          new_state
+        end
 
       # Process next inbox message if any
       new_state = maybe_process_inbox(new_state)
@@ -741,6 +915,129 @@ defmodule Genswarms.Agents.AgentServer do
     else
       # Still receiving output - just accumulate in buffer
       {:noreply, %{state | buffer: full_data, last_activity: DateTime.utc_now()}}
+    end
+  end
+
+  # ── G2 reply auto-delivery helpers ──────────────────────────────────────────
+
+  # Deliver to the sink, verifying it actually is a live OBJECT first: agents
+  # and objects share the Registry keyspace, so a typo'd or agent-typed
+  # reply_to would otherwise silently no-op (while telemetry claimed delivery)
+  # or inject the text into another AGENT — bypassing topology entirely and
+  # enabling unbounded agent↔agent loops.
+  defp deliver_to_sink(state, seq, text) do
+    case Registry.lookup(Genswarms.AgentRegistry, {state.swarm_name, state.reply_to}) do
+      [{_pid, :object}] ->
+        # Delivered DIRECTLY to the sink object, not via Router.route: the
+        # target is operator configuration (agent config), not model output,
+        # so topology validation adds nothing — and routing would arm the
+        # async-reply ordering guard if the sink had a back-edge, gating the
+        # agent's inbox for a delivery that expects no reply.
+        ObjectServer.deliver_message(state.swarm_name, state.reply_to, state.name, text)
+        emit_telemetry(:auto_delivered, state, %{turn: seq, bytes: byte_size(text)})
+        state
+
+      other ->
+        reason = if other == [], do: :sink_not_found, else: :sink_not_an_object
+
+        Logger.warning(
+          "[#{state.swarm_name}/#{state.name}] reply_to #{inspect(state.reply_to)} #{reason} — reply NOT delivered"
+        )
+
+        emit_telemetry(:auto_deliver_failed, state, %{reason: reason, turn: seq})
+        state
+    end
+  end
+
+  # Synchronously drain this agent's .outbox via its LogWatcher, returning the
+  # routed plain-send targets so the caller can stamp them with the turn they
+  # belong to. Best-effort: a dead/slow watcher degrades to the async note
+  # path rather than blocking the turn.
+  defp sweep_outbox(%{log_watcher: watcher} = state) when is_pid(watcher) do
+    Genswarms.Agents.LogWatcher.sweep_outbox(watcher)
+  catch
+    kind, reason ->
+      Logger.warning(
+        "[#{state.swarm_name}/#{state.name}] outbox sweep failed (#{kind}: #{inspect(reason)}) — falling back to async send notes"
+      )
+
+      []
+  end
+
+  defp sweep_outbox(_state), do: []
+
+  # A new piece of work is being handed to the backend: a new turn begins.
+  # Bump the sequence and arm the per-turn wall clock if configured.
+  # `turn_sends` is deliberately NOT reset here: a COMPLETED previous turn may
+  # still have its auto-delivery pending in the grace window, and its
+  # suppression mark must survive this turn starting (see handle_info
+  # {:auto_deliver, ...} — suppression compares per-target send seq, not a
+  # per-turn flag).
+  defp begin_turn(state) do
+    if state.turn_timer_ref, do: Process.cancel_timer(state.turn_timer_ref)
+    seq = state.turn_seq + 1
+
+    timer_ref =
+      if state.turn_timeout_ms do
+        Process.send_after(self(), {:turn_timeout, seq}, state.turn_timeout_ms)
+      end
+
+    # Drop any stale buffered output (harness startup banners and similar
+    # idle-time noise) so it can't leak into this turn's derived reply text.
+    # Turns are serial (a task arriving mid-turn queues in the Inbox), so
+    # nothing in-flight is ever discarded here.
+    %{state | buffer: "", turn_seq: seq, turn_timer_ref: timer_ref, turn_expired: false}
+  end
+
+  defp normalize_reply_to(nil), do: nil
+  defp normalize_reply_to(name) when is_atom(name), do: name
+  defp normalize_reply_to(name) when is_binary(name), do: String.to_atom(name)
+
+  # Config timing values must be positive integers; anything else would crash
+  # Process.send_after on the FIRST task — as a restart loop. Warn and fall
+  # back to the default instead.
+  defp positive_int(config, key, default) do
+    case Map.get(config, key, default) do
+      nil ->
+        default
+
+      n when is_integer(n) and n > 0 ->
+        n
+
+      bad ->
+        Logger.warning(
+          "agent config #{key}=#{inspect(bad)} is not a positive integer — using #{inspect(default)}"
+        )
+
+        default
+    end
+  end
+
+  # Derive the turn's reply text and schedule its delivery after the grace
+  # window. The grace exists for one reason: an explicit outbox send written
+  # this turn may still be sitting in .outbox/ (the LogWatcher polls every
+  # 500ms), so delivering instantly could double up with it. No reply_to ⇒
+  # feature off. An empty derivation with the feature on is the silent-drop
+  # signal — emit no_final_text so the application can recover (re-prompt,
+  # fallback); the engine's job is to make it visible, not to handle it.
+  defp schedule_auto_deliver(%{reply_to: nil} = state, _raw_turn), do: state
+
+  # G3: the wall clock expired before this turn completed — its text answers a
+  # question the application has already recovered from. Discard, visibly.
+  defp schedule_auto_deliver(%{turn_expired: true} = state, _raw_turn) do
+    emit_telemetry(:auto_deliver_skipped, state, %{reason: :turn_expired, turn: state.turn_seq})
+    state
+  end
+
+  defp schedule_auto_deliver(state, raw_turn) do
+    case AgentProtocol.reply_text(raw_turn) do
+      "" ->
+        emit_telemetry(:no_final_text, state, %{turn: state.turn_seq})
+        state
+
+      text ->
+        Process.send_after(self(), {:auto_deliver, state.turn_seq, text}, state.reply_grace_ms)
+        state
     end
   end
 
@@ -779,12 +1076,14 @@ defmodule Genswarms.Agents.AgentServer do
       {:ok, %{content: content, task?: true}, new_inbox} ->
         # Queued user task — encode as a task (not a message) so the agent
         # receives it byte-identical to a directly-delivered task.
+        state = begin_turn(state)
         message = AgentProtocol.encode_task(content)
         send_to_backend(state, message)
         emit_telemetry(:task_sent, state, %{task: content})
         %{state | inbox: new_inbox, state: :working}
 
       {:ok, %{from: from, content: content}, new_inbox} ->
+        state = begin_turn(state)
         message = AgentProtocol.encode_message(content, from)
         send_to_backend(state, message)
         %{state | inbox: new_inbox, state: :working}
