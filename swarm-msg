@@ -61,15 +61,23 @@ NOTES:
 EOF
 }
 
-# Outbox-based send (default) — writes JSON to /workspace/.outbox/
-send_message() {
+# --- Shared send plumbing -----------------------------------------------
+# send and ask are the same motion (parse target + content, JSON-encode,
+# publish atomically to the outbox); ask additionally carries a reply_to
+# correlation id and blocks on the reply file. broadcast shares the encode
+# and publish steps. Exactly one implementation of each step lives here.
+
+# Parses <target> [-f file] [-m message] [message] into globals $to and
+# $content. $1 is the word used in error messages ("agent"/"object").
+parse_send_args() {
+    target_kind="$1"
+    shift
     to="$1"
     shift
 
     message=""
     file=""
 
-    # Parse arguments
     while [ $# -gt 0 ]; do
         case "$1" in
             -f|--file)
@@ -90,7 +98,7 @@ send_message() {
     done
 
     if [ -z "$to" ]; then
-        echo "Error: No target agent specified" >&2
+        echo "Error: No target $target_kind specified" >&2
         exit 1
     fi
 
@@ -99,7 +107,6 @@ send_message() {
         exit 1
     fi
 
-    # Build content
     content="$message"
     if [ -n "$file" ] && [ -f "$file" ]; then
         if [ -n "$message" ]; then
@@ -111,31 +118,46 @@ $(cat "$file")"
             content="$(cat "$file")"
         fi
     fi
+}
 
-    # Write to outbox
+# JSON-encodes $content into $encoded. `|| true` keeps a missing/failing
+# encoder from aborting the script under `set -e` so the next fallback runs:
+# jq, then python3, then a sed/awk escape that preserves newlines.
+encode_content() {
+    encoded=$(printf '%s' "$content" | jq -Rs . 2>/dev/null) || true
+    if [ -z "$encoded" ]; then
+        encoded=$(printf '%s' "$content" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))' 2>/dev/null) || true
+    fi
+    if [ -z "$encoded" ]; then
+        encoded="\"$(printf '%s' "$content" | sed 's/\\/\\\\/g; s/"/\\"/g; s/	/\\t/g' | awk '{printf "%s\\n", $0}' | sed 's/\\n$//')\""
+    fi
+}
+
+# Publishes $2 (one JSON line) to the outbox under a name labeled by $1.
+# seq is an ordering hint only; the unique suffix (PID + nanosecond time)
+# prevents the filename collision/overwrite that the racy count-based seq
+# alone caused when two sends ran concurrently. Writes to a temp name (not
+# *.json, so the watcher skips it) then atomically renames into place — the
+# watcher never reads a half-written file.
+publish_outbox() {
+    label="$1"
+    payload="$2"
     outbox_dir="${OUTBOX_DIR:-/workspace/.outbox}"
     mkdir -p "$outbox_dir"
-    # seq is an ordering hint only; a unique suffix (PID + nanosecond time)
-    # prevents the filename collision/overwrite that the racy count-based seq
-    # alone caused when two sends ran concurrently.
     seq=$(ls "$outbox_dir"/*.json 2>/dev/null | wc -l)
     seq=$((seq + 1))
     uniq="$$_$(date +%s%N 2>/dev/null || date +%s)"
-    filename=$(printf "%04d_%s_%s.json" "$seq" "$to" "$uniq")
-
-    # JSON-encode the content safely. `|| true` keeps a missing/failing jq from
-    # aborting the script under `set -e` so the sed fallback below can run.
-    encoded=$(printf '%s' "$content" | jq -Rs . 2>/dev/null) || true
-    if [ -z "$encoded" ]; then
-        # Fallback: escape with sed
-        encoded="\"$(printf '%s' "$content" | sed 's/\\/\\\\/g; s/"/\\"/g; s/	/\\t/g' | awk '{printf "%s\\n", $0}' | sed 's/\\n$//')\""
-    fi
-
-    # Write to a temp name (not *.json, so the watcher skips it) then atomically
-    # rename into place — the watcher never reads a half-written file.
+    filename=$(printf "%04d_%s_%s.json" "$seq" "$label" "$uniq")
     tmpfile="$outbox_dir/.tmp_${uniq}"
-    printf '{"to":"%s","content":%s}\n' "$to" "$encoded" > "$tmpfile"
+    printf '%s\n' "$payload" > "$tmpfile"
     mv -f "$tmpfile" "$outbox_dir/$filename"
+}
+
+# Outbox-based send (default) — writes JSON to /workspace/.outbox/
+send_message() {
+    parse_send_args agent "$@"
+    encode_content
+    publish_outbox "$to" "{\"to\":\"$to\",\"content\":$encoded}"
 }
 
 # Synchronous ask — like send, but carries a reply_to correlation id and BLOCKS
@@ -145,52 +167,7 @@ $(cat "$file")"
 # same turn. On timeout prints an ok:false/timeout:true envelope — the output
 # is ALWAYS one well-formed JSON envelope.
 ask_message() {
-    to="$1"
-    shift
-
-    message=""
-    file=""
-
-    while [ $# -gt 0 ]; do
-        case "$1" in
-            -f|--file)
-                file="$2"
-                shift 2
-                ;;
-            -m|--message)
-                message="$2"
-                shift 2
-                ;;
-            *)
-                if [ -z "$message" ]; then
-                    message="$1"
-                fi
-                shift
-                ;;
-        esac
-    done
-
-    if [ -z "$to" ]; then
-        echo "Error: No target object specified" >&2
-        exit 1
-    fi
-
-    if [ -z "$message" ] && [ -z "$file" ]; then
-        echo "Error: No message or file specified" >&2
-        exit 1
-    fi
-
-    content="$message"
-    if [ -n "$file" ] && [ -f "$file" ]; then
-        if [ -n "$message" ]; then
-            content="${message}
-
---- FILE: $(basename "$file") ---
-$(cat "$file")"
-        else
-            content="$(cat "$file")"
-        fi
-    fi
+    parse_send_args object "$@"
 
     # Correlation id: generated locally (safe charset by construction); becomes
     # the reply file name the engine writes to.
@@ -199,22 +176,8 @@ $(cat "$file")"
     reply_file="$reply_dir/$corr.json"
     mkdir -p "$reply_dir"
 
-    outbox_dir="${OUTBOX_DIR:-/workspace/.outbox}"
-    mkdir -p "$outbox_dir"
-    seq=$(ls "$outbox_dir"/*.json 2>/dev/null | wc -l)
-    seq=$((seq + 1))
-    uniq="$$_$(date +%s%N 2>/dev/null || date +%s)"
-    filename=$(printf "%04d_%s_%s.json" "$seq" "$to" "$uniq")
-
-    encoded=$(printf '%s' "$content" | jq -Rs . 2>/dev/null) || true
-    if [ -z "$encoded" ]; then
-        encoded="\"$(printf '%s' "$content" | sed 's/\\/\\\\/g; s/"/\\"/g; s/	/\\t/g' | awk '{printf "%s\\n", $0}' | sed 's/\\n$//')\""
-    fi
-
-    # Atomic write (tmp + rename), same as send_message.
-    tmpfile="$outbox_dir/.tmp_${uniq}"
-    printf '{"to":"%s","content":%s,"reply_to":"%s"}\n' "$to" "$encoded" "$corr" > "$tmpfile"
-    mv -f "$tmpfile" "$outbox_dir/$filename"
+    encode_content
+    publish_outbox "$to" "{\"to\":\"$to\",\"content\":$encoded,\"reply_to\":\"$corr\"}"
 
     # Block until the engine writes the reply envelope (atomic rename, so an
     # existing file is always complete), or until the timeout. The timeout
@@ -248,31 +211,14 @@ $(cat "$file")"
 }
 
 broadcast_message() {
-    message="$1"
-    if [ -z "$message" ]; then
+    content="$1"
+    if [ -z "$content" ]; then
         echo "Error: No message specified" >&2
         exit 1
     fi
 
-    outbox_dir="${OUTBOX_DIR:-/workspace/.outbox}"
-    mkdir -p "$outbox_dir"
-    seq=$(ls "$outbox_dir"/*.json 2>/dev/null | wc -l)
-    seq=$((seq + 1))
-    uniq="$$_$(date +%s%N 2>/dev/null || date +%s)"
-    filename=$(printf "%04d_broadcast_%s.json" "$seq" "$uniq")
-
-    # `|| true`: a missing/failing python3 must not abort the script under
-    # `set -e`; the sed fallback below handles the encoding.
-    encoded=$(printf '%s' "$message" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))' 2>/dev/null) || true
-    if [ -z "$encoded" ]; then
-        encoded="\"$(printf '%s' "$message" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' ' ')\""
-    fi
-
-    # Temp name then atomic rename (see send_message) — unique suffix avoids the
-    # racy-seq collision; the watcher only reads the final *.json.
-    tmpfile="$outbox_dir/.tmp_${uniq}"
-    printf '{"broadcast":true,"content":%s}\n' "$encoded" > "$tmpfile"
-    mv -f "$tmpfile" "$outbox_dir/$filename"
+    encode_content
+    publish_outbox broadcast "{\"broadcast\":true,\"content\":$encoded}"
 }
 
 # Legacy stdout protocol (kept for backward compatibility)
