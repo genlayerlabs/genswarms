@@ -246,76 +246,7 @@ defmodule Genswarms.Routing.Router do
 
   @impl true
   def handle_cast({:route, swarm_name, from, to, content}, state) do
-    case Map.get(state.topologies, swarm_name) do
-      nil ->
-        Logger.warning("Unknown swarm: #{swarm_name}")
-        {:noreply, state}
-
-      topology ->
-        if can_route?(topology, from, to) do
-          # Async-reply ordering guard:
-          #
-          # When an agent sends to an object that has a back-edge to the agent
-          # (object is in the agent's incoming set), the agent is entering an
-          # async request/reply cycle.  Mark the agent as awaiting so any new
-          # user task arriving before the reply is queued rather than forwarded
-          # to the backend immediately (which would mis-correlate turns).
-          #
-          # Conversely, when an object delivers a message to an agent, the reply
-          # has arrived — clear the flag so queued tasks are released on the next
-          # TURN_COMPLETE.
-          case sender_type(swarm_name, from) do
-            :agent ->
-              # from=agent, to=object (or another agent): set awaiting if the
-              # target can reply back (has a return edge to `from`).
-              if reply_expecting?(topology, from, to) do
-                AgentServer.set_awaiting(swarm_name, from)
-              end
-
-            :object ->
-              # from=object, to=agent: the reply has arrived.  clear_awaiting is
-              # handled atomically inside deliver_message — do NOT call it here
-              # to avoid a window where awaiting is cleared but the reply has not
-              # yet been queued/delivered, which would allow a racing send_task to
-              # bypass the gate.
-              :ok
-
-            :unknown ->
-              :ok
-          end
-
-          # Deliver message to target (agent or object) - async
-          deliver_to_target(swarm_name, to, from, content)
-
-          # Log the message
-          log_entry = %{
-            timestamp: DateTime.utc_now(),
-            swarm: swarm_name,
-            from: from,
-            to: to,
-            type: :direct,
-            content_preview: String.slice(content, 0, 100)
-          }
-
-          emit_telemetry(:message_routed, log_entry)
-          broadcast_to_subscribers(swarm_name, :message_routed, log_entry)
-
-          new_state = add_to_log(state, log_entry)
-          {:noreply, new_state}
-        else
-          Logger.warning("Invalid route: #{from} -> #{to} in swarm #{swarm_name}")
-          allowed_targets = Map.get(topology, from, [])
-
-          emit_telemetry(:invalid_route, %{
-            swarm: swarm_name,
-            from: from,
-            to: to,
-            allowed_targets: allowed_targets
-          })
-
-          {:noreply, state}
-        end
-    end
+    {:noreply, do_route(swarm_name, from, to, content, nil, state)}
   end
 
   def handle_cast({:route_ask, swarm_name, from, to, content, corr}, state) do
@@ -328,8 +259,16 @@ defmodule Genswarms.Routing.Router do
         Logger.warning("Ask from non-agent #{from} in swarm #{swarm_name} — dropped")
         {:noreply, state}
 
+      # Non-binary content is refused with a typed envelope BEFORE routing:
+      # it originates inside the agent sandbox, and letting it through would
+      # crash the singleton Router on String.slice (taking every swarm's
+      # topology with it) and the target object's handler besides.
+      not is_binary(content) ->
+        ask_error(swarm_name, from, corr, "invalid_content", "ask content must be a string")
+        {:noreply, state}
+
       true ->
-        do_route_ask(swarm_name, from, to, content, corr, state)
+        {:noreply, do_route(swarm_name, from, to, content, corr, state)}
     end
   end
 
@@ -426,57 +365,78 @@ defmodule Genswarms.Routing.Router do
     end
   end
 
-  # The validated body of a route_ask (the asker is known to be an agent).
-  # Non-binary content is refused with a typed envelope BEFORE anything else:
-  # it originates inside the agent sandbox, and letting it through would crash
-  # the singleton Router on String.slice below (taking every swarm's topology
-  # with it) and the target object's handler besides.
-  defp do_route_ask(swarm_name, from, _to, content, corr, state)
-       when not is_binary(content) do
-    ask_error(swarm_name, from, corr, "invalid_content", "ask content must be a string")
-    {:noreply, state}
-  end
-
-  defp do_route_ask(swarm_name, from, to, content, corr, state) do
+  # The single routing body for BOTH modes. `corr` selects the mode:
+  # nil = asynchronous route (fire-and-forget; the awaiting ordering guard
+  # applies); a correlation id = synchronous ask (no guard; every failure
+  # answers a typed envelope so the blocked asker returns immediately).
+  # One body, so topology validation, delivery dispatch, logging and
+  # telemetry cannot diverge between the modes.
+  defp do_route(swarm_name, from, to, content, corr, state) do
     case Map.get(state.topologies, swarm_name) do
       nil ->
         Logger.warning("Unknown swarm: #{swarm_name}")
-        ask_error(swarm_name, from, corr, "unknown_swarm", "unknown swarm #{swarm_name}")
-        {:noreply, state}
+
+        if corr do
+          ask_error(swarm_name, from, corr, "unknown_swarm", "unknown swarm #{swarm_name}")
+        end
+
+        state
 
       topology ->
         if can_route?(topology, from, to) do
-          # NO set_awaiting here: the reply returns inline through the reply
-          # file, inside the same agent turn — there is no async reply for the
-          # ordering guard to defend against.
-          case Registry.lookup(Genswarms.AgentRegistry, {swarm_name, to}) do
-            [{_pid, :object}] ->
-              ObjectServer.deliver_ask(swarm_name, to, from, content, corr)
+          if corr == nil do
+            # Async-reply ordering guard (async mode only — an ask's reply
+            # returns inline through the reply file, inside the same agent
+            # turn; there is no async reply for the guard to defend against):
+            #
+            # When an agent sends to an object that has a back-edge to the agent
+            # (object is in the agent's incoming set), the agent is entering an
+            # async request/reply cycle.  Mark the agent as awaiting so any new
+            # user task arriving before the reply is queued rather than forwarded
+            # to the backend immediately (which would mis-correlate turns).
+            #
+            # Conversely, when an object delivers a message to an agent, the reply
+            # has arrived — clear the flag so queued tasks are released on the next
+            # TURN_COMPLETE.
+            case sender_type(swarm_name, from) do
+              :agent ->
+                # from=agent, to=object (or another agent): set awaiting if the
+                # target can reply back (has a return edge to `from`).
+                if reply_expecting?(topology, from, to) do
+                  AgentServer.set_awaiting(swarm_name, from)
+                end
 
-            [] ->
-              Logger.warning("Ask target #{to} not found in swarm #{swarm_name}")
-              ask_error(swarm_name, from, corr, "target_not_found", "no such object: #{to}")
+              :object ->
+                # from=object, to=agent: the reply has arrived.  clear_awaiting is
+                # handled atomically inside deliver_message — do NOT call it here
+                # to avoid a window where awaiting is cleared but the reply has not
+                # yet been queued/delivered, which would allow a racing send_task to
+                # bypass the gate.
+                :ok
 
-            _agent_or_unknown ->
-              # Asks are object calls; an agent cannot answer synchronously.
-              ask_error(swarm_name, from, corr, "not_an_object", "#{to} is not an object")
+              :unknown ->
+                :ok
+            end
           end
+
+          deliver(swarm_name, to, from, content, corr)
 
           log_entry = %{
             timestamp: DateTime.utc_now(),
             swarm: swarm_name,
             from: from,
             to: to,
-            type: :ask,
+            type: if(corr, do: :ask, else: :direct),
             content_preview: String.slice(content, 0, 100)
           }
 
           emit_telemetry(:message_routed, log_entry)
           broadcast_to_subscribers(swarm_name, :message_routed, log_entry)
 
-          {:noreply, add_to_log(state, log_entry)}
+          add_to_log(state, log_entry)
         else
-          Logger.warning("Invalid ask route: #{from} -> #{to} in swarm #{swarm_name}")
+          kind = if corr, do: "ask route", else: "route"
+          Logger.warning("Invalid #{kind}: #{from} -> #{to} in swarm #{swarm_name}")
 
           emit_telemetry(:invalid_route, %{
             swarm: swarm_name,
@@ -485,9 +445,32 @@ defmodule Genswarms.Routing.Router do
             allowed_targets: Map.get(topology, from, [])
           })
 
-          ask_error(swarm_name, from, corr, "route_denied", "no edge #{from} -> #{to}")
-          {:noreply, state}
+          if corr do
+            ask_error(swarm_name, from, corr, "route_denied", "no edge #{from} -> #{to}")
+          end
+
+          state
         end
+    end
+  end
+
+  # Mode-specific delivery. Async (corr=nil) reaches any target type; an ask
+  # is an object call — an agent cannot answer synchronously.
+  defp deliver(swarm_name, to, from, content, nil) do
+    deliver_to_target(swarm_name, to, from, content)
+  end
+
+  defp deliver(swarm_name, to, from, content, corr) do
+    case Registry.lookup(Genswarms.AgentRegistry, {swarm_name, to}) do
+      [{_pid, :object}] ->
+        ObjectServer.deliver_ask(swarm_name, to, from, content, corr)
+
+      [] ->
+        Logger.warning("Ask target #{to} not found in swarm #{swarm_name}")
+        ask_error(swarm_name, from, corr, "target_not_found", "no such object: #{to}")
+
+      _agent_or_unknown ->
+        ask_error(swarm_name, from, corr, "not_an_object", "#{to} is not an object")
     end
   end
 
