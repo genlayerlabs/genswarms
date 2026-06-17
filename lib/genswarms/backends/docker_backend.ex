@@ -673,10 +673,27 @@ defmodule Genswarms.Backends.DockerBackend do
         limit -> args ++ ["--memory", limit]
       end
 
+    # --memory-swap caps RAM+swap together; without it `--memory` inherits Docker's
+    # 2x default (a 2g --memory really allows ~4g via swap). Set it equal to memory_limit
+    # for a true hard RAM ceiling. Passthrough only — no default imposed.
+    args =
+      case Map.get(config, :memory_swap) do
+        nil -> args
+        limit -> args ++ ["--memory-swap", to_string(limit)]
+      end
+
     args =
       case Map.get(config, :cpu_limit) do
         nil -> args
         limit -> args ++ ["--cpus", to_string(limit)]
+      end
+
+    # --pids-limit caps the process count, bounding fork-bombs / runaway spawns from an
+    # untrusted-prompt-driven agent. Passthrough only — no default imposed.
+    args =
+      case Map.get(config, :pids_limit) do
+        nil -> args
+        limit -> args ++ ["--pids-limit", to_string(limit)]
       end
 
     args

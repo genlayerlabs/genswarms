@@ -114,7 +114,9 @@ If the chosen image is not present locally, the backend attempts to build it wit
 | `volumes` | Extra mounts as `[{host_path, container_path}]` |
 | `network` | Docker network to attach (`--network`) |
 | `memory_limit` | Memory cap (`--memory`) |
+| `memory_swap` | RAM+swap cap (`--memory-swap`); set equal to `memory_limit` for a true hard RAM ceiling (without it `--memory` allows ~2x via swap) |
 | `cpu_limit` | CPU cap (`--cpus`) |
+| `pids_limit` | Max process count (`--pids-limit`); bounds fork-bombs / runaway spawns |
 | `env` | Extra env vars (a map); `${VAR}` / `$VAR` are expanded from the host. Empty/`nil` values are dropped |
 | `cmd` | Override the in-container command |
 | `api_key` / `model` / `endpoint` | LLM settings (fall back to env) |
