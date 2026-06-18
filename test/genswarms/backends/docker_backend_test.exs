@@ -81,6 +81,33 @@ defmodule Genswarms.Backends.DockerBackendTest do
     end
   end
 
+  describe "resource caps (build_resource_args passthrough)" do
+    test "no caps configured emits none of the resource flags" do
+      args = build(%{})
+      refute "--memory" in args
+      refute "--memory-swap" in args
+      refute "--cpus" in args
+      refute "--pids-limit" in args
+    end
+
+    test "memory_limit emits --memory with its value" do
+      assert ["--memory", "2g" | _] = drop_until(build(%{memory_limit: "2g"}), "--memory")
+    end
+
+    test "memory_swap emits --memory-swap (hard RAM ceiling, no ~2x swap escape)" do
+      assert ["--memory-swap", "2g" | _] =
+               drop_until(build(%{memory_swap: "2g"}), "--memory-swap")
+    end
+
+    test "cpu_limit emits --cpus with its value" do
+      assert ["--cpus", "2" | _] = drop_until(build(%{cpu_limit: "2"}), "--cpus")
+    end
+
+    test "pids_limit emits --pids-limit, stringified (fork-bomb guard)" do
+      assert ["--pids-limit", "512" | _] = drop_until(build(%{pids_limit: 512}), "--pids-limit")
+    end
+  end
+
   # Builds the docker run argv for the agent container.
   defp build(config) do
     DockerBackend.build_docker_args(
