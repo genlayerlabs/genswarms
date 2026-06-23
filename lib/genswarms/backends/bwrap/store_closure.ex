@@ -110,12 +110,28 @@ defmodule Genswarms.Backends.Bwrap.StoreClosure do
   defp subzeroclaw_dep_paths(nil), do: {:error, :no_subzeroclaw_binary}
 
   defp subzeroclaw_dep_paths(binary) do
-    case System.cmd("ldd", [binary], stderr_to_stdout: false) do
-      {out, 0} -> {:ok, parse_ldd(out)}
-      {err, code} -> {:error, {:ldd_failed, code, String.slice(err, 0, 200)}}
-    end
+    {out, code} = System.cmd("ldd", [binary], stderr_to_stdout: true)
+    interpret_ldd(out, code)
   rescue
     e -> {:error, {:ldd_exception, Exception.message(e)}}
+  end
+
+  @doc """
+  Interpret `ldd` output for the subzeroclaw binary. Dynamic binary (exit 0) → its `/nix/store`
+  lib roots. A STATICALLY-linked binary is self-contained (no store libs to bind): `ldd` exits
+  non-zero with "not a dynamic executable", which maps to `{:ok, []}`, NOT an error — else a
+  static subzeroclaw (e.g. the box build) fails closed and no agent can spawn. Any OTHER non-zero
+  exit is a genuine failure → fail-closed `{:error, _}`. Public for unit testing.
+  """
+  @spec interpret_ldd(String.t(), integer()) :: {:ok, [String.t()]} | {:error, term()}
+  def interpret_ldd(out, 0), do: {:ok, parse_ldd(out)}
+
+  def interpret_ldd(out, code) do
+    if String.contains?(out, "not a dynamic executable") do
+      {:ok, []}
+    else
+      {:error, {:ldd_failed, code, String.slice(out, 0, 200)}}
+    end
   end
 
   defp nix_store_bin, do: System.find_executable("nix-store") || "nix-store"

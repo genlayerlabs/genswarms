@@ -56,4 +56,20 @@ defmodule Genswarms.Backends.Bwrap.StoreClosureTest do
                StoreClosure.bind_args(:weird, [:base], "/x/subzeroclaw", %{})
     end
   end
+
+  describe "interpret_ldd/2" do
+    test "dynamic binary (exit 0) yields its /nix/store lib roots" do
+      ldd = "\tlibc.so.6 => /nix/store/h-glibc-2.40/lib/libc.so.6 (0x00007f...)\n"
+      assert {:ok, ["/nix/store/h-glibc-2.40"]} = StoreClosure.interpret_ldd(ldd, 0)
+    end
+
+    test "static binary (not a dynamic executable, exit 1) is {:ok, []}, not an error" do
+      assert {:ok, []} = StoreClosure.interpret_ldd("\tnot a dynamic executable\n", 1)
+    end
+
+    test "a genuine ldd failure fails closed" do
+      assert {:error, {:ldd_failed, 1, _}} =
+               StoreClosure.interpret_ldd("ldd: cannot read /x: No such file\n", 1)
+    end
+  end
 end
