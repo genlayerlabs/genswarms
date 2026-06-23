@@ -39,7 +39,7 @@ defmodule Genswarms.Backends.BwrapBackend do
 
   require Logger
 
-  alias Genswarms.Backends.Bwrap.{OverlayManager, CgroupManager, AgentTelemetry}
+  alias Genswarms.Backends.Bwrap.{OverlayManager, CgroupManager, AgentTelemetry, StoreClosure}
   alias Genswarms.Backends.EgressGuard
   alias Genswarms.Observability.LogStore
 
@@ -97,121 +97,150 @@ defmodule Genswarms.Backends.BwrapBackend do
         # Write the harness config (per-turn step budget) into the upper layer
         setup_harness_config(overlay_dir, config)
 
-        # Create cgroup scope for resource limits
-        memory_limit = Map.get(config, :memory_limit, @default_memory_limit)
-        cpu_shares = Map.get(config, :cpu_shares, @default_cpu_shares)
-        tasks_max = Map.get(config, :tasks_max, @default_tasks_max)
+        # Compute the /nix/store bind set. `:full` (default) = the legacy single
+        # /nix/store bind; `:closure` = the minimal per-path closure. Fail closed:
+        # a closure failure tears down the overlay and aborts rather than running
+        # an agent with a wrong/empty store view.
+        store_mode = Map.get(config, :store, :full)
+        subzeroclaw_binary = find_subzeroclaw_binary(config)
 
-        cgroup_opts = %{
-          memory_max: memory_limit,
-          cpu_shares: cpu_shares,
-          tasks_max: tasks_max
-        }
+        case StoreClosure.bind_args(store_mode, presets, subzeroclaw_binary, config) do
+          {:ok, store_binds} ->
+            # Create cgroup scope for resource limits
+            memory_limit = Map.get(config, :memory_limit, @default_memory_limit)
+            cpu_shares = Map.get(config, :cpu_shares, @default_cpu_shares)
+            tasks_max = Map.get(config, :tasks_max, @default_tasks_max)
 
-        # Build bwrap argument vector (each element is a discrete argv entry —
-        # never a shell string, so untrusted values like workspace/model/env
-        # cannot break out into shell commands).
-        bwrap_args =
-          build_bwrap_args(
-            sandbox_id,
-            overlay_dir,
-            skills_dir,
-            workspace,
-            presets,
-            config
-          )
-
-        # Wrap with systemd-run for cgroup isolation. create_scope returns the
-        # executable plus its argv list (no shell involved).
-        {executable, full_args, scope_name} =
-          CgroupManager.create_scope(sandbox_id, bwrap_args, cgroup_opts)
-
-        port_opts = [
-          :binary,
-          :exit_status,
-          {:line, 16_384},
-          {:env, build_env(name, config)},
-          :use_stdio,
-          :stderr_to_stdout
-        ]
-
-        # Network isolation: start the egress forwarder (and write the sandbox
-        # .curlrc) before the sandbox so the LLM socket is ready on first call.
-        egress_result =
-          if EgressGuard.isolated?(config) do
-            EgressGuard.start_forwarder(workspace, config)
-          else
-            {:ok, nil}
-          end
-
-        with {:ok, egress} <- egress_result do
-          try do
-            # spawn_executable runs execvp directly with an argv list — no /bin/sh,
-            # so no command injection via any argument value.
-            port = Port.open({:spawn_executable, executable}, [{:args, full_args} | port_opts])
-
-            ref = %__MODULE__{
-              port: port,
-              name: name,
-              sandbox_id: sandbox_id,
-              overlay_dir: overlay_dir,
-              cgroup_path: CgroupManager.get_cgroup_path(scope_name),
-              skills_dir: skills_dir,
-              scope_name: scope_name,
-              egress: egress,
-              buffer: ""
+            cgroup_opts = %{
+              memory_max: memory_limit,
+              cpu_shares: cpu_shares,
+              tasks_max: tasks_max
             }
 
-            # Log to telemetry instead of Logger at scale
-            AgentTelemetry.log_event(sandbox_id, :started, %{
-              presets: presets,
-              memory_limit: memory_limit
-            })
-
-            LogStore.log(:info, :backend, :bwrap_start, "Started bwrap sandbox #{sandbox_id}",
-              swarm: swarm_name,
-              agent: String.to_atom(name),
-              metadata: %{sandbox_id: sandbox_id, presets: presets}
-            )
-
-            {:ok, ref}
-          rescue
-            e ->
-              # Cleanup on failure
-              EgressGuard.stop_forwarder(egress)
-              OverlayManager.cleanup_overlay(sandbox_id)
-              CgroupManager.kill_scope(scope_name)
-
-              LogStore.log(
-                :error,
-                :backend,
-                :bwrap_start_failed,
-                "Failed to start bwrap: #{inspect(e)}",
-                swarm: swarm_name,
-                agent: String.to_atom(name),
-                metadata: %{sandbox_id: sandbox_id, error: inspect(e)}
+            # Build bwrap argument vector (each element is a discrete argv entry —
+            # never a shell string, so untrusted values like workspace/model/env
+            # cannot break out into shell commands).
+            bwrap_args =
+              build_bwrap_args(
+                sandbox_id,
+                overlay_dir,
+                skills_dir,
+                workspace,
+                presets,
+                config,
+                store_binds
               )
 
-              {:error, {:start_failed, e}}
-          end
-        else
+            # Wrap with systemd-run for cgroup isolation. create_scope returns the
+            # executable plus its argv list (no shell involved).
+            {executable, full_args, scope_name} =
+              CgroupManager.create_scope(sandbox_id, bwrap_args, cgroup_opts)
+
+            port_opts = [
+              :binary,
+              :exit_status,
+              {:line, 16_384},
+              {:env, build_env(name, config)},
+              :use_stdio,
+              :stderr_to_stdout
+            ]
+
+            # Network isolation: start the egress forwarder (and write the sandbox
+            # .curlrc) before the sandbox so the LLM socket is ready on first call.
+            egress_result =
+              if EgressGuard.isolated?(config) do
+                EgressGuard.start_forwarder(workspace, config)
+              else
+                {:ok, nil}
+              end
+
+            with {:ok, egress} <- egress_result do
+              try do
+                # spawn_executable runs execvp directly with an argv list — no /bin/sh,
+                # so no command injection via any argument value.
+                port =
+                  Port.open({:spawn_executable, executable}, [{:args, full_args} | port_opts])
+
+                ref = %__MODULE__{
+                  port: port,
+                  name: name,
+                  sandbox_id: sandbox_id,
+                  overlay_dir: overlay_dir,
+                  cgroup_path: CgroupManager.get_cgroup_path(scope_name),
+                  skills_dir: skills_dir,
+                  scope_name: scope_name,
+                  egress: egress,
+                  buffer: ""
+                }
+
+                # Log to telemetry instead of Logger at scale
+                AgentTelemetry.log_event(sandbox_id, :started, %{
+                  presets: presets,
+                  memory_limit: memory_limit
+                })
+
+                LogStore.log(:info, :backend, :bwrap_start, "Started bwrap sandbox #{sandbox_id}",
+                  swarm: swarm_name,
+                  agent: String.to_atom(name),
+                  metadata: %{sandbox_id: sandbox_id, presets: presets}
+                )
+
+                {:ok, ref}
+              rescue
+                e ->
+                  # Cleanup on failure
+                  EgressGuard.stop_forwarder(egress)
+                  OverlayManager.cleanup_overlay(sandbox_id)
+                  CgroupManager.kill_scope(scope_name)
+
+                  LogStore.log(
+                    :error,
+                    :backend,
+                    :bwrap_start_failed,
+                    "Failed to start bwrap: #{inspect(e)}",
+                    swarm: swarm_name,
+                    agent: String.to_atom(name),
+                    metadata: %{sandbox_id: sandbox_id, error: inspect(e)}
+                  )
+
+                  {:error, {:start_failed, e}}
+              end
+            else
+              {:error, reason} ->
+                # Egress forwarder failed to start; tear down the overlay/scope so we
+                # never run an "isolated" agent that actually has no network at all.
+                OverlayManager.cleanup_overlay(sandbox_id)
+                CgroupManager.kill_scope(scope_name)
+
+                LogStore.log(
+                  :error,
+                  :backend,
+                  :bwrap_egress_failed,
+                  "Failed to start egress forwarder: #{inspect(reason)}",
+                  swarm: swarm_name,
+                  agent: String.to_atom(name),
+                  metadata: %{sandbox_id: sandbox_id, reason: inspect(reason)}
+                )
+
+                {:error, {:egress_failed, reason}}
+            end
+
           {:error, reason} ->
-            # Egress forwarder failed to start; tear down the overlay/scope so we
-            # never run an "isolated" agent that actually has no network at all.
+            # Store closure could not be computed — tear down the overlay and
+            # abort rather than spawn an agent with a wrong/empty /nix/store view.
             OverlayManager.cleanup_overlay(sandbox_id)
-            CgroupManager.kill_scope(scope_name)
 
             LogStore.log(
               :error,
               :backend,
-              :bwrap_egress_failed,
-              "Failed to start egress forwarder: #{inspect(reason)}",
+              :store_closure_failed,
+              "Failed to compute store closure (store: #{inspect(store_mode)}): #{inspect(reason)}",
               swarm: swarm_name,
               agent: String.to_atom(name),
               metadata: %{sandbox_id: sandbox_id, reason: inspect(reason)}
             )
 
-            {:error, {:egress_failed, reason}}
+            {:error, {:store_closure_failed, reason}}
         end
 
       {:error, reason} ->
@@ -384,7 +413,15 @@ defmodule Genswarms.Backends.BwrapBackend do
   # string) is what prevents OS command injection: untrusted values such as
   # workspace paths, model names, and extra_env values each occupy exactly one
   # argv slot and are passed to execvp verbatim, never interpreted by a shell.
-  def build_bwrap_args(sandbox_id, overlay_dir, skills_dir, workspace, _presets, config) do
+  def build_bwrap_args(
+        sandbox_id,
+        overlay_dir,
+        skills_dir,
+        workspace,
+        _presets,
+        config,
+        store_binds
+      ) do
     subzeroclaw_binary = find_subzeroclaw_binary(config)
     wrapper_path = find_wrapper_path()
     name = Map.get(config, :name, sandbox_id)
@@ -423,56 +460,56 @@ defmodule Genswarms.Backends.BwrapBackend do
 
     # Core bwrap arguments
     # ORDER MATTERS: overlay as root first, then other mounts on top
+    # User namespace isolation
+    # Overlay merged directory as root (MUST be first)
     args =
-      [
-        bwrap_path,
-        # User namespace isolation
-        "--unshare-user",
-        "--unshare-pid",
-        "--unshare-uts",
-        "--unshare-ipc",
-        "--uid",
-        "1000",
-        "--gid",
-        "1000",
+      # Nix store binds — `:full` = the single /nix/store bind; `:closure` =
+      # per-path closure binds. Spliced at the SAME position the legacy bind
+      # held (right after the merged root, before all other binds), so the
+      # existing arg ordering is preserved.
+      ([
+         bwrap_path,
+         "--unshare-user",
+         "--unshare-pid",
+         "--unshare-uts",
+         "--unshare-ipc",
+         "--uid",
+         "1000",
+         "--gid",
+         "1000",
+         "--bind",
+         Path.join(overlay_dir, "merged"),
+         "/"
+       ] ++
+         store_binds ++
+         [
+           # Skills directory (if provided) - read-only
+           # Subzeroclaw reads from $HOME/.subzeroclaw/skills
+           skills_dir && "--ro-bind",
+           skills_dir && skills_dir,
+           skills_dir && "/root/.subzeroclaw/skills",
 
-        # Overlay merged directory as root (MUST be first)
-        "--bind",
-        Path.join(overlay_dir, "merged"),
-        "/",
+           # Logs directory - writable for subzeroclaw to write conversation logs
+           # Subzeroclaw writes to $HOME/.subzeroclaw/logs/ so we bind mount there
+           logs_dir && "--bind",
+           logs_dir && logs_dir,
+           logs_dir && "/root/.subzeroclaw/logs",
 
-        # Nix store read-only (required for symlinks in /bin to resolve)
-        "--ro-bind",
-        "/nix/store",
-        "/nix/store",
+           # Workspace for agent to write files
+           "--bind",
+           workspace,
+           "/workspace",
 
-        # Skills directory (if provided) - read-only
-        # Subzeroclaw reads from $HOME/.subzeroclaw/skills
-        skills_dir && "--ro-bind",
-        skills_dir && skills_dir,
-        skills_dir && "/root/.subzeroclaw/skills",
+           # Mount subzeroclaw binary into sandbox at /usr/local/bin
+           subzeroclaw_binary && "--ro-bind",
+           subzeroclaw_binary && subzeroclaw_binary,
+           subzeroclaw_binary && "/usr/local/bin/subzeroclaw",
 
-        # Logs directory - writable for subzeroclaw to write conversation logs
-        # Subzeroclaw writes to $HOME/.subzeroclaw/logs/ so we bind mount there
-        logs_dir && "--bind",
-        logs_dir && logs_dir,
-        logs_dir && "/root/.subzeroclaw/logs",
-
-        # Workspace for agent to write files
-        "--bind",
-        workspace,
-        "/workspace",
-
-        # Mount subzeroclaw binary into sandbox at /usr/local/bin
-        subzeroclaw_binary && "--ro-bind",
-        subzeroclaw_binary && subzeroclaw_binary,
-        subzeroclaw_binary && "/usr/local/bin/subzeroclaw",
-
-        # Mount the real szc-wrapper script (with JSON protocol translation)
-        wrapper_path && "--ro-bind",
-        wrapper_path && wrapper_path,
-        wrapper_path && "/usr/local/bin/szc-wrapper"
-      ]
+           # Mount the real szc-wrapper script (with JSON protocol translation)
+           wrapper_path && "--ro-bind",
+           wrapper_path && wrapper_path,
+           wrapper_path && "/usr/local/bin/szc-wrapper"
+         ])
       |> Enum.filter(&(&1 != nil))
 
     # Extra read-only bind mounts from config (e.g., project dirs, tool installations)

@@ -182,7 +182,10 @@ defmodule Genswarms.Backends.BwrapBackendTest do
         skills_dir,
         workspace,
         [:base],
-        config
+        config,
+        # default `:full` store bind — keeps these legacy injection-safety
+        # tests exercising the exact argv shape they always did.
+        ["--ro-bind", "/nix/store", "/nix/store"]
       )
     end
 
@@ -313,6 +316,51 @@ defmodule Genswarms.Backends.BwrapBackendTest do
       args = args_for([])
       refute "--unshare-net" in args
       refute "CURL_HOME" in args
+    end
+  end
+
+  describe "build_bwrap_args/7 store_binds splice" do
+    # Arg-shape only — no nix/bwrap needed; store_binds is passed directly so
+    # the splice position can be asserted without computing a real closure.
+    defp store_args(store_binds) do
+      BwrapBackend.build_bwrap_args(
+        "swarm-agent",
+        "/run/swarm/agents/swarm-agent",
+        nil,
+        "/tmp/szc-workspace/swarm-agent",
+        [:base],
+        %{},
+        store_binds
+      )
+    end
+
+    # count non-overlapping occurrences of a 3-element subsequence in the flat argv
+    defp chunk_count(list, [_x, _y, _z] = needle) do
+      list
+      |> Enum.chunk_every(3, 1, :discard)
+      |> Enum.count(fn c -> c == needle end)
+    end
+
+    test ":full store_binds yields exactly one /nix/store bind (backward-compat)" do
+      a = store_args(["--ro-bind", "/nix/store", "/nix/store"])
+      # the literal /nix/store->/nix/store bind appears exactly once
+      assert chunk_count(a, ["--ro-bind", "/nix/store", "/nix/store"]) == 1
+    end
+
+    test "closure store_binds splice per-path and never the blanket /nix/store bind" do
+      a =
+        store_args([
+          "--ro-bind",
+          "/nix/store/p1",
+          "/nix/store/p1",
+          "--ro-bind",
+          "/nix/store/p2",
+          "/nix/store/p2"
+        ])
+
+      assert chunk_count(a, ["--ro-bind", "/nix/store", "/nix/store"]) == 0
+      assert chunk_count(a, ["--ro-bind", "/nix/store/p1", "/nix/store/p1"]) == 1
+      assert chunk_count(a, ["--ro-bind", "/nix/store/p2", "/nix/store/p2"]) == 1
     end
   end
 
