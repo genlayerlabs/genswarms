@@ -1,7 +1,19 @@
 defmodule Genswarms.Backends.Bwrap.OverlayManagerTest do
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   alias Genswarms.Backends.Bwrap.OverlayManager
+
+  describe "ensure_store_path/1" do
+    test "accepts a /nix/store path" do
+      assert {:ok, "/nix/store/abc-sandbox-base"} =
+               OverlayManager.ensure_store_path("/nix/store/abc-sandbox-base")
+    end
+
+    test "rejects a non-store path (e.g. a {:custom,_} dir)" do
+      assert {:error, {:base_not_store_path, "/home/me/base"}} =
+               OverlayManager.ensure_store_path("/home/me/base")
+    end
+  end
 
   @moduletag :bwrap
 

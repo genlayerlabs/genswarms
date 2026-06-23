@@ -100,6 +100,23 @@ defmodule Genswarms.Backends.Bwrap.OverlayManager do
   end
 
   @doc """
+  Canonical /nix/store path of the base layer the overlay ACTUALLY mounts for `presets`
+  — resolved via the SAME `resolve_base_layer/1` that `setup_overlay/2` uses, so the
+  closure is computed against the exact lower layer (not the divergent `get_base_layer/1`).
+  `{:error, {:base_not_store_path, _}}` for a non-store ({:custom, dir}) base — :closure is
+  unsupported there (a non-store dir has no `nix-store` closure).
+  """
+  @spec base_store_path([atom()]) :: {:ok, String.t()} | {:error, term()}
+  def base_store_path(presets) do
+    with {:ok, base} <- resolve_base_layer(presets), do: ensure_store_path(base)
+  end
+
+  @doc false
+  @spec ensure_store_path(String.t()) :: {:ok, String.t()} | {:error, term()}
+  def ensure_store_path("/nix/store/" <> _ = path), do: {:ok, path}
+  def ensure_store_path(other), do: {:error, {:base_not_store_path, other}}
+
+  @doc """
   Checks if the swarm base directories exist.
   Returns true if the bwrap infrastructure is set up.
   """
