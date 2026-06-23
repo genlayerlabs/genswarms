@@ -44,4 +44,16 @@ defmodule Genswarms.Backends.Bwrap.StoreClosureTest do
                 "--ro-bind", "/nix/store/b", "/nix/store/b"]
     end
   end
+
+  describe "bind_args/4" do
+    test ":full emits exactly the single legacy store bind (backward-compat)" do
+      assert {:ok, ["--ro-bind", "/nix/store", "/nix/store"]} =
+               StoreClosure.bind_args(:full, [:base], "/x/subzeroclaw", %{})
+    end
+
+    test "unknown mode fails closed" do
+      assert {:error, {:unknown_store_mode, :weird}} =
+               StoreClosure.bind_args(:weird, [:base], "/x/subzeroclaw", %{})
+    end
+  end
 end
