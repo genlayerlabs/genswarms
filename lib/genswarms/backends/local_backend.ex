@@ -186,7 +186,11 @@ defmodule Genswarms.Backends.LocalBackend do
   end
 
   defp bare_model_extra(config) do
-    case Map.get(config, :model) || System.get_env("SUBZEROCLAW_MODEL") do
+    # ONLY a config-level :model is wrapped (back-compat). We do NOT read a
+    # SUBZEROCLAW_MODEL env fallback: it is the dead var, and reading it would
+    # clobber an inherited SUBZEROCLAW_REQUEST_EXTRA (the routing policy) with a
+    # bare {"model": ...}. No config model -> emit nothing, let the env policy pass.
+    case Map.get(config, :model) do
       nil -> nil
       model -> Jason.encode!(%{"model" => model})
     end

@@ -69,8 +69,10 @@ defmodule Genswarms.Backends.DockerBackend do
     # EndpointPolicy withholds the server-env API key from an untrusted/custom
     # endpoint (SSRF key-exfil guard, finding 28).
     {endpoint, api_key} = Genswarms.Backends.EndpointPolicy.resolve(config)
-    # Model can come from agent config, or fall back to environment
-    model = Map.get(config, :model) || System.get_env("SUBZEROCLAW_MODEL")
+    # Model comes from the agent config only. No SUBZEROCLAW_MODEL env fallback:
+    # it is the dead var, and it would clobber a SUBZEROCLAW_REQUEST_EXTRA routing
+    # policy with a bare {"model": ...}.
+    model = Map.get(config, :model)
 
     # Check if container already exists
     case check_container_state(container_name) do
