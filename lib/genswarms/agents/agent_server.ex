@@ -242,6 +242,10 @@ defmodule Genswarms.Agents.AgentServer do
     skills = Keyword.get(opts, :skills, [])
     model = Keyword.get(opts, :model)
     endpoint = Keyword.get(opts, :endpoint)
+    # routing + compaction JSON for the unhardcoded substrate (subzeroclaw reads
+    # them as SUBZEROCLAW_REQUEST_EXTRA / _COMPACT_EXTRA); model is back-compat.
+    request_extra = Keyword.get(opts, :request_extra)
+    compact_extra = Keyword.get(opts, :compact_extra)
     presets = Keyword.get(opts, :presets, [])
     agent_config = Keyword.get(opts, :config, %{})
     connections = Keyword.get(opts, :connections, [])
@@ -261,6 +265,8 @@ defmodule Genswarms.Agents.AgentServer do
       SwarmConfig.backend_config(backend)
       |> Map.merge(backend_overrides)
       |> maybe_put(:model, model)
+      |> maybe_put(:request_extra, request_extra)
+      |> maybe_put(:compact_extra, compact_extra)
       |> maybe_put(:endpoint, endpoint)
       |> maybe_put(:presets, presets)
       |> maybe_put(:connections, connections)

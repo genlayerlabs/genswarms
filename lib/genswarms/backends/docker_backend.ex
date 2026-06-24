@@ -513,6 +513,16 @@ defmodule Genswarms.Backends.DockerBackend do
   defp normalize_container_cmd(cmd, _config) when is_list(cmd), do: Enum.map(cmd, &to_string/1)
   defp normalize_container_cmd(cmd, _config) when is_binary(cmd), do: ["sh", "-c", cmd]
 
+  # Accept request_extra/compact_extra as a JSON string or an Elixir map.
+  defp config_json(config, key) do
+    case Map.get(config, key) do
+      nil -> nil
+      v when is_binary(v) -> v
+      v when is_map(v) -> Jason.encode!(v)
+      _ -> nil
+    end
+  end
+
   defp build_env_args(api_key, model, endpoint, agent_name, config) do
     # Values are passed as literal argv elements ("-e", "KEY=VALUE"); docker does
     # not run them through a shell, so no quoting/escaping is needed or wanted.
@@ -521,7 +531,15 @@ defmodule Genswarms.Backends.DockerBackend do
     ]
 
     envs = if api_key, do: envs ++ [{"-e", "SUBZEROCLAW_API_KEY=#{api_key}"}], else: envs
-    envs = if model, do: envs ++ [{"-e", "SUBZEROCLAW_MODEL=#{model}"}], else: envs
+
+    # subzeroclaw no longer reads SUBZEROCLAW_MODEL — the model + routing policy
+    # ride in SUBZEROCLAW_REQUEST_EXTRA (a bare model is wrapped for back-compat);
+    # the compaction policy in SUBZEROCLAW_COMPACT_EXTRA.
+    request_extra = config_json(config, :request_extra) || (model && Jason.encode!(%{"model" => model}))
+    envs = if request_extra, do: envs ++ [{"-e", "SUBZEROCLAW_REQUEST_EXTRA=#{request_extra}"}], else: envs
+    compact_extra = config_json(config, :compact_extra)
+    envs = if compact_extra, do: envs ++ [{"-e", "SUBZEROCLAW_COMPACT_EXTRA=#{compact_extra}"}], else: envs
+
     envs = if endpoint, do: envs ++ [{"-e", "SUBZEROCLAW_ENDPOINT=#{endpoint}"}], else: envs
 
     # Isolation: route the agent's curl through the bind-mounted LLM socket.

@@ -18,8 +18,9 @@ defmodule Genswarms.Backends.DockerBackendTest do
       evil = "x'; touch /tmp/pwned #"
       args = DockerBackend.build_docker_args("c", "i", nil, "sk-secret", evil, nil, "a", %{})
 
-      # the whole malicious value is ONE element, verbatim (quote preserved, not interpreted)
-      assert "SUBZEROCLAW_MODEL=#{evil}" in args
+      # the model now rides inside SUBZEROCLAW_REQUEST_EXTRA as JSON, still ONE
+      # argv element, verbatim (quote preserved, not interpreted)
+      assert ~s(SUBZEROCLAW_REQUEST_EXTRA={"model":"#{evil}"}) in args
       assert "SUBZEROCLAW_API_KEY=sk-secret" in args
       # it did not break out into separate tokens
       refute "touch" in args
