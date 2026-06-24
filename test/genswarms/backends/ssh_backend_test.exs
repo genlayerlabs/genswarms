@@ -8,7 +8,7 @@ defmodule Genswarms.Backends.SSHBackendTest do
   # Clear the SUBZEROCLAW_* env fallbacks so "only when configured" assertions are
   # deterministic regardless of the host environment (e.g. a loaded .env).
   setup do
-    vars = ~w(SUBZEROCLAW_API_KEY SUBZEROCLAW_MODEL SUBZEROCLAW_ENDPOINT)
+    vars = ~w(SUBZEROCLAW_API_KEY SUBZEROCLAW_ENDPOINT)
     saved = Map.new(vars, fn v -> {v, System.get_env(v)} end)
     Enum.each(vars, &System.delete_env/1)
 
@@ -98,7 +98,7 @@ defmodule Genswarms.Backends.SSHBackendTest do
     test "optional env vars are included only when set" do
       base = SSHBackend.build_remote_command("a", "szc", @skills, "u", %{nixos: false})
       refute base =~ "SUBZEROCLAW_API_KEY"
-      refute base =~ "SUBZEROCLAW_MODEL"
+      refute base =~ "SUBZEROCLAW_REQUEST_EXTRA"
       refute base =~ "SUBZEROCLAW_ENDPOINT"
 
       full =
@@ -110,7 +110,8 @@ defmodule Genswarms.Backends.SSHBackendTest do
         })
 
       assert full =~ "SUBZEROCLAW_API_KEY='sk-123'"
-      assert full =~ "SUBZEROCLAW_MODEL='claude'"
+      # the model now rides inside SUBZEROCLAW_REQUEST_EXTRA as JSON
+      assert full =~ ~s(SUBZEROCLAW_REQUEST_EXTRA='{"model":"claude"}')
       assert full =~ "SUBZEROCLAW_ENDPOINT='https://api'"
     end
 
@@ -129,7 +130,8 @@ defmodule Genswarms.Backends.SSHBackendTest do
       # quotes the shell treats ; & $() `` as literal text.
       assert cmd =~ "SUBZEROCLAW_AGENT_NAME='#{payload}'"
       assert cmd =~ "SUBZEROCLAW_API_KEY='#{payload}'"
-      assert cmd =~ "SUBZEROCLAW_MODEL='#{payload}'"
+      # the model is wrapped in REQUEST_EXTRA JSON, then single-quoted as one span
+      assert cmd =~ "SUBZEROCLAW_REQUEST_EXTRA='#{Jason.encode!(%{"model" => payload})}'"
       assert cmd =~ "SUBZEROCLAW_ENDPOINT='#{payload}'"
       assert cmd =~ "sudo -u '#{payload}'"
     end
@@ -179,7 +181,8 @@ defmodule Genswarms.Backends.SSHBackendTest do
 
       {out, 0} = System.cmd("/bin/sh", ["-c", cmd], stderr_to_stdout: true)
 
-      assert out =~ "SUBZEROCLAW_MODEL=" <> payload
+      # delivered intact inside the REQUEST_EXTRA JSON value
+      assert out =~ "SUBZEROCLAW_REQUEST_EXTRA=" <> Jason.encode!(%{"model" => payload})
     end
   end
 end

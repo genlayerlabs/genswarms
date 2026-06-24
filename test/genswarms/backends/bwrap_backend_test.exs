@@ -220,12 +220,15 @@ defmodule Genswarms.Backends.BwrapBackendTest do
       assert Enum.count(args, &(&1 == payload)) == 1
     end
 
-    test "malicious model stays a single literal argv element" do
+    test "malicious model stays a single literal argv element (wrapped in REQUEST_EXTRA)" do
       payload = "claude; rm -rf / #"
       args = args_for(config: %{model: payload})
 
-      assert payload in args
-      assert_flag_value(args, "SUBZEROCLAW_MODEL", payload)
+      # The model now rides inside SUBZEROCLAW_REQUEST_EXTRA as JSON, still ONE
+      # argv element, verbatim (metacharacters preserved, never interpreted).
+      json = Jason.encode!(%{"model" => payload})
+      assert json in args
+      assert_flag_value(args, "SUBZEROCLAW_REQUEST_EXTRA", json)
     end
 
     test "malicious api_key stays a single literal argv element" do
@@ -271,11 +274,15 @@ defmodule Genswarms.Backends.BwrapBackendTest do
           config: %{model: payload, api_key: payload, extra_env: %{"K" => payload}}
         )
 
-      # Every element that mentions the payload must BE exactly the payload,
-      # never the payload concatenated with neighbouring tokens.
+      # Every element that mentions the payload must BE exactly the payload, or
+      # the model wrapped as the SUBZEROCLAW_REQUEST_EXTRA JSON value — both are
+      # single argv elements passed verbatim to execvp (never a shell string),
+      # so neither concatenates the payload with neighbouring tokens.
+      json_model = Jason.encode!(%{"model" => payload})
+
       offenders =
         Enum.filter(args, fn el ->
-          String.contains?(el, "INJECT") and el != payload
+          String.contains?(el, "INJECT") and el != payload and el != json_model
         end)
 
       assert offenders == [], "payload leaked into composite arg(s): #{inspect(offenders)}"
