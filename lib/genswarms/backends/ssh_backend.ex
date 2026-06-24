@@ -376,14 +376,21 @@ defmodule Genswarms.Backends.SSHBackend do
     # EndpointPolicy withholds the server-env API key from an untrusted/custom
     # endpoint (SSRF key-exfil guard, #30).
     {endpoint, api_key} = Genswarms.Backends.EndpointPolicy.resolve(config)
-    model = Map.get(config, :model) || System.get_env("SUBZEROCLAW_MODEL")
+    # Model + routing policy ride in SUBZEROCLAW_REQUEST_EXTRA (bare model wrapped
+    # for back-compat); the compaction policy in SUBZEROCLAW_COMPACT_EXTRA. No
+    # SUBZEROCLAW_MODEL env fallback: it is the dead var, and it would clobber an
+    # inherited SUBZEROCLAW_REQUEST_EXTRA routing policy with a bare {"model": ...}.
+    model = Map.get(config, :model)
+    request_extra = config_json(config, :request_extra) || (model && Jason.encode!(%{"model" => model}))
+    compact_extra = config_json(config, :compact_extra)
 
     env_vars =
       [
         {"SUBZEROCLAW_AGENT_NAME", name},
         {"SUBZEROCLAW_SKILLS", remote_skills_dir},
         {"SUBZEROCLAW_API_KEY", api_key},
-        {"SUBZEROCLAW_MODEL", model},
+        {"SUBZEROCLAW_REQUEST_EXTRA", request_extra},
+        {"SUBZEROCLAW_COMPACT_EXTRA", compact_extra},
         {"SUBZEROCLAW_ENDPOINT", endpoint}
       ]
       |> Enum.filter(fn {_k, v} -> v != nil end)
@@ -404,6 +411,16 @@ defmodule Genswarms.Backends.SSHBackend do
   # replace every embedded single quote with the '\'' sequence. The result is a
   # single shell word that reproduces the input verbatim, with no metacharacter
   # left active.
+  # Accept request_extra/compact_extra as a JSON string or an Elixir map.
+  defp config_json(config, key) do
+    case Map.get(config, key) do
+      nil -> nil
+      v when is_binary(v) -> v
+      v when is_map(v) -> Jason.encode!(v)
+      _ -> nil
+    end
+  end
+
   defp shell_escape(value) do
     escaped = value |> to_string() |> String.replace("'", "'\\''")
     "'" <> escaped <> "'"
