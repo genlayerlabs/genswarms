@@ -178,6 +178,7 @@
           # Bwrap sandbox base environments (for 10k+ agent scale)
           # These are symlinked to /run/swarm/sandbox-base/ by the NixOS module
           sandboxBase-base = sandboxLib.base;
+          sandboxBase-base-hardened = sandboxLib.base-hardened;
           sandboxBase-web = sandboxLib.web;
           sandboxBase-code = sandboxLib.code;
           sandboxBase-data = sandboxLib.data;
