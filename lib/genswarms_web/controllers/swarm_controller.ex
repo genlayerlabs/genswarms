@@ -7,6 +7,7 @@ defmodule GenswarmsWeb.SwarmController do
 
   alias Genswarms.SwarmManager
   alias Genswarms.Agents.{AgentSupervisor, AgentServer}
+  alias Genswarms.Config.SwarmConfig
   alias Genswarms.Objects.{ObjectSupervisor, ObjectServer}
   alias Genswarms.Routing.Router
   alias Genswarms.CLI.SwarmRegistry
@@ -1154,7 +1155,7 @@ defmodule GenswarmsWeb.SwarmController do
       model: params["model"],
       endpoint: params["endpoint"],
       presets: (params["presets"] || []) |> Enum.map(&safe_atom/1),
-      config: atomize_known_backend_opts(params["config"] || %{})
+      config: SwarmConfig.atomize_known_backend_opts(params["config"] || %{})
     }
   end
 
@@ -1172,7 +1173,7 @@ defmodule GenswarmsWeb.SwarmController do
 
   defp parse_backend(%{"type" => "apple_container", "image" => img, "opts" => opts})
        when is_map(opts),
-       do: {:apple_container, img, atomize_known_backend_opts(opts)}
+       do: {:apple_container, img, SwarmConfig.atomize_known_backend_opts(opts)}
 
   defp parse_backend(%{"type" => "apple_container", "image" => img}),
     do: {:apple_container, img}
@@ -1183,19 +1184,6 @@ defmodule GenswarmsWeb.SwarmController do
   defp parse_backend(%{"type" => "bwrap", "opts" => opts}), do: {:bwrap, opts}
   defp parse_backend(%{"type" => t}), do: safe_atom(t)
   defp parse_backend(other), do: other
-
-  @backend_opt_keys ~w(container_name workspace env volumes cmd memory_limit cpu_limit
-                       memory_swap pids_limit max_turns network subzeroclaw_src
-                       request_extra compact_extra endpoint)a
-
-  defp atomize_known_backend_opts(opts) do
-    key_map = Map.new(@backend_opt_keys, fn atom -> {Atom.to_string(atom), atom} end)
-
-    Map.new(opts, fn
-      {key, value} when is_binary(key) -> {Map.get(key_map, key, key), value}
-      other -> other
-    end)
-  end
 
   defp safe_atom(nil), do: nil
   defp safe_atom(a) when is_atom(a), do: a

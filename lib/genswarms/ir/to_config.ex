@@ -13,6 +13,7 @@ defmodule Genswarms.IR.ToConfig do
       handler {ref: "module:<Mod>"}                           -> the module atom
   """
 
+  alias Genswarms.Config.SwarmConfig
   alias Genswarms.IR.State.{Agent, Object}
 
   @doc "IR agent -> runtime agent spec map."
@@ -47,22 +48,9 @@ defmodule Genswarms.IR.ToConfig do
        do: {:apple_container, image}
 
   defp backend(%{scheme: "apple_container", image: image, opts: opts}),
-    do: {:apple_container, image, atomize_known_backend_opts(opts)}
+    do: {:apple_container, image, SwarmConfig.atomize_known_backend_opts(opts)}
 
   defp backend(%{scheme: "ssh", host: host}), do: {:ssh, host}
-
-  @backend_opt_keys ~w(container_name workspace env volumes cmd memory_limit cpu_limit
-                       memory_swap pids_limit max_turns network subzeroclaw_src
-                       request_extra compact_extra endpoint)a
-
-  defp atomize_known_backend_opts(opts) do
-    key_map = Map.new(@backend_opt_keys, fn atom -> {Atom.to_string(atom), atom} end)
-
-    Map.new(opts, fn
-      {key, value} when is_binary(key) -> {Map.get(key_map, key, key), value}
-      other -> other
-    end)
-  end
 
   # ── model ────────────────────────────────────────────────────────────────────
 

@@ -146,6 +146,12 @@ defmodule Genswarms.Config.SwarmConfig do
                   netcat httpie docker podman kubectl gh glab miller csvkit xsv
                   ffmpeg imagemagick pytest ruff mypy black flake8 pip poetry uv)a
 
+  @backend_config_keys ~w(workspace extra_path extra_ro_binds extra_rw_binds extra_env
+                          memory_limit cpu_shares tasks_max subzeroclaw_path presets network
+                          max_turns store extra_store_paths env volumes cmd container_name
+                          subzeroclaw_src cpu_limit memory_swap pids_limit request_extra
+                          compact_extra endpoint api_key model)a
+
   @type topology_edge :: {atom(), atom()}
 
   @type t :: %__MODULE__{
@@ -239,6 +245,25 @@ defmodule Genswarms.Config.SwarmConfig do
   def backend_config({:mock, opts}), do: opts
   def backend_config({:ssh, host}), do: %{host: host}
   def backend_config({:ssh, host, opts}), do: Map.merge(%{host: host}, opts)
+
+  @doc """
+  Backend-specific keys that should be split out of an agent's domain config.
+  """
+  @spec backend_config_keys() :: [atom()]
+  def backend_config_keys, do: @backend_config_keys
+
+  @doc """
+  Atomizes only known backend option keys, leaving domain keys as strings.
+  """
+  @spec atomize_known_backend_opts(map()) :: map()
+  def atomize_known_backend_opts(opts) when is_map(opts) do
+    key_map = Map.new(@backend_config_keys, fn atom -> {Atom.to_string(atom), atom} end)
+
+    Map.new(opts, fn
+      {key, value} when is_binary(key) -> {Map.get(key_map, key, key), value}
+      other -> other
+    end)
+  end
 
   # Private validation functions
 

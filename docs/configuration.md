@@ -124,6 +124,8 @@ The shared/backend-specific keys are:
 | `tasks_max` | integer | `50` | Max number of tasks/processes. |
 | `subzeroclaw_path` | string | resolved | Explicit path to the `subzeroclaw` binary. |
 | `subzeroclaw_src` | string | resolved | Source directory mounted into Docker/Apple containers for in-container build. |
+| `api_key` / `model` / `endpoint` | string | env/provider defaults | LLM settings passed through to real backends. Prefer top-level `model` / `endpoint` for normal configs. |
+| `request_extra` / `compact_extra` | JSON string or map | none | Advanced subzeroclaw request/compaction routing payloads. |
 | `presets` | list of atoms | `[:base]` | The same agent-level `presets` key (above), forwarded to the sandbox. The bwrap backend falls back to `[:base]` when none are given. |
 | `network` | `:open` \| `:isolated` \| string | `:open` | `:isolated` cuts Docker/bwrap network to a single forwarder pinned to the LLM endpoint. Apple container rejects `:isolated` / `"isolated"` and fails closed. See [Security › network isolation](security.md#agent-network-isolation). |
 
