@@ -130,6 +130,16 @@ defmodule Genswarms.Backends.AppleContainerBackendTest do
       assert AppleContainerBackend.determine_image(%{container_name: "szc-agent-code:latest"}) ==
                "szc-agent-code:latest"
     end
+
+    test "matches full and devops preset combinations after sorting" do
+      assert AppleContainerBackend.determine_image(%{
+               presets: [:base, :web, :code, :data, :python, :node]
+             }) == "szc-agent-full:latest"
+
+      assert AppleContainerBackend.determine_image(%{
+               presets: [:base, :code, :containers, :cloud]
+             }) == "szc-agent-devops:latest"
+    end
   end
 
   describe "resource caps" do

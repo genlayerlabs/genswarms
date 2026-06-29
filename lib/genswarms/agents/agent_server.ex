@@ -646,7 +646,7 @@ defmodule Genswarms.Agents.AgentServer do
   end
 
   def handle_call(:shutdown_backend, _from, state) do
-    {:reply, :ok, stop_backend(state)}
+    {:reply, :ok, state |> stop_backend() |> Map.put(:state, :stopped)}
   end
 
   @impl true
@@ -1151,6 +1151,8 @@ defmodule Genswarms.Agents.AgentServer do
   defp send_to_backend(%{backend_ref: %{port: port}}, message) do
     Port.command(port, message <> "\n")
   end
+
+  defp send_to_backend(%{backend_ref: nil}, _message), do: {:error, :backend_stopped}
 
   defp send_to_backend(%{backend_module: module, backend_ref: ref}, message) do
     module.send_input(ref, message)

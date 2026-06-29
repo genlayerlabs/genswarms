@@ -20,6 +20,10 @@ defmodule Genswarms.Agents.AgentServerBackendShutdownTest do
     assert {:reply, :ok, new_state} = AgentServer.handle_call(:shutdown_backend, self(), state)
     assert_receive :backend_stopped
     assert new_state.backend_ref == nil
+    assert new_state.state == :stopped
+
+    assert {:reply, {:error, :agent_stopped}, ^new_state} =
+             AgentServer.handle_call({:send_task, "late task"}, self(), new_state)
 
     assert {:reply, :ok, ^new_state} =
              AgentServer.handle_call(:shutdown_backend, self(), new_state)

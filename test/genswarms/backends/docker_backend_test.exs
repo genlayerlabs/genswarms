@@ -82,6 +82,18 @@ defmodule Genswarms.Backends.DockerBackendTest do
     end
   end
 
+  describe "determine_image/1" do
+    test "matches full and devops preset combinations after sorting" do
+      assert DockerBackend.determine_image(%{
+               presets: [:base, :web, :code, :data, :python, :node]
+             }) == "szc-agent-full:latest"
+
+      assert DockerBackend.determine_image(%{
+               presets: [:base, :code, :containers, :cloud]
+             }) == "szc-agent-devops:latest"
+    end
+  end
+
   describe "resource caps (build_resource_args passthrough)" do
     test "no caps configured emits none of the resource flags" do
       args = build(%{})

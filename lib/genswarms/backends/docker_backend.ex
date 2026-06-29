@@ -54,8 +54,8 @@ defmodule Genswarms.Backends.DockerBackend do
     [:base, :data] => "szc-agent-data:latest",
     [:base, :python] => "szc-agent-python:latest",
     [:base, :node] => "szc-agent-node:latest",
-    [:base, :web, :code, :data, :python, :node] => "szc-agent-full:latest",
-    [:base, :code, :containers, :cloud] => "szc-agent-devops:latest"
+    [:base, :code, :data, :node, :python, :web] => "szc-agent-full:latest",
+    [:base, :cloud, :code, :containers] => "szc-agent-devops:latest"
   }
 
   @impl true
@@ -350,7 +350,8 @@ defmodule Genswarms.Backends.DockerBackend do
     end
   end
 
-  defp determine_image(config) do
+  @doc false
+  def determine_image(config) do
     cond do
       # Explicit image specified (as :image or :container from backend_config)
       Map.has_key?(config, :image) ->
@@ -537,10 +538,20 @@ defmodule Genswarms.Backends.DockerBackend do
     # subzeroclaw no longer reads SUBZEROCLAW_MODEL — the model + routing policy
     # ride in SUBZEROCLAW_REQUEST_EXTRA (a bare model is wrapped for back-compat);
     # the compaction policy in SUBZEROCLAW_COMPACT_EXTRA.
-    request_extra = config_json(config, :request_extra) || (model && Jason.encode!(%{"model" => model}))
-    envs = if request_extra, do: envs ++ [{"-e", "SUBZEROCLAW_REQUEST_EXTRA=#{request_extra}"}], else: envs
+    request_extra =
+      config_json(config, :request_extra) || (model && Jason.encode!(%{"model" => model}))
+
+    envs =
+      if request_extra,
+        do: envs ++ [{"-e", "SUBZEROCLAW_REQUEST_EXTRA=#{request_extra}"}],
+        else: envs
+
     compact_extra = config_json(config, :compact_extra)
-    envs = if compact_extra, do: envs ++ [{"-e", "SUBZEROCLAW_COMPACT_EXTRA=#{compact_extra}"}], else: envs
+
+    envs =
+      if compact_extra,
+        do: envs ++ [{"-e", "SUBZEROCLAW_COMPACT_EXTRA=#{compact_extra}"}],
+        else: envs
 
     envs = if endpoint, do: envs ++ [{"-e", "SUBZEROCLAW_ENDPOINT=#{endpoint}"}], else: envs
 

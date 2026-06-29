@@ -32,8 +32,8 @@ defmodule Genswarms.Backends.AppleContainerBackend do
     [:base, :data] => "szc-agent-data:latest",
     [:base, :python] => "szc-agent-python:latest",
     [:base, :node] => "szc-agent-node:latest",
-    [:base, :web, :code, :data, :python, :node] => "szc-agent-full:latest",
-    [:base, :code, :containers, :cloud] => "szc-agent-devops:latest"
+    [:base, :code, :data, :node, :python, :web] => "szc-agent-full:latest",
+    [:base, :cloud, :code, :containers] => "szc-agent-devops:latest"
   }
 
   @impl true
