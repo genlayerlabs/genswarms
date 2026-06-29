@@ -131,7 +131,7 @@ defmodule Genswarms.Agents.TurnBoundsTest do
       args =
         DockerBackend.build_docker_args("c1", "img", nil, nil, nil, nil, "a1", %{max_turns: 16})
 
-      script = List.last(args)
+      script = shell_script(args)
 
       assert script =~ ~s(echo "max_turns = 16" >> /root/.subzeroclaw/config)
     end
@@ -139,10 +139,18 @@ defmodule Genswarms.Agents.TurnBoundsTest do
     test "docker bootstrap is unchanged without max_turns (and rejects non-integers)" do
       for config <- [%{}, %{max_turns: "16; evil"}, %{max_turns: 0}] do
         args = DockerBackend.build_docker_args("c1", "img", nil, nil, nil, nil, "a1", config)
-        script = List.last(args)
+        script = shell_script(args)
         refute script =~ "max_turns"
       end
     end
   end
 
+  defp shell_script(args) do
+    args
+    |> Enum.chunk_every(3, 1, :discard)
+    |> Enum.find_value(fn
+      ["sh", "-c", script] -> script
+      _ -> nil
+    end)
+  end
 end

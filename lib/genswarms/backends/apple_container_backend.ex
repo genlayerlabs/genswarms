@@ -218,11 +218,11 @@ defmodule Genswarms.Backends.AppleContainerBackend do
         config
       ) do
     with {:ok, network_args} <- build_network_args(config) do
-      base_args = ["run", "-i", "--rm", "--name", to_string(container_name)]
+      base_args = ["run", "--progress", "none", "-i", "--rm", "--name", to_string(container_name)]
       env_args = build_env_args(api_key, model, endpoint, agent_name, config)
       volume_args = build_volume_args(skills_dir, config)
       resource_args = build_resource_args(config)
-      container_cmd = normalize_container_cmd(Map.get(config, :cmd), config)
+      container_cmd = normalize_container_cmd(Map.get(config, :cmd), agent_name, config)
 
       {:ok,
        base_args ++
@@ -387,7 +387,7 @@ defmodule Genswarms.Backends.AppleContainerBackend do
     Application.get_env(:genswarms, :project_root, ".")
   end
 
-  defp default_container_cmd(config) do
+  defp default_container_cmd(agent_name, config) do
     budget =
       case Map.get(config, :max_turns) do
         n when is_integer(n) and n > 0 ->
@@ -405,13 +405,20 @@ defmodule Genswarms.Backends.AppleContainerBackend do
     [
       "sh",
       "-c",
-      "export HOME=/root && mkdir -p /root/.subzeroclaw /root/build && echo \"skills_dir = /skills\" > /root/.subzeroclaw/config#{budget} && cp -r /src/subzeroclaw/* /root/build/ && cd /root/build && make -s 2>/dev/null && exec ./subzeroclaw"
+      "export HOME=/root && mkdir -p /root/.subzeroclaw /root/build && echo \"skills_dir = /skills\" > /root/.subzeroclaw/config#{budget} && cp -r /src/subzeroclaw/* /root/build/ && cd /root/build && make -s 2>/dev/null && exec bash /src/genswarms-priv/szc-wrapper-fifo.sh \"$1\" /root/build/subzeroclaw /skills",
+      "szc-wrapper",
+      to_string(agent_name)
     ]
   end
 
-  defp normalize_container_cmd(nil, config), do: default_container_cmd(config)
-  defp normalize_container_cmd(cmd, _config) when is_list(cmd), do: Enum.map(cmd, &to_string/1)
-  defp normalize_container_cmd(cmd, _config) when is_binary(cmd), do: ["sh", "-c", cmd]
+  defp normalize_container_cmd(nil, agent_name, config),
+    do: default_container_cmd(agent_name, config)
+
+  defp normalize_container_cmd(cmd, _agent_name, _config) when is_list(cmd),
+    do: Enum.map(cmd, &to_string/1)
+
+  defp normalize_container_cmd(cmd, _agent_name, _config) when is_binary(cmd),
+    do: ["sh", "-c", cmd]
 
   defp config_json(config, key) do
     case Map.get(config, key) do
@@ -503,6 +510,16 @@ defmodule Genswarms.Backends.AppleContainerBackend do
 
     volumes = volumes ++ ["--volume", "/tmp:/tmp"]
 
+    priv_dir = genswarms_priv_dir()
+
+    volumes =
+      if File.dir?(priv_dir) do
+        volumes ++ readonly_mount(priv_dir, "/src/genswarms-priv")
+      else
+        Logger.warning("genswarms priv directory not found at #{inspect(priv_dir)}")
+        volumes
+      end
+
     subzeroclaw_src =
       Map.get(config, :subzeroclaw_src) ||
         Application.get_env(:genswarms, :subzeroclaw_src) ||
@@ -527,6 +544,13 @@ defmodule Genswarms.Backends.AppleContainerBackend do
 
   defp readonly_mount(host, container) do
     ["--mount", "type=bind,source=#{Path.expand(host)},target=#{container},readonly"]
+  end
+
+  defp genswarms_priv_dir do
+    case :code.priv_dir(:genswarms) do
+      {:error, _} -> Path.expand("priv", File.cwd!())
+      path -> List.to_string(path)
+    end
   end
 
   defp find_subzeroclaw_source do

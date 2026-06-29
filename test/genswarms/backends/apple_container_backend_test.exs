@@ -25,6 +25,7 @@ defmodule Genswarms.Backends.AppleContainerBackendTest do
 
       assert is_list(args)
       assert Enum.all?(args, &is_binary/1)
+      assert ["--progress", "none" | _] = drop_until(args, "--progress")
       assert ["--name", "szc-s-a" | _] = drop_until(args, "--name")
     end
 
@@ -49,7 +50,7 @@ defmodule Genswarms.Backends.AppleContainerBackendTest do
       refute "/tmp/pwned" in args
     end
 
-    test "default container command is argv ['sh','-c',script] inside the container" do
+    test "default container command runs the FIFO protocol wrapper inside the container" do
       assert {:ok, args} =
                AppleContainerBackend.build_apple_container_args(
                  "c",
@@ -62,8 +63,15 @@ defmodule Genswarms.Backends.AppleContainerBackendTest do
                  %{}
                )
 
-      assert ["sh", "-c", script] = Enum.take(args, -3)
-      assert script =~ "subzeroclaw"
+      assert Enum.any?(
+               args,
+               &String.ends_with?(&1, ",target=/src/genswarms-priv,readonly")
+             )
+
+      assert ["sh", "-c", script, "szc-wrapper", "a"] = Enum.take(args, -5)
+      assert script =~ "/src/genswarms-priv/szc-wrapper-fifo.sh \"$1\""
+      assert script =~ "/root/build/subzeroclaw /skills"
+      refute script =~ " a "
     end
 
     test "a string :cmd is wrapped as sh -c; a list :cmd is used as argv" do

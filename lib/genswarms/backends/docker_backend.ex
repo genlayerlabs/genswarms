@@ -449,7 +449,7 @@ defmodule Genswarms.Backends.DockerBackend do
   # (the harness's per-turn step budget, genswarms#53 G3) is appended to the
   # harness config; the value is integer-guarded so nothing non-numeric can ever
   # reach this shell string.
-  defp default_container_cmd(config) do
+  defp default_container_cmd(agent_name, config) do
     budget =
       case Map.get(config, :max_turns) do
         n when is_integer(n) and n > 0 ->
@@ -471,7 +471,9 @@ defmodule Genswarms.Backends.DockerBackend do
     [
       "sh",
       "-c",
-      "export HOME=/root && mkdir -p /root/.subzeroclaw /root/build && echo \"skills_dir = /skills\" > /root/.subzeroclaw/config#{budget} && cp -r /src/subzeroclaw/* /root/build/ && cd /root/build && make -s 2>/dev/null && exec ./subzeroclaw"
+      "export HOME=/root && mkdir -p /root/.subzeroclaw /root/build && echo \"skills_dir = /skills\" > /root/.subzeroclaw/config#{budget} && cp -r /src/subzeroclaw/* /root/build/ && cd /root/build && make -s 2>/dev/null && exec bash /src/genswarms-priv/szc-wrapper-fifo.sh \"$1\" /root/build/subzeroclaw /skills",
+      "szc-wrapper",
+      to_string(agent_name)
     ]
   end
 
@@ -493,7 +495,7 @@ defmodule Genswarms.Backends.DockerBackend do
     volume_args = build_volume_args(skills_dir, config)
     network_args = build_network_args(config)
     resource_args = build_resource_args(config)
-    container_cmd = normalize_container_cmd(Map.get(config, :cmd), config)
+    container_cmd = normalize_container_cmd(Map.get(config, :cmd), agent_name, config)
 
     # Isolation: mount the shared egress volume so the agent reaches the sidecar
     # socat over /egress/llm.sock (its only path out, since --network none).
@@ -512,9 +514,14 @@ defmodule Genswarms.Backends.DockerBackend do
   # bare string is wrapped as `sh -c <string>` (container shell, host-safe).
   # Only the DEFAULT bootstrap honors :max_turns — a custom cmd owns its own
   # harness setup.
-  defp normalize_container_cmd(nil, config), do: default_container_cmd(config)
-  defp normalize_container_cmd(cmd, _config) when is_list(cmd), do: Enum.map(cmd, &to_string/1)
-  defp normalize_container_cmd(cmd, _config) when is_binary(cmd), do: ["sh", "-c", cmd]
+  defp normalize_container_cmd(nil, agent_name, config),
+    do: default_container_cmd(agent_name, config)
+
+  defp normalize_container_cmd(cmd, _agent_name, _config) when is_list(cmd),
+    do: Enum.map(cmd, &to_string/1)
+
+  defp normalize_container_cmd(cmd, _agent_name, _config) when is_binary(cmd),
+    do: ["sh", "-c", cmd]
 
   # Accept request_extra/compact_extra as a JSON string or an Elixir map.
   defp config_json(config, key) do
@@ -640,6 +647,16 @@ defmodule Genswarms.Backends.DockerBackend do
     # Mount /tmp for nix-shell and other tools that need temp space
     volumes = volumes ++ ["-v", "/tmp:/tmp"]
 
+    priv_dir = genswarms_priv_dir()
+
+    volumes =
+      if File.dir?(priv_dir) do
+        volumes ++ ["-v", "#{priv_dir}:/src/genswarms-priv:ro"]
+      else
+        Logger.warning("genswarms priv directory not found at #{inspect(priv_dir)}")
+        volumes
+      end
+
     # Note: swarm-msg is baked into szc-agent-* containers via nix/container.nix
 
     # Mount subzeroclaw source directory for in-container compilation
@@ -662,6 +679,13 @@ defmodule Genswarms.Backends.DockerBackend do
       |> Enum.flat_map(fn {host, container} -> ["-v", "#{Path.expand(host)}:#{container}"] end)
 
     volumes ++ additional_volumes
+  end
+
+  defp genswarms_priv_dir do
+    case :code.priv_dir(:genswarms) do
+      {:error, _} -> Path.expand("priv", File.cwd!())
+      path -> List.to_string(path)
+    end
   end
 
   defp find_subzeroclaw_source do
