@@ -44,6 +44,20 @@ defmodule Genswarms.IR.RefTest do
       assert ref.host == "pi@192.168.1.50"
     end
 
+    test "parses an Apple container backend ref carrying image metadata" do
+      {:ok, ref} =
+        Ref.parse(%{
+          "ref" => "apple_container",
+          "image" => "szc-agent-base:latest",
+          "opts" => %{"memory_limit" => "2g"}
+        })
+
+      assert ref.scheme == "apple_container"
+      assert ref.image == "szc-agent-base:latest"
+      assert ref.opts == %{"memory_limit" => "2g"}
+      assert ref.kind == nil
+    end
+
     test "parses a handler ref as kind code" do
       {:ok, ref} =
         Ref.parse(%{
@@ -90,6 +104,7 @@ defmodule Genswarms.IR.RefTest do
     test "extracts the scheme" do
       assert Ref.scheme("swarmidx:jmlago/coder@0.4.0") == {:ok, "swarmidx"}
       assert Ref.scheme("oci:img") == {:ok, "oci"}
+      assert Ref.scheme("apple_container") == {:ok, "apple_container"}
     end
 
     test "rejects malformed ref strings" do
@@ -98,11 +113,12 @@ defmodule Genswarms.IR.RefTest do
       assert Ref.scheme("swarmidx:") == {:error, :invalid_ref_string}
     end
 
-    test "swarmidx and oci are content-addressable; openrouter and ssh are not" do
+    test "swarmidx and oci are content-addressable; openrouter, ssh, and apple_container are not" do
       assert Ref.content_addressable?("swarmidx")
       assert Ref.content_addressable?("oci")
       refute Ref.content_addressable?("openrouter")
       refute Ref.content_addressable?("ssh")
+      refute Ref.content_addressable?("apple_container")
     end
   end
 

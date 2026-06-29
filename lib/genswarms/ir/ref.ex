@@ -22,7 +22,7 @@ defmodule Genswarms.IR.Ref do
   """
 
   @enforce_keys [:ref, :scheme, :kind]
-  defstruct [:ref, :scheme, :digest, :kind, :attested, :host]
+  defstruct [:ref, :scheme, :digest, :kind, :attested, :host, :image, opts: %{}]
 
   @type kind :: :data | :code | nil
   @type t :: %__MODULE__{
@@ -31,7 +31,9 @@ defmodule Genswarms.IR.Ref do
           digest: String.t() | nil,
           kind: kind(),
           attested: boolean(),
-          host: String.t() | nil
+          host: String.t() | nil,
+          image: String.t() | nil,
+          opts: map()
         }
 
   # Schemes whose content is addressed by a reproducible digest (§2.1).
@@ -40,8 +42,9 @@ defmodule Genswarms.IR.Ref do
   @host_required ~w(ssh)
   # Schemes that may appear bare (no `:body`): connection-style (`ssh`/`host`,
   # §3.7) and the local execution backends a translated config produces
-  # (`local`/`bwrap`/`mock`) — non-package `<other>` schemes per §2.1.
-  @bare_schemes ~w(ssh host local bwrap mock)
+  # (`local`/`bwrap`/`mock`/`apple_container`) — non-package `<other>` schemes
+  # per §2.1.
+  @bare_schemes ~w(ssh host local bwrap mock apple_container)
 
   @doc """
   Parses a JSON-decoded ref map (string keys) into a validated `t`.
@@ -56,6 +59,8 @@ defmodule Genswarms.IR.Ref do
          {:ok, scheme} <- scheme(ref),
          {:ok, kind} <- fetch_kind(map, scheme),
          :ok <- validate_host(scheme, map),
+         :ok <- validate_image(map),
+         :ok <- validate_opts(map),
          :ok <- validate_attested(map) do
       {:ok,
        %__MODULE__{
@@ -64,7 +69,9 @@ defmodule Genswarms.IR.Ref do
          digest: Map.get(map, "digest"),
          kind: kind,
          attested: Map.get(map, "attested", false),
-         host: Map.get(map, "host")
+         host: Map.get(map, "host"),
+         image: Map.get(map, "image"),
+         opts: Map.get(map, "opts", %{})
        }}
     end
   end
@@ -142,6 +149,22 @@ defmodule Genswarms.IR.Ref do
       scheme not in @host_required -> :ok
       is_binary(Map.get(map, "host")) and Map.get(map, "host") != "" -> :ok
       true -> {:error, {:missing_host, scheme}}
+    end
+  end
+
+  defp validate_image(map) do
+    case Map.get(map, "image") do
+      nil -> :ok
+      image when is_binary(image) and image != "" -> :ok
+      other -> {:error, {:invalid_image, other}}
+    end
+  end
+
+  defp validate_opts(map) do
+    case Map.get(map, "opts") do
+      nil -> :ok
+      opts when is_map(opts) -> :ok
+      other -> {:error, {:invalid_opts, other}}
     end
   end
 

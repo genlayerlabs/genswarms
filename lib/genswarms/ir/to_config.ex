@@ -8,6 +8,7 @@ defmodule Genswarms.IR.ToConfig do
       model {ref: "openrouter:x/y"}                           -> model: "x/y"
       backend {ref: "bwrap"|"local"|"mock"}                  -> :bwrap/:local/:mock
       backend {ref: "oci:n"}                                  -> {:docker, "n"}
+      backend {ref: "apple_container", image?: i, opts?: o}   -> :apple_container / tuple
       backend {ref: "ssh", host: h}                           -> {:ssh, h}
       handler {ref: "module:<Mod>"}                           -> the module atom
   """
@@ -39,7 +40,29 @@ defmodule Genswarms.IR.ToConfig do
   defp backend(%{scheme: "local"}), do: :local
   defp backend(%{scheme: "mock"}), do: :mock
   defp backend(%{scheme: "oci", ref: ref}), do: {:docker, String.replace_prefix(ref, "oci:", "")}
+  defp backend(%{scheme: "apple_container", image: nil}), do: :apple_container
+
+  defp backend(%{scheme: "apple_container", image: image, opts: opts})
+       when opts == %{} or is_nil(opts),
+       do: {:apple_container, image}
+
+  defp backend(%{scheme: "apple_container", image: image, opts: opts}),
+    do: {:apple_container, image, atomize_known_backend_opts(opts)}
+
   defp backend(%{scheme: "ssh", host: host}), do: {:ssh, host}
+
+  @backend_opt_keys ~w(container_name workspace env volumes cmd memory_limit cpu_limit
+                       memory_swap pids_limit max_turns network subzeroclaw_src
+                       request_extra compact_extra endpoint)a
+
+  defp atomize_known_backend_opts(opts) do
+    key_map = Map.new(@backend_opt_keys, fn atom -> {Atom.to_string(atom), atom} end)
+
+    Map.new(opts, fn
+      {key, value} when is_binary(key) -> {Map.get(key_map, key, key), value}
+      other -> other
+    end)
+  end
 
   # ── model ────────────────────────────────────────────────────────────────────
 

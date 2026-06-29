@@ -67,6 +67,24 @@ defmodule Genswarms.IR.ExecutorTest do
       assert ToConfig.agent_spec(a).model == nil
       assert ToConfig.agent_spec(b).backend == {:ssh, "pi@192.168.1.50"}
     end
+
+    test "Apple container backend image and opts round-trip" do
+      {:ok, state} =
+        FromConfig.from_config(%{
+          name: "s",
+          agents: [
+            %{
+              name: :mac,
+              backend: {:apple_container, "szc-agent-base:latest", %{memory_limit: "2g"}}
+            }
+          ]
+        })
+
+      spec = ToConfig.agent_spec(hd(state.agents))
+
+      assert spec.backend ==
+               {:apple_container, "szc-agent-base:latest", %{memory_limit: "2g"}}
+    end
   end
 
   describe "apply/3 maps a plan to orchestrator calls" do
