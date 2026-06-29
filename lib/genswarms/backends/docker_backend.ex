@@ -25,12 +25,18 @@ defmodule Genswarms.Backends.DockerBackend do
       }
 
   The orchestrator will select or build the appropriate NixOS container.
+
+  Argv building, env/volume/resource args, the in-container bootstrap and
+  image selection are shared with the Apple `container` backend via
+  `Genswarms.Backends.OciCli`; this module keeps only what is Docker-specific
+  (the egress guard + `--network none`, `docker load`, and the container
+  lifecycle/inspect commands).
   """
 
   @behaviour Genswarms.Backends.BackendBehaviour
 
   require Logger
-  alias Genswarms.Backends.EgressGuard
+  alias Genswarms.Backends.{EgressGuard, OciCli}
   alias Genswarms.Observability.LogStore
 
   defstruct [:port, :container_name, :container_id, :name, :skills_dir, :image, :egress, :buffer]
@@ -45,18 +51,6 @@ defmodule Genswarms.Backends.DockerBackend do
           egress: EgressGuard.t() | nil,
           buffer: binary()
         }
-
-  # Pre-built NixOS container images by preset combination
-  @preset_images %{
-    [:base] => "szc-agent-base:latest",
-    [:base, :web] => "szc-agent-web:latest",
-    [:base, :code] => "szc-agent-code:latest",
-    [:base, :data] => "szc-agent-data:latest",
-    [:base, :python] => "szc-agent-python:latest",
-    [:base, :node] => "szc-agent-node:latest",
-    [:base, :code, :data, :node, :python, :web] => "szc-agent-full:latest",
-    [:base, :cloud, :code, :containers] => "szc-agent-devops:latest"
-  }
 
   @impl true
   def backend_type, do: :docker
@@ -134,7 +128,7 @@ defmodule Genswarms.Backends.DockerBackend do
     end
 
     # Determine the image based on presets/tools or explicit image
-    image = determine_image(config)
+    image = OciCli.determine_image(config)
 
     # Ensure image exists (build if needed)
     ensure_image_exists(image, config)
@@ -351,25 +345,8 @@ defmodule Genswarms.Backends.DockerBackend do
   end
 
   @doc false
-  def determine_image(config) do
-    cond do
-      # Explicit image specified (as :image or :container from backend_config)
-      Map.has_key?(config, :image) ->
-        config.image
-
-      Map.has_key?(config, :container) ->
-        config.container
-
-      # Match presets to pre-built image
-      Map.has_key?(config, :presets) ->
-        presets = Enum.sort(config.presets)
-        Map.get(@preset_images, presets, "szc-agent-base:latest")
-
-      # Default to base image
-      true ->
-        "szc-agent-base:latest"
-    end
-  end
+  # Image selection is shared; kept as a thin delegate for the public test API.
+  def determine_image(config), do: OciCli.determine_image(config)
 
   defp ensure_image_exists(image, config) do
     # Check if image exists locally
@@ -391,7 +368,7 @@ defmodule Genswarms.Backends.DockerBackend do
 
   defp build_image(image, config) do
     presets = Map.get(config, :presets, [:base])
-    preset_name = preset_to_build_name(presets)
+    preset_name = OciCli.preset_to_build_name(presets)
 
     # Try to build using nix
     case System.cmd("nix", ["build", ".#agentContainer-#{preset_name}", "-o", "result"],
@@ -430,51 +407,8 @@ defmodule Genswarms.Backends.DockerBackend do
     end
   end
 
-  defp preset_to_build_name([:base]), do: "base"
-  defp preset_to_build_name([:base, :web]), do: "web"
-  defp preset_to_build_name([:base, :code]), do: "code"
-  defp preset_to_build_name([:base, :data]), do: "data"
-  defp preset_to_build_name([:base, :python]), do: "python"
-  defp preset_to_build_name([:base, :node]), do: "node"
-  defp preset_to_build_name([:base, :code, :containers, :cloud]), do: "devops"
-  defp preset_to_build_name(_), do: "full"
-
   defp get_project_root do
     Application.get_env(:genswarms, :project_root, ".")
-  end
-
-  # Default in-container bootstrap, as an argv list (["sh", "-c", script]) so it is
-  # passed to `docker run IMAGE sh -c <script>` as discrete arguments — the script
-  # runs in the *container's* shell, never the host's. A configured `max_turns`
-  # (the harness's per-turn step budget, genswarms#53 G3) is appended to the
-  # harness config; the value is integer-guarded so nothing non-numeric can ever
-  # reach this shell string.
-  defp default_container_cmd(agent_name, config) do
-    budget =
-      case Map.get(config, :max_turns) do
-        n when is_integer(n) and n > 0 ->
-          " && echo \"max_turns = #{n}\" >> /root/.subzeroclaw/config"
-
-        nil ->
-          ""
-
-        bad ->
-          # Never drop an operator-set budget silently (the integer guard is
-          # the injection defense, not a parser).
-          Logger.warning(
-            "docker: ignoring non-integer max_turns #{inspect(bad)} — step budget NOT applied"
-          )
-
-          ""
-      end
-
-    [
-      "sh",
-      "-c",
-      "export HOME=/root && mkdir -p /root/.subzeroclaw /root/build && echo \"skills_dir = /skills\" > /root/.subzeroclaw/config#{budget} && cp -r /src/subzeroclaw/* /root/build/ && cd /root/build && make -s 2>/dev/null && exec bash /src/genswarms-priv/szc-wrapper-fifo.sh \"$1\" /root/build/subzeroclaw /skills",
-      "szc-wrapper",
-      to_string(agent_name)
-    ]
   end
 
   @doc false
@@ -491,11 +425,23 @@ defmodule Genswarms.Backends.DockerBackend do
       ) do
     base_args = ["run", "-i", "--rm", "--name", to_string(container_name)]
 
-    env_args = build_env_args(api_key, model, endpoint, agent_name, config)
-    volume_args = build_volume_args(skills_dir, config)
+    env_args =
+      OciCli.build_env_args(
+        api_key,
+        model,
+        endpoint,
+        agent_name,
+        config,
+        "-e",
+        docker_extra_env(config)
+      )
+
+    volume_args = OciCli.build_volume_args(skills_dir, config, &ro_mount/2, &rw_mount/2)
     network_args = build_network_args(config)
-    resource_args = build_resource_args(config)
-    container_cmd = normalize_container_cmd(Map.get(config, :cmd), agent_name, config)
+    resource_args = OciCli.build_resource_args(config)
+
+    container_cmd =
+      OciCli.normalize_container_cmd(Map.get(config, :cmd), agent_name, config, "docker")
 
     # Isolation: mount the shared egress volume so the agent reaches the sidecar
     # socat over /egress/llm.sock (its only path out, since --network none).
@@ -510,200 +456,26 @@ defmodule Genswarms.Backends.DockerBackend do
       egress_args ++ network_args ++ resource_args ++ [to_string(image)] ++ container_cmd
   end
 
-  # A user-supplied :cmd runs *inside the container*. A list is used as argv; a
-  # bare string is wrapped as `sh -c <string>` (container shell, host-safe).
-  # Only the DEFAULT bootstrap honors :max_turns — a custom cmd owns its own
-  # harness setup.
-  defp normalize_container_cmd(nil, agent_name, config),
-    do: default_container_cmd(agent_name, config)
+  # Docker-specific env vars layered on the shared base, inserted after the
+  # endpoint var: the isolation curl redirect and the topology list.
+  defp docker_extra_env(config) do
+    curl =
+      if EgressGuard.isolated?(config), do: [{"CURL_HOME", "/workspace"}], else: []
 
-  defp normalize_container_cmd(cmd, _agent_name, _config) when is_list(cmd),
-    do: Enum.map(cmd, &to_string/1)
-
-  defp normalize_container_cmd(cmd, _agent_name, _config) when is_binary(cmd),
-    do: ["sh", "-c", cmd]
-
-  # Accept request_extra/compact_extra as a JSON string or an Elixir map.
-  defp config_json(config, key) do
-    case Map.get(config, key) do
-      nil -> nil
-      v when is_binary(v) -> v
-      v when is_map(v) -> Jason.encode!(v)
-      _ -> nil
-    end
-  end
-
-  defp build_env_args(api_key, model, endpoint, agent_name, config) do
-    # Values are passed as literal argv elements ("-e", "KEY=VALUE"); docker does
-    # not run them through a shell, so no quoting/escaping is needed or wanted.
-    envs = [
-      {"-e", "SUBZEROCLAW_AGENT_NAME=#{agent_name}"}
-    ]
-
-    envs = if api_key, do: envs ++ [{"-e", "SUBZEROCLAW_API_KEY=#{api_key}"}], else: envs
-
-    # subzeroclaw no longer reads SUBZEROCLAW_MODEL — the model + routing policy
-    # ride in SUBZEROCLAW_REQUEST_EXTRA (a bare model is wrapped for back-compat);
-    # the compaction policy in SUBZEROCLAW_COMPACT_EXTRA.
-    request_extra =
-      config_json(config, :request_extra) || (model && Jason.encode!(%{"model" => model}))
-
-    envs =
-      if request_extra,
-        do: envs ++ [{"-e", "SUBZEROCLAW_REQUEST_EXTRA=#{request_extra}"}],
-        else: envs
-
-    compact_extra = config_json(config, :compact_extra)
-
-    envs =
-      if compact_extra,
-        do: envs ++ [{"-e", "SUBZEROCLAW_COMPACT_EXTRA=#{compact_extra}"}],
-        else: envs
-
-    envs = if endpoint, do: envs ++ [{"-e", "SUBZEROCLAW_ENDPOINT=#{endpoint}"}], else: envs
-
-    # Isolation: route the agent's curl through the bind-mounted LLM socket.
-    envs =
-      if EgressGuard.isolated?(config),
-        do: envs ++ [{"-e", "CURL_HOME=/workspace"}],
-        else: envs
-
-    # Add topology connections so swarm-msg list works inside containers
-    envs =
+    topology =
       case Map.get(config, :connections, []) do
         [] ->
-          envs
+          []
 
         connections ->
-          topology_str = connections |> Enum.map(&to_string/1) |> Enum.join(",")
-          envs ++ [{"-e", "SWARM_TOPOLOGY=#{topology_str}"}]
+          [{"SWARM_TOPOLOGY", connections |> Enum.map(&to_string/1) |> Enum.join(",")}]
       end
 
-    # Expand ${VAR} patterns in additional env vars
-    additional_envs =
-      Map.get(config, :env, %{})
-      |> Enum.map(fn {k, v} -> {k, expand_env_var(v)} end)
-      |> Enum.filter(fn {_k, v} -> v != nil and v != "" end)
-      |> Enum.map(fn {k, v} -> {"-e", "#{k}=#{v}"} end)
-
-    Enum.flat_map(envs ++ additional_envs, fn {flag, val} -> [flag, val] end)
+    curl ++ topology
   end
 
-  # Expand ${VAR} or $VAR patterns to actual environment values
-  defp expand_env_var(value) when is_binary(value) do
-    # Match ${VAR} pattern
-    Regex.replace(~r/\$\{([A-Z_][A-Z0-9_]*)\}/, value, fn _, var_name ->
-      System.get_env(var_name) || ""
-    end)
-    # Match $VAR pattern (no braces)
-    |> then(fn v ->
-      Regex.replace(~r/\$([A-Z_][A-Z0-9_]*)/, v, fn _, var_name ->
-        System.get_env(var_name) || ""
-      end)
-    end)
-  end
-
-  defp expand_env_var(value), do: value
-
-  defp build_volume_args(skills_dir, config) do
-    volumes = []
-
-    volumes =
-      if skills_dir do
-        expanded = Path.expand(skills_dir)
-        volumes ++ ["-v", "#{expanded}:/skills:ro"]
-      else
-        volumes
-      end
-
-    # Mount logs directory - derive from skills_dir path (sibling directory)
-    # Mount to /root/.subzeroclaw/logs since container runs as root
-    volumes =
-      if skills_dir do
-        logs_dir = skills_dir |> Path.dirname() |> Path.join("logs")
-        File.mkdir_p!(logs_dir)
-        volumes ++ ["-v", "#{logs_dir}:/root/.subzeroclaw/logs"]
-      else
-        volumes
-      end
-
-    # Check if config specifies volumes that mount to /workspace
-    additional_vols = Map.get(config, :volumes, [])
-
-    has_workspace_mount =
-      Enum.any?(additional_vols, fn {_, container} ->
-        container == "/workspace" or String.starts_with?(container, "/workspace")
-      end)
-
-    # Only add default workspace if not already specified
-    volumes =
-      if not has_workspace_mount do
-        workspace = Map.get(config, :workspace, "/tmp/szc-workspace")
-        volumes ++ ["-v", "#{workspace}:/workspace"]
-      else
-        volumes
-      end
-
-    # Mount /tmp for nix-shell and other tools that need temp space
-    volumes = volumes ++ ["-v", "/tmp:/tmp"]
-
-    priv_dir = genswarms_priv_dir()
-
-    volumes =
-      if File.dir?(priv_dir) do
-        volumes ++ ["-v", "#{priv_dir}:/src/genswarms-priv:ro"]
-      else
-        Logger.warning("genswarms priv directory not found at #{inspect(priv_dir)}")
-        volumes
-      end
-
-    # Note: swarm-msg is baked into szc-agent-* containers via nix/container.nix
-
-    # Mount subzeroclaw source directory for in-container compilation
-    subzeroclaw_src =
-      Map.get(config, :subzeroclaw_src) ||
-        Application.get_env(:genswarms, :subzeroclaw_src) ||
-        find_subzeroclaw_source()
-
-    volumes =
-      if subzeroclaw_src && File.dir?(subzeroclaw_src) do
-        # Mount source directory read-only (we copy to /tmp/build for compilation)
-        volumes ++ ["-v", "#{subzeroclaw_src}:/src/subzeroclaw:ro"]
-      else
-        Logger.warning("subzeroclaw source not found at #{inspect(subzeroclaw_src)}")
-        volumes
-      end
-
-    additional_volumes =
-      additional_vols
-      |> Enum.flat_map(fn {host, container} -> ["-v", "#{Path.expand(host)}:#{container}"] end)
-
-    volumes ++ additional_volumes
-  end
-
-  defp genswarms_priv_dir do
-    case :code.priv_dir(:genswarms) do
-      {:error, _} -> Path.expand("priv", File.cwd!())
-      path -> List.to_string(path)
-    end
-  end
-
-  defp find_subzeroclaw_source do
-    # Common locations for subzeroclaw source directory
-    paths =
-      [
-        Path.expand("../subzeroclaw", File.cwd!()),
-        Path.expand("../../subzeroclaw", File.cwd!()),
-        System.get_env("SUBZEROCLAW_SRC"),
-        Path.expand("~/docs/personal/subzeroclaw")
-      ]
-      |> Enum.filter(&(&1 != nil))
-
-    Enum.find(paths, fn path ->
-      # Check for Makefile and src/subzeroclaw.c
-      File.dir?(path) && File.exists?(Path.join(path, "Makefile"))
-    end)
-  end
+  defp ro_mount(host, container), do: ["-v", "#{host}:#{container}:ro"]
+  defp rw_mount(host, container), do: ["-v", "#{host}:#{container}"]
 
   defp build_network_args(config) do
     cond do
@@ -717,40 +489,5 @@ defmodule Genswarms.Backends.DockerBackend do
           network -> ["--network", to_string(network)]
         end
     end
-  end
-
-  defp build_resource_args(config) do
-    args = []
-
-    args =
-      case Map.get(config, :memory_limit) do
-        nil -> args
-        limit -> args ++ ["--memory", limit]
-      end
-
-    # --memory-swap caps RAM+swap together; without it `--memory` inherits Docker's
-    # 2x default (a 2g --memory really allows ~4g via swap). Set it equal to memory_limit
-    # for a true hard RAM ceiling. Passthrough only — no default imposed.
-    args =
-      case Map.get(config, :memory_swap) do
-        nil -> args
-        limit -> args ++ ["--memory-swap", to_string(limit)]
-      end
-
-    args =
-      case Map.get(config, :cpu_limit) do
-        nil -> args
-        limit -> args ++ ["--cpus", to_string(limit)]
-      end
-
-    # --pids-limit caps the process count, bounding fork-bombs / runaway spawns from an
-    # untrusted-prompt-driven agent. Passthrough only — no default imposed.
-    args =
-      case Map.get(config, :pids_limit) do
-        nil -> args
-        limit -> args ++ ["--pids-limit", to_string(limit)]
-      end
-
-    args
   end
 end

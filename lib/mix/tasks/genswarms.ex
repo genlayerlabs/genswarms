@@ -786,12 +786,7 @@ defmodule Mix.Tasks.Genswarms.Status do
   defp apple_status_atom("running"), do: :running
   defp apple_status_atom(_), do: :stopped
 
-  defp apple_container_cmd(args) do
-    case System.find_executable("container") do
-      nil -> {"container executable not found", 127}
-      exe -> System.cmd(exe, args, stderr_to_stdout: true)
-    end
-  end
+  defp apple_container_cmd(args), do: Genswarms.Backends.OciCli.cmd("container", args)
 
   defp format_agent_status(:running), do: Output.colorize("running", :green)
   defp format_agent_status(:paused), do: Output.colorize("paused", :yellow)

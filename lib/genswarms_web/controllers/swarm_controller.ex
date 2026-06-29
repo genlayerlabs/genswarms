@@ -8,6 +8,7 @@ defmodule GenswarmsWeb.SwarmController do
   alias Genswarms.SwarmManager
   alias Genswarms.Agents.{AgentSupervisor, AgentServer}
   alias Genswarms.Config.SwarmConfig
+  alias Genswarms.Backends.OciCli
   alias Genswarms.Objects.{ObjectSupervisor, ObjectServer}
   alias Genswarms.Routing.Router
   alias Genswarms.CLI.SwarmRegistry
@@ -777,19 +778,8 @@ defmodule GenswarmsWeb.SwarmController do
     end
   end
 
-  defp docker_cmd(args) do
-    case System.find_executable("docker") do
-      nil -> {"docker executable not found", 127}
-      exe -> System.cmd(exe, args, stderr_to_stdout: true)
-    end
-  end
-
-  defp apple_container_cmd(args) do
-    case System.find_executable("container") do
-      nil -> {"container executable not found", 127}
-      exe -> System.cmd(exe, args, stderr_to_stdout: true)
-    end
-  end
+  defp docker_cmd(args), do: OciCli.cmd("docker", args)
+  defp apple_container_cmd(args), do: OciCli.cmd("container", args)
 
   defp pause_containers(swarm_name) do
     prefix = "szc-#{swarm_name}-"
