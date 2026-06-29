@@ -78,11 +78,56 @@ defmodule Genswarms.Backends.LocalBackend do
   def stop(%__MODULE__{port: port, name: name}) do
     Logger.info("Stopping local agent #{name}")
 
+    # Grab the OS pid BEFORE closing — the port is gone afterwards.
+    os_pid =
+      try do
+        case Port.info(port, :os_pid) do
+          {:os_pid, pid} -> pid
+          _ -> nil
+        end
+      rescue
+        _ -> nil
+      end
+
     try do
       Port.close(port)
-      :ok
     rescue
       _ -> :ok
+    end
+
+    # Port.close only shuts the wrapper's stdin. A busy agent (subzeroclaw mid
+    # LLM/tool call) is not reading stdin, never sees the EOF, and survives —
+    # leaking the wrapper + subzeroclaw as orphans. Actually signal the wrapper
+    # so its `trap cleanup EXIT` reaps subzeroclaw; hard-kill if it ignores TERM.
+    if os_pid, do: terminate_os_process(os_pid)
+    :ok
+  end
+
+  defp terminate_os_process(os_pid) do
+    pid = Integer.to_string(os_pid)
+
+    try do
+      System.cmd("kill", ["-TERM", pid], stderr_to_stdout: true)
+
+      unless wait_for_exit(pid, 20) do
+        System.cmd("kill", ["-KILL", pid], stderr_to_stdout: true)
+      end
+    rescue
+      _ -> :ok
+    end
+  end
+
+  # Poll up to ~2s for the process to be gone (`kill -0` returns non-zero).
+  defp wait_for_exit(_pid, 0), do: false
+
+  defp wait_for_exit(pid, attempts) do
+    case System.cmd("kill", ["-0", pid], stderr_to_stdout: true) do
+      {_, 0} ->
+        Process.sleep(100)
+        wait_for_exit(pid, attempts - 1)
+
+      _ ->
+        true
     end
   end
 
