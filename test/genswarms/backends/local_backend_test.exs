@@ -58,6 +58,65 @@ defmodule Genswarms.Backends.LocalBackendTest do
     end
   end
 
+  describe "stop/1 terminates a busy agent's process tree (leak regression, #62)" do
+    setup do
+      tmp = Path.join(System.tmp_dir!(), "gs_local_be_stop_#{System.unique_integer([:positive])}")
+      File.mkdir_p!(tmp)
+      child_pid_file = Path.join(tmp, "child.pid")
+
+      # Mimics szc-wrapper-fifo.sh's relevant shape: spawn a BUSY child that
+      # never reads stdin, reap it from a `trap ... EXIT`, and block in `wait`.
+      # This is the exact state where a `Port.close`-only stop leaked: closing
+      # the wrapper's stdin does nothing because the wrapper isn't reading it.
+      wrapper = Path.join(tmp, "busy-wrapper.sh")
+
+      File.write!(wrapper, """
+      #!/usr/bin/env bash
+      sleep 100000 &
+      child=$!
+      printf '%s' "$child" > "#{child_pid_file}"
+      cleanup() { kill -TERM "$child" 2>/dev/null; }
+      trap cleanup EXIT
+      wait "$child"
+      """)
+
+      File.chmod!(wrapper, 0o755)
+      on_exit(fn -> File.rm_rf(tmp) end)
+
+      {:ok, wrapper: wrapper, child_pid_file: child_pid_file}
+    end
+
+    test "wrapper and its busy child are both dead after stop/1", ctx do
+      {:ok, ref} =
+        LocalBackend.start("busy_agent", %{
+          wrapper_path: ctx.wrapper,
+          subzeroclaw_path: "unused",
+          skills_dir: nil
+        })
+
+      {:os_pid, wrapper_pid} = Port.info(ref.port, :os_pid)
+      wait_until(fn -> File.exists?(ctx.child_pid_file) end)
+      child_pid = ctx.child_pid_file |> File.read!() |> String.trim()
+
+      # Belt-and-braces: never leave the fake processes behind if an assert fails.
+      on_exit(fn ->
+        System.cmd("kill", ["-KILL", to_string(wrapper_pid)], stderr_to_stdout: true)
+        System.cmd("kill", ["-KILL", child_pid], stderr_to_stdout: true)
+      end)
+
+      assert alive?(wrapper_pid), "precondition: wrapper should be running"
+      assert alive?(child_pid), "precondition: busy child should be running"
+
+      assert :ok = LocalBackend.stop(ref)
+
+      assert eventually(fn -> not alive?(wrapper_pid) end),
+             "wrapper (pid #{wrapper_pid}) still alive after stop/1"
+
+      assert eventually(fn -> not alive?(child_pid) end),
+             "LEAK: busy child (pid #{child_pid}) still alive after stop/1"
+    end
+  end
+
   defp wait_until(fun, attempts \\ 50) do
     cond do
       fun.() ->
@@ -71,4 +130,19 @@ defmodule Genswarms.Backends.LocalBackendTest do
         wait_until(fun, attempts - 1)
     end
   end
+
+  # Like wait_until/2 but returns a boolean instead of flunking, so the caller
+  # can attach a specific failure message (e.g. which pid leaked).
+  defp eventually(fun, attempts \\ 100) do
+    cond do
+      fun.() -> true
+      attempts <= 0 -> false
+      true -> Process.sleep(20) && eventually(fun, attempts - 1)
+    end
+  end
+
+  defp alive?(pid) when is_integer(pid), do: alive?(Integer.to_string(pid))
+
+  defp alive?(pid) when is_binary(pid),
+    do: match?({_, 0}, System.cmd("kill", ["-0", pid], stderr_to_stdout: true))
 end
