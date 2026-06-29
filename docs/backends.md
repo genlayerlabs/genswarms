@@ -166,7 +166,7 @@ container system status --format json
 
 If `container system status --format json` does not report a running service, GenSwarms fails the agent start with `:apple_container_not_ready`.
 
-The image is chosen in the same order as Docker: explicit `image`, then `container_name`, then a preset-derived image such as `szc-agent-code:latest`, then `szc-agent-base:latest`. If the selected image is not present, the backend attempts `nix build .#agentContainer-<preset> -o result` followed by `container image load --input result`. If Nix is unavailable or the build/load fails, the agent still starts with the selected image name and the `container` CLI reports the final image error.
+The image is chosen in the same order as Docker: explicit `image`, then `container_name`, then a preset-derived image such as `szc-agent-code:latest`, then `szc-agent-base:latest`. If the selected image is not present, the backend attempts `nix build .#agentContainer-<preset> -o result` and then asks Apple `container` to load the result. Current Nix `agentContainer-*` outputs are Docker archives, while Apple `container image load` expects an OCI archive, so operators should pre-load a compatible image by converting the Nix result to OCI or by pulling from a registry. If Nix is unavailable or the build/load fails, the agent still starts with the selected image name and the `container` CLI reports the final image error.
 
 ### Apple container options
 

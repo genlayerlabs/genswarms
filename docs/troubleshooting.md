@@ -74,7 +74,15 @@ container system start
 container image inspect szc-agent-code:latest
 ```
 
-Build and load preset images with `nix build .#agentContainer-<preset> -o result` and `container image load --input result`. The backend tries that build/load path when an image is missing, but a failed build or missing Nix leaves the final image error to `container run`.
+Build preset images with `nix build .#agentContainer-<preset> -o result`. Current Nix container outputs are Docker archives; Apple `container image load` expects an OCI archive. Convert or publish the image before loading it into Apple's image store, for example:
+
+```bash
+docker load -i result
+skopeo copy docker-daemon:szc-agent-base:latest oci-archive:szc-agent-base-oci.tar:szc-agent-base:latest
+container image load --input szc-agent-base-oci.tar
+```
+
+The backend tries the build/load path when an image is missing, but a failed build, missing Nix, or incompatible archive leaves the final image error to `container run`.
 
 3. Inspect a container directly. GenSwarms names Apple containers `szc-{swarm}-{agent}` unless `container_name` is set:
 

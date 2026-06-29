@@ -362,7 +362,9 @@ defmodule Genswarms.Backends.AppleContainerBackend do
 
               {output, code} ->
                 Logger.warning(
-                  "Built #{image}, but Apple container image load failed (#{code}): #{output}"
+                  "Built #{image}, but Apple container image load failed (#{code}). " <>
+                    "Nix agentContainer outputs are Docker archives; convert/preload an OCI archive " <>
+                    "for Apple container. Output: #{output}"
                 )
             end
 

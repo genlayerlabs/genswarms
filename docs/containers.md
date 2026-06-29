@@ -40,10 +40,11 @@ The preset-to-image mapping is defined in `nix/container.nix` (the `images`
 attribute set) and wired to flake packages in `flake.nix`.
 
 Each image also bundles, regardless of preset: `bashInteractive`, `coreutils`,
-`cacert` (SSL certificates), the Nix package manager (so agents can run
-`nix-shell -p ...` at runtime), the `szc-wrapper` protocol script, and the
-`swarm-msg` messaging CLI. Working directory is `/workspace`; `/workspace`,
-`/skills`, and `/tmp` are declared as volumes. The image also sets
+`cacert` (SSL certificates), `gnumake` and `gcc` for the startup
+`subzeroclaw` build, the Nix package manager (so agents can run `nix-shell -p
+...` at runtime), the `szc-wrapper` protocol script, and the `swarm-msg`
+messaging CLI. Working directory is `/workspace`; `/workspace`, `/skills`, and
+`/tmp` are declared as volumes. The image also sets
 `SSL_CERT_FILE`/`NIX_SSL_CERT_FILE`, `NIX_PATH`, and `TMPDIR` so HTTPS and
 runtime `nix-shell` both work out of the box (see the `config.Env` block in
 `nix/container.nix`).

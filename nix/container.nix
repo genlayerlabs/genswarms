@@ -36,6 +36,9 @@
       pkgs.bashInteractive
       pkgs.coreutils
       pkgs.cacert  # SSL certificates
+      # Backend startup compiles the mounted subzeroclaw source before exec.
+      pkgs.gnumake
+      pkgs.gcc
       # Nix package manager for runtime installation (nix-shell -p ...)
       pkgs.nix
     ];
