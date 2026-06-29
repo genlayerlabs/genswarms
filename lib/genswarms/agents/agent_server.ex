@@ -209,6 +209,11 @@ defmodule Genswarms.Agents.AgentServer do
     GenServer.stop(via_tuple(swarm_name, agent_name))
   end
 
+  @doc false
+  def shutdown_backend(swarm_name, agent_name) do
+    GenServer.call(via_tuple(swarm_name, agent_name), :shutdown_backend, 10_000)
+  end
+
   @doc """
   Marks the agent as awaiting an async object reply.
 
@@ -640,6 +645,10 @@ defmodule Genswarms.Agents.AgentServer do
     {:reply, logs, state}
   end
 
+  def handle_call(:shutdown_backend, _from, state) do
+    {:reply, :ok, stop_backend(state)}
+  end
+
   @impl true
   def handle_cast({:deliver_message, from, content}, state) do
     # A delivered message clears the awaiting gate atomically with delivery, so
@@ -782,9 +791,7 @@ defmodule Genswarms.Agents.AgentServer do
     cancel_awaiting_timer(state.awaiting_timer_ref)
     if state.turn_timer_ref, do: Process.cancel_timer(state.turn_timer_ref)
 
-    if state.backend_ref do
-      state.backend_module.stop(state.backend_ref)
-    end
+    stop_backend(state)
 
     :ok
   end
@@ -1147,6 +1154,13 @@ defmodule Genswarms.Agents.AgentServer do
 
   defp send_to_backend(%{backend_module: module, backend_ref: ref}, message) do
     module.send_input(ref, message)
+  end
+
+  defp stop_backend(%{backend_ref: nil} = state), do: state
+
+  defp stop_backend(state) do
+    state.backend_module.stop(state.backend_ref)
+    %{state | backend_ref: nil}
   end
 
   # Write message to file-inbox at {workspace}/.inbox/{seq}_{from}.json
