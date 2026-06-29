@@ -409,6 +409,75 @@ defmodule Genswarms.Backends.BwrapBackendTest do
       assert :mount in SeccompProfile.default_deny_syscalls()
       assert :umount2 in SeccompProfile.default_deny_syscalls()
     end
+
+    test "default seccomp profile is a well-formed arch-guarded deny-EPERM / allow-tail program" do
+      # cBPF opcodes / seccomp return values (must match SeccompProfile).
+      ld = 0x20
+      jeq = 0x15
+      ret = 0x06
+      arch_x86_64 = 0xC000003E
+      ret_kill = 0x80000000
+      ret_errno = 0x00050000
+      ret_allow = 0x7FFF0000
+      eperm = 1
+
+      insns =
+        for <<code::little-16, jt::8, jf::8,
+              k::little-32 <-
+                SeccompProfile.default_profile_binary()>>,
+            do: {code, jt, jf, k}
+
+      deny_count = length(SeccompProfile.default_deny_syscalls())
+
+      # 4-instruction preamble (load arch, arch guard, kill-on-mismatch, load nr)
+      # + 2 instructions per denied syscall (match, return EPERM) + 1 allow tail.
+      assert length(insns) == 4 + 2 * deny_count + 1
+
+      assert [
+               {^ld, 0, 0, 4},
+               {^jeq, 1, 0, ^arch_x86_64},
+               {^ret, 0, 0, ^ret_kill},
+               {^ld, 0, 0, 0} | rest
+             ] = insns
+
+      {deny_pairs, [tail]} = Enum.split(rest, 2 * deny_count)
+      assert tail == {ret, 0, 0, ret_allow}
+
+      nrs =
+        deny_pairs
+        |> Enum.chunk_every(2)
+        |> Enum.map(fn [{^jeq, 0, 1, nr}, {^ret, 0, 0, errno_eperm}] ->
+          assert errno_eperm == Bitwise.bor(ret_errno, eperm)
+          nr
+        end)
+
+      assert length(nrs) == deny_count
+      assert nrs == Enum.sort(nrs)
+      # Pin well-known x86_64 syscall numbers so the deny table cannot silently drift.
+      assert 101 in nrs, "ptrace (101) must be denied"
+      assert 165 in nrs, "mount (165) must be denied"
+      assert 166 in nrs, "umount2 (166) must be denied"
+      assert 169 in nrs, "reboot (169) must be denied"
+      assert 321 in nrs, "bpf (321) must be denied"
+    end
+
+    test "seccomp is fail-closed: enabled with an unwritable overlay dir raises" do
+      missing =
+        System.tmp_dir!()
+        |> Path.join("szc-seccomp-missing-#{System.unique_integer()}")
+        |> Path.join("sub")
+
+      refute File.exists?(missing)
+
+      assert_raise File.Error, fn ->
+        SeccompProfile.maybe_wrap_bwrap_args!(
+          "agent",
+          missing,
+          ["/usr/bin/bwrap"],
+          %{seccomp: true}
+        )
+      end
+    end
   end
 
   describe "handle_output/2" do
