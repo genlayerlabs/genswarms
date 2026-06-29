@@ -159,20 +159,28 @@ The daemon's `daemon_loop/2` monitors `Genswarms.Supervisor`; if it goes `:DOWN`
 ### Stop, pause, resume
 
 - `genswarms stop <swarm>` sends `SIGTERM` (`kill -TERM <pid>`) to the recorded daemon PID, waits for exit, and marks the swarm stopped.
-- Pause/resume for daemon swarms cannot use in-BEAM GenServer calls (the daemon is a separate process), so they act on the containers directly, e.g. `docker pause szc-<swarm>-<agent>` / `docker unpause …`.
+- Pause/resume for daemon swarms cannot use in-BEAM GenServer calls (the daemon is a separate process), so they act on Docker containers directly, e.g. `docker pause szc-<swarm>-<agent>` / `docker unpause …`. Apple `container` has no equivalent pause/unpause support in the current backend.
 
 ## Deployment models
 
 | Model | How agents run | Configuration |
 |-------|----------------|---------------|
 | Docker (NixOS) | Minimal NixOS containers, one per agent, namespaced `szc-<swarm>-<agent>` | `backend: {:docker, "<image>"}`; build with `nix build .#agentContainer-<preset>` |
+| Apple container | OCI containers through Apple's `container` CLI on macOS / Apple silicon | `backend: {:apple_container, "<image>"}`; `container system start` first |
 | Bare metal (Colmena + NixOS) | Dedicated NixOS machines provisioned ahead of time, reached over SSH | `colmena apply` to provision, then `backend: {:ssh, "user@host"}` |
 | Bwrap | Bubblewrap sandboxes on a single NixOS host (10k+ scale) | `backend: :bwrap` |
-| Hybrid | Any mix of `:local`, `{:docker, …}`, `{:ssh, …}`, `:bwrap`, `:mock` in one swarm | per-agent `backend:` |
+| Hybrid | Any mix of `:local`, `{:docker, …}`, `{:apple_container, …}`, `{:ssh, …}`, `:bwrap`, `:mock` in one swarm | per-agent `backend:` |
 
 ### Docker (NixOS containers)
 
 Run many isolated agents on one machine using minimal NixOS containers that include only the tools declared via presets/tools. Containers are namespaced by swarm name (`szc-<swarm>-<agent>`), so multiple swarms run simultaneously without interference and pause/resume affects only the targeted swarm's containers.
+
+### Apple container
+
+Run OCI-style agent containers on macOS / Apple silicon with Apple's `container`
+CLI. The backend preserves the same GenSwarms runtime mounts and environment as
+Docker where supported, but rejects `network: :isolated` because the current CLI
+does not provide equivalent egress isolation semantics.
 
 ### Bare metal (Colmena + NixOS)
 
@@ -193,6 +201,7 @@ Mix backends within a single swarm config:
   agents: [
     %{name: :researcher, backend: :local},
     %{name: :coder, backend: {:docker, "coder"}},
+    %{name: :mac_coder, backend: {:apple_container, "szc-agent-code:latest"}},
     %{name: :remote_1, backend: {:ssh, "root@192.168.1.51"}}
   ]
 }

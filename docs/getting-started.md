@@ -177,7 +177,7 @@ Set these in `.env` (or your shell). Only `SUBZEROCLAW_API_KEY` is required to r
 | `SUBZEROCLAW_MODEL` | Default model for agents | `anthropic/claude-sonnet-4` |
 | `SUBZEROCLAW_ENDPOINT` | API endpoint URL passed through to the agent backend | Provider default (from `subzeroclaw`) |
 | `SUBZEROCLAW_PATH` | Path to the `subzeroclaw` binary | `subzeroclaw` (resolved from PATH) |
-| `SUBZEROCLAW_SRC` | Source directory used when building Docker containers | `../subzeroclaw` |
+| `SUBZEROCLAW_SRC` | Source directory mounted/built into Docker and Apple container agents | `../subzeroclaw` |
 | `SUBZEROCLAW_MOCK_SCRIPT` | Path to a mock script JSON; passed through to the bwrap sandbox so the agent returns canned responses instead of calling the LLM | - |
 | `SUBZEROCLAW_RECORD_SCRIPT` | Path passed through to the bwrap sandbox to record agent interactions for later mock replay | - |
 | `SWARM_DATA_DIR` | Swarm data directory (`:swarm_data_dir` app config) | `~/.subzeroclaw/swarms` |

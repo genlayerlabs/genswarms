@@ -15,7 +15,7 @@ All routes are defined in `lib/genswarms_web/router.ex` and implemented by the c
 - **Authentication:** when `GENSWARMS_API_TOKEN` is set, every request must send `Authorization: Bearer <token>`; when unset, only loopback callers are accepted. The CLI attaches the token automatically. See [Security](security.md).
 - CORS is restricted to an allowlist (`GENSWARMS_CORS_ORIGINS`, default local dev origins) via Corsica — see [Security](security.md#cors).
 - Successful responses return a JSON object. Errors return a JSON object with an `error` (string) or `errors`/`valid` field and an appropriate HTTP status (`400`, `404`, `500`).
-- Most endpoints work for both in-process swarms and daemon swarms; the controller falls back to the SQLite registry / Docker when a swarm runs in a separate OS process.
+- Most endpoints work for both in-process swarms and daemon swarms; the controller falls back to the SQLite registry and backend CLIs (Docker / Apple `container`) when a swarm runs in a separate OS process.
 
 ## API info
 
@@ -33,8 +33,8 @@ The root returns a static descriptor including `name`, `version` (`"1.0.0"`), `d
 | POST | /api/swarms | Create a swarm from an inline config or a config path |
 | GET | /api/swarms/:name | Get detailed swarm status |
 | DELETE | /api/swarms/:name | Stop a swarm (`?purge=true` to delete all data) |
-| POST | /api/swarms/:name/pause | Pause (freeze) all of the swarm's containers |
-| POST | /api/swarms/:name/resume | Resume a paused swarm |
+| POST | /api/swarms/:name/pause | Pause (freeze) all Docker containers for the swarm |
+| POST | /api/swarms/:name/resume | Resume paused Docker containers for the swarm |
 | POST | /api/swarms/:name/restart | Restart the swarm (`?delete=true` for a clean slate) |
 | POST | /api/swarms/:name/message | Route a message between two agents |
 | POST | /api/swarms/clean | Remove stopped/crashed swarms (`?all=true` also clears all events) |
@@ -45,7 +45,7 @@ Notes:
 - `POST /api/swarms` accepts either `{"config": { ... }}` (an inline swarm config object) or `{"config_path": "path/to/config.exs"}`. On success it returns `201 Created` with `{"status": "created", "swarm_name": "..."}`. On a config/start error it returns `400` with `{"error": "..."}`. Missing both fields returns `400` with `{"error": "Missing 'config' or 'config_path' parameter"}`.
 - `GET /api/swarms/:name` enriches the status with `topology`, per-agent `backend_type`, `skills_paths`, `container_name`, `container_status`, per-object `handler_module`/`source_file`, and a `file_paths` map (`config`, `data_dir` = `~/.subzeroclaw/swarms/<name>`, `log` = `.genswarms/logs/<name>.log`). Returns `404` with `{"error": "Swarm not found"}` if the swarm is unknown.
 - `DELETE /api/swarms/:name` returns `{"status": "stopped"|"purged", "swarm_name": "...", "config_path": ...}`. With `?purge=true` it also deletes swarm files and registry rows. Returns `404` for an unknown swarm.
-- `POST .../pause` and `.../resume` return a count: `{"status": "paused", "swarm_name": "...", "containers_paused": N}` / `{"status": "resumed", "swarm_name": "...", "containers_resumed": N}`. A `404` is returned for an unknown swarm; a backend failure returns `500`.
+- `POST .../pause` and `.../resume` return a count: `{"status": "paused", "swarm_name": "...", "containers_paused": N}` / `{"status": "resumed", "swarm_name": "...", "containers_resumed": N}`. Pause/resume uses Docker `pause`/`unpause`; Apple `container` does not expose equivalent semantics, so Apple container agents are not paused by these endpoints. A `404` is returned for an unknown swarm; a backend failure returns `500`.
 - `POST .../restart` reads the saved config path from the registry; `?delete=true` deletes data before restarting. Returns `{"status": "restarted", "swarm_name": "...", "delete_data": bool}`. Returns `404` if the swarm (or its config path) is unknown.
 - `POST /api/swarms/:name/message` requires `{"from": "...", "to": "...", "content": "..."}` and returns `{"status": "routed", "from", "to", "swarm"}`. Missing fields return `400` with `{"error": "Missing 'from', 'to', or 'content' parameter"}`.
 - `POST /api/swarms/clean` returns `{"status": "cleaned", "swarms_removed": N, "events_cleared": bool}`.
@@ -99,7 +99,7 @@ Notes:
 
 - `GET .../topology` returns `{"topology": [{"from": ..., "targets": [...]}, ...]}` or `404` for an unknown swarm.
 - `PATCH .../topology` accepts `{"add": [...], "remove": [...]}`. Each edge may be `["from", "to"]` or `{"from": "...", "to": "..."}`; both endpoints of an edge must be strings, and any edge that doesn't parse is silently ignored. Returns `{"status": "ok", "added": N, "removed": M}` (the counts reflect the parsed edges actually applied). A mutation error returns `400`.
-- `POST .../agents` accepts an agent spec (`name`, `backend`, `skills`, `model`, `endpoint`, `presets`, `config`) plus optional `connections` (outgoing targets) and `incoming` (sources). `backend` may be a string (e.g. `"local"`, `"mock"`) or an object: `{"type": "docker", "image": "coder"}`, `{"type": "ssh", "host": "user@host"}`, `{"type": "bwrap", "opts": { ... }}`, or `{"type": "mock"}`. Returns `201 Created` with `{"status": "added", "name": "..."}`, or `400` with `{"error": "..."}` on failure.
+- `POST .../agents` accepts an agent spec (`name`, `backend`, `skills`, `model`, `endpoint`, `presets`, `config`) plus optional `connections` (outgoing targets) and `incoming` (sources). `backend` may be a string (e.g. `"local"`, `"apple_container"`, `"mock"`) or an object: `{"type": "docker", "image": "coder"}`, `{"type": "apple_container", "image": "szc-agent-code:latest"}`, `{"type": "apple_container", "image": "szc-agent-code:latest", "opts": { "memory_limit": "2g" }}`, `{"type": "ssh", "host": "user@host"}`, `{"type": "bwrap", "opts": { ... }}`, or `{"type": "mock"}`. Known backend keys in `config` (`workspace`, `network`, `env`, `volumes`, `cmd`, resource limits, etc.) are normalized before start; unknown config keys remain domain data. Apple container rejects `"network": "isolated"` and fails closed instead of running with open network. Returns `201 Created` with `{"status": "added", "name": "..."}`, or `400` with `{"error": "..."}` on failure.
 - `DELETE .../agents/:agent` returns `{"status": "removed", "name": "..."}` or `404` with `{"error": "..."}`.
 - `POST .../agents/:base/scale` requires an integer `{"count": N}` (`count >= 0`) and returns `{"status": "ok", "result": {"added": [...], "removed": [...], "failed": [{"name", "reason"}]}}` (the `added`/`removed`/`failed[].name` values are strings). A missing/non-integer/negative `count` returns `400` with `{"error": "Missing or invalid 'count'"}`; a scaling error returns `400` with `{"error": "..."}`.
 
@@ -223,6 +223,14 @@ Add an agent to a running swarm and wire it into the topology:
 curl -X POST http://localhost:4000/api/swarms/my-swarm/agents \
   -H "Content-Type: application/json" \
   -d '{"name": "reviewer", "backend": {"type": "docker", "image": "code"}, "incoming": ["coder"]}'
+```
+
+Add an Apple container agent:
+
+```bash
+curl -X POST http://localhost:4000/api/swarms/my-swarm/agents \
+  -H "Content-Type: application/json" \
+  -d '{"name": "mac_coder", "backend": {"type": "apple_container", "image": "szc-agent-code:latest", "opts": {"memory_limit": "2g"}}, "incoming": ["researcher"]}'
 ```
 
 Snapshot the effective (seed ⊕ overlay) config as runnable Elixir:

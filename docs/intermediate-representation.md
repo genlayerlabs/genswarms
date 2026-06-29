@@ -16,7 +16,8 @@ It lives in `Genswarms.IR.*` and is exposed through the `Genswarms.IR` façade.
     reconcile/actuation layer, and the **default validation gate** are all
     wired and in use. The package registry (`swarmidx`) and ref `resolve` step
     (constraints → content digests) are future work; until then, configs map to
-    *inline*/`oci:`/`ssh` refs rather than published `swarmidx:` packages.
+    *inline*/`oci:`/`apple_container`/`ssh` refs rather than published
+    `swarmidx:` packages.
 
 ## The two representations
 
@@ -43,11 +44,12 @@ Each agent has three orthogonal slots, each answering a different question:
 |------|----------|---------|
 | `body` | **who is the agent / what does it do** (its persona, today the skills) | `{"ref": "inline:researcher", "kind": "data"}` |
 | `model` | **which LLM** | `{"ref": "openrouter:anthropic/claude-sonnet-4", "attested": true}` |
-| `backend` | **where it runs** | `{"ref": "bwrap"}` / `{"ref": "oci:web"}` / `{"ref": "ssh", "host": "pi@h"}` |
+| `backend` | **where it runs** | `{"ref": "bwrap"}` / `{"ref": "oci:web"}` / `{"ref": "apple_container", "image": "szc-agent-code:latest"}` / `{"ref": "ssh", "host": "pi@h"}` |
 
 Objects have a `handler` slot (`kind: code`). References (`Genswarms.IR.Ref`) carry
 a content `digest` when they are content-addressable (`swarmidx:`/`oci:`), or are
-marked `attested` when they are not (`openrouter:`, `ssh`).
+marked `attested` / represented as backend metadata when they are not
+(`openrouter:`, `ssh`, `apple_container`).
 
 A `swarm.state` must satisfy the structural invariants on parse: unique node
 names, every topology endpoint exists, and **slot-typing** — `body`/`policy` are
@@ -102,8 +104,18 @@ alias Genswarms.IR
 | `model: "x/y"` | `{ref: "openrouter:x/y", attested: true}` |
 | `backend: :bwrap` / `:local` / `:mock` | bare refs `{ref: "bwrap"}` … |
 | `backend: {:docker, n}` | `{ref: "oci:<n>"}` |
+| `backend: :apple_container` | `{ref: "apple_container"}` |
+| `backend: {:apple_container, n}` | `{ref: "apple_container", image: n}` |
+| `backend: {:apple_container, n, opts}` | `{ref: "apple_container", image: n, opts: opts}` |
 | `backend: {:ssh, "u@h"}` | `{ref: "ssh", host: "u@h"}` |
 | `object.handler Mod` | `{ref: "module:<Mod>", kind: code}` |
+
+The Apple container ref is intentionally not content-addressable in the current
+IR mapping: it stores the backend choice and optional image/options metadata, but
+does not claim an OCI digest. Docker keeps the existing `oci:<image>` mapping.
+`Genswarms.IR.ToConfig` round-trips these Apple forms back to
+`:apple_container`, `{:apple_container, image}`, or
+`{:apple_container, image, opts}`.
 
 ## The default control-plane gate
 
