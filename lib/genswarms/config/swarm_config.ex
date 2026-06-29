@@ -148,7 +148,7 @@ defmodule Genswarms.Config.SwarmConfig do
 
   @backend_config_keys ~w(workspace extra_path extra_ro_binds extra_rw_binds extra_env
                           memory_limit cpu_shares tasks_max subzeroclaw_path presets network
-                          max_turns store extra_store_paths env volumes cmd container_name
+                          max_turns store extra_store_paths seccomp env volumes cmd container_name
                           subzeroclaw_src cpu_limit memory_swap pids_limit request_extra
                           compact_extra endpoint api_key model)a
 
