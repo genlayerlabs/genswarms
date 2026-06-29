@@ -16,6 +16,8 @@ defmodule Genswarms.IR.FromConfig do
       agent.model "x/y"      -> model {ref: "openrouter:x/y", attested: true}
       backend :bwrap/:local/:mock -> {ref: "bwrap"|"local"|"mock"}
       backend {:docker, n}   -> {ref: "oci:<n>", kind: data}
+      backend :apple_container / {:apple_container, image}
+                           -> {ref: "apple_container", image?: image}
       backend {:ssh, "u@h"}  -> {ref: "ssh", host: "u@h"}
       object.handler Mod     -> handler {ref: "module:<Mod>", kind: code}
 
@@ -83,6 +85,12 @@ defmodule Genswarms.IR.FromConfig do
   defp backend_ref(:mock), do: {:ok, %{"ref" => "mock"}}
   defp backend_ref({:bwrap, _opts}), do: {:ok, %{"ref" => "bwrap"}}
   defp backend_ref({:mock, _opts}), do: {:ok, %{"ref" => "mock"}}
+  defp backend_ref(:apple_container), do: {:ok, %{"ref" => "apple_container"}}
+  defp backend_ref({:apple_container, image}), do: {:ok, apple_container(image)}
+
+  defp backend_ref({:apple_container, image, opts}),
+    do: {:ok, Map.put(apple_container(image), "opts", stringify_keys(opts))}
+
   defp backend_ref({:docker, name}), do: {:ok, oci(name)}
   defp backend_ref({:docker, name, _opts}), do: {:ok, oci(name)}
   defp backend_ref({:ssh, host}), do: {:ok, %{"ref" => "ssh", "host" => to_string(host)}}
@@ -90,6 +98,9 @@ defmodule Genswarms.IR.FromConfig do
   defp backend_ref(other), do: {:error, {:unsupported_backend, other}}
 
   defp oci(name), do: %{"ref" => "oci:" <> to_string(name), "kind" => "data"}
+
+  defp apple_container(image),
+    do: %{"ref" => "apple_container", "image" => to_string(image)}
 
   # ── objects ─────────────────────────────────────────────────────────────────
 

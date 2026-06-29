@@ -35,7 +35,7 @@ This is the documentation index. If you are new, start with
 ## Architecture and internals
 
 - [Architecture](architecture.md) — the OTP supervision tree, the daemon model, and supported deployment topologies.
-- [Backends](backends.md) — the Local, Docker, SSH, Bwrap, and Mock execution backends and the shared backend contract.
+- [Backends](backends.md) — the Local, Docker, Apple container, SSH, Bwrap, and Mock execution backends and the shared backend contract.
 - [Containers and sandboxes](containers.md) — NixOS container images, tool presets, and the bwrap sandbox internals.
 
 ## Reference

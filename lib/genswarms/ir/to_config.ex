@@ -8,10 +8,12 @@ defmodule Genswarms.IR.ToConfig do
       model {ref: "openrouter:x/y"}                           -> model: "x/y"
       backend {ref: "bwrap"|"local"|"mock"}                  -> :bwrap/:local/:mock
       backend {ref: "oci:n"}                                  -> {:docker, "n"}
+      backend {ref: "apple_container", image?: i, opts?: o}   -> :apple_container / tuple
       backend {ref: "ssh", host: h}                           -> {:ssh, h}
       handler {ref: "module:<Mod>"}                           -> the module atom
   """
 
+  alias Genswarms.Config.SwarmConfig
   alias Genswarms.IR.State.{Agent, Object}
 
   @doc "IR agent -> runtime agent spec map."
@@ -39,6 +41,15 @@ defmodule Genswarms.IR.ToConfig do
   defp backend(%{scheme: "local"}), do: :local
   defp backend(%{scheme: "mock"}), do: :mock
   defp backend(%{scheme: "oci", ref: ref}), do: {:docker, String.replace_prefix(ref, "oci:", "")}
+  defp backend(%{scheme: "apple_container", image: nil}), do: :apple_container
+
+  defp backend(%{scheme: "apple_container", image: image, opts: opts})
+       when opts == %{} or is_nil(opts),
+       do: {:apple_container, image}
+
+  defp backend(%{scheme: "apple_container", image: image, opts: opts}),
+    do: {:apple_container, image, SwarmConfig.atomize_known_backend_opts(opts)}
+
   defp backend(%{scheme: "ssh", host: host}), do: {:ssh, host}
 
   # ── model ────────────────────────────────────────────────────────────────────

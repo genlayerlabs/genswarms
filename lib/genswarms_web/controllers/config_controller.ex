@@ -146,6 +146,9 @@ defmodule GenswarmsWeb.ConfigController do
   end
 
   defp format_backend(:local), do: "local"
+  defp format_backend(:apple_container), do: "apple_container"
+  defp format_backend({:apple_container, image}), do: "apple_container:#{image}"
+  defp format_backend({:apple_container, image, _}), do: "apple_container:#{image}"
   defp format_backend({:docker, image}), do: "docker:#{image}"
   defp format_backend({:docker, image, _}), do: "docker:#{image}"
   defp format_backend({:ssh, host}), do: "ssh:#{host}"
@@ -177,7 +180,9 @@ defmodule GenswarmsWeb.ConfigController do
   end
 
   defp format_validation_errors(:exs_string_not_supported) do
-    ["Executable .exs configs are not accepted as request content; use json/yaml or a server-side config_path."]
+    [
+      "Executable .exs configs are not accepted as request content; use json/yaml or a server-side config_path."
+    ]
   end
 
   defp format_validation_errors(reason) when is_binary(reason) do

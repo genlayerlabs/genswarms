@@ -736,6 +736,18 @@ defmodule Mix.Tasks.Genswarms.Status do
     get_docker_container_status("szc-#{swarm_name}-#{agent_name}")
   end
 
+  defp get_agent_status(swarm_name, agent_name, :apple_container, _swarm_status) do
+    get_apple_container_status("szc-#{swarm_name}-#{agent_name}")
+  end
+
+  defp get_agent_status(swarm_name, agent_name, {:apple_container, _image}, _swarm_status) do
+    get_apple_container_status("szc-#{swarm_name}-#{agent_name}")
+  end
+
+  defp get_agent_status(swarm_name, agent_name, {:apple_container, _image, _opts}, _swarm_status) do
+    get_apple_container_status("szc-#{swarm_name}-#{agent_name}")
+  end
+
   defp get_agent_status(_swarm_name, _agent_name, _backend, _swarm_status) do
     # For local/ssh backends, we can't easily check status from CLI
     # Default to running if the swarm is running
@@ -752,6 +764,30 @@ defmodule Mix.Tasks.Genswarms.Status do
     end
   end
 
+  defp get_apple_container_status(container_name) do
+    case apple_container_cmd(["inspect", container_name]) do
+      {output, 0} ->
+        case Jason.decode(output) do
+          {:ok, [first | _]} when is_map(first) ->
+            apple_status_atom(Map.get(first, "status") || Map.get(first, "state"))
+
+          {:ok, %{} = map} ->
+            apple_status_atom(Map.get(map, "status") || Map.get(map, "state"))
+
+          _ ->
+            :stopped
+        end
+
+      _ ->
+        :stopped
+    end
+  end
+
+  defp apple_status_atom("running"), do: :running
+  defp apple_status_atom(_), do: :stopped
+
+  defp apple_container_cmd(args), do: Genswarms.Backends.OciCli.cmd("container", args)
+
   defp format_agent_status(:running), do: Output.colorize("running", :green)
   defp format_agent_status(:paused), do: Output.colorize("paused", :yellow)
   defp format_agent_status(:stopped), do: Output.colorize("stopped", :dim)
@@ -762,6 +798,9 @@ defmodule Mix.Tasks.Genswarms.Status do
   defp format_object_status(status), do: to_string(status)
 
   defp format_backend(:local), do: "local"
+  defp format_backend(:apple_container), do: "apple_container"
+  defp format_backend({:apple_container, image}), do: "apple_container (#{image})"
+  defp format_backend({:apple_container, image, _opts}), do: "apple_container (#{image})"
   defp format_backend({:docker, image}), do: "docker (#{image})"
   defp format_backend({:docker, image, _opts}), do: "docker (#{image})"
   defp format_backend({:ssh, host}), do: "ssh (#{host})"

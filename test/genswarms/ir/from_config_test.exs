@@ -63,6 +63,27 @@ defmodule Genswarms.IR.FromConfigTest do
     assert agent(state, "reviewer").backend.host == "pi@192.168.1.50"
   end
 
+  test "Apple container backend maps to non-hashable ref with image metadata" do
+    cfg = %{
+      name: "s",
+      agents: [
+        %{
+          name: :mac,
+          backend: {:apple_container, "szc-agent-base:latest", %{memory_limit: "2g"}}
+        }
+      ]
+    }
+
+    {:ok, state} = FromConfig.from_config(cfg)
+    mac = agent(state, "mac")
+
+    assert mac.backend.ref == "apple_container"
+    assert mac.backend.scheme == "apple_container"
+    assert mac.backend.image == "szc-agent-base:latest"
+    assert mac.backend.opts == %{"memory_limit" => "2g"}
+    assert mac.backend.kind == nil
+  end
+
   test "object handler module becomes a module: ref of kind code" do
     {:ok, state} = FromConfig.from_config(config())
     obj = hd(state.objects)

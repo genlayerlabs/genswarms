@@ -47,7 +47,7 @@ Each entry in `agents` is a map. Only the keys below are recognized by the valid
 | `skills` | list of strings | No | `[]` | Skill markdown filenames to deploy. All entries must be strings. |
 | `presets` | list of atoms | No | `[]` | NixOS tool presets. Must be drawn from the valid preset set below. |
 | `tools` | list of atoms | No | `[]` | Individual tools. Must be drawn from the valid tool set below. |
-| `config` | map | No | `%{}` | Backend-specific and domain-specific configuration (see [Bwrap config separation](#bwrap-config-separation)). |
+| `config` | map | No | `%{}` | Backend-specific and domain-specific configuration (see [Backend config separation](#backend-config-separation)). |
 
 ```elixir
 %{
@@ -85,6 +85,9 @@ The `backend` key accepts any of the following forms. See [backends.md](backends
 | `:local` | Local | Runs as an Elixir Port subprocess. |
 | `{:docker, "name"}` | Docker | Container image/name; resolves to `%{image: "name"}`. |
 | `{:docker, "name", %{opts}}` | Docker | Options map merged over `%{image: "name"}`. |
+| `:apple_container` | Apple container | Apple `container` CLI backend; image is picked from presets/defaults. |
+| `{:apple_container, "image"}` | Apple container | Container image; resolves to `%{image: "image"}`. |
+| `{:apple_container, "image", %{opts}}` | Apple container | Options map merged over `%{image: "image"}`. |
 | `{:ssh, "user@host"}` | SSH | Resolves to `%{host: "user@host"}`. |
 | `{:ssh, "user@host", %{opts}}` | SSH | Options map merged over `%{host: ...}`. |
 | `:bwrap` | Bwrap | Bubblewrap sandbox; default when `backend` is omitted. |
@@ -94,27 +97,37 @@ The `backend` key accepts any of the following forms. See [backends.md](backends
 
 Any other value fails validation with `{:invalid_backend, backend}`.
 
-> JSON/YAML limitation: the loader only converts a **scalar string** backend to an atom (`"local"` → `:local`, `"bwrap"` → `:bwrap`, `"mock"` → `:mock`, etc.). It does **not** turn an array like `["docker", "coder"]` into a `{:docker, "coder"}` tuple, so array-form backends reach the validator unchanged and fail. Tuple-form backends (Docker/SSH, or any form with an options map) can therefore only be expressed in `.exs` configs. JSON/YAML configs are limited to the scalar string backends.
+> JSON/YAML limitation: the loader only converts a **scalar string** backend to an atom (`"local"` → `:local`, `"bwrap"` → `:bwrap`, `"apple_container"` → `:apple_container`, `"mock"` → `:mock`, etc.). It does **not** turn an array like `["docker", "coder"]` into a `{:docker, "coder"}` tuple, so array-form backends reach the validator unchanged and fail. Tuple-form backends (Docker/SSH/Apple container, or any form with an options map) can therefore only be expressed in `.exs` configs. JSON/YAML configs are limited to scalar string backends.
 
-## Bwrap config separation
+## Backend config separation
 
-For bwrap agents, the agent's `config` map is split at deploy time (in `Genswarms.Agents.AgentServer`) into backend keys and domain keys. Backend keys override the values returned by `SwarmConfig.backend_config/1` and control the execution environment; all remaining keys stay as domain config available to the agent's skills and logic.
+For agents, the agent's `config` map is split at deploy time (in `Genswarms.Agents.AgentServer`) into backend keys and domain keys. Backend keys override the values returned by `SwarmConfig.backend_config/1` and control the execution environment; all remaining keys stay as domain config available to the agent's skills and logic.
 
-The backend keys are:
+The shared/backend-specific keys are:
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `workspace` | string | `/tmp/szc-workspace/<sandbox_id>` | Working directory mounted read-write into the sandbox. |
+| `container_name` | string | `szc-<swarm>-<agent>` | Explicit Apple container name. |
+| `env` | map | `%{}` | Extra environment variables for Docker/Apple container agents. |
+| `volumes` | list of `{host, container}` | `[]` | Extra Docker/Apple container bind mounts. |
+| `cmd` | string or argv list | backend default | Override the Docker/Apple in-container command. |
 | `extra_path` | list of strings | `[]` | Additional directories prepended to `PATH`. |
 | `extra_ro_binds` | list of `{host, container}` | `[]` | Extra read-only bind mounts. |
 | `extra_rw_binds` | list of `{host, container}` | `[]` | Split out of `config`, but **not currently applied** by the backend (only `extra_ro_binds` is mounted). Use `workspace` for writable space. |
 | `extra_env` | map | `%{}` | Extra environment variables passed into the sandbox. |
 | `memory_limit` | string | `"256M"` | Memory ceiling (e.g. `"512M"`). |
+| `memory_swap` | string | Docker default | Docker-only RAM+swap cap. |
+| `cpu_limit` | number/string | backend default | Docker/Apple CPU cap. |
 | `cpu_shares` | integer | `100` | Relative CPU weight. |
+| `pids_limit` | integer | Docker default | Docker-only process-count cap. |
 | `tasks_max` | integer | `50` | Max number of tasks/processes. |
 | `subzeroclaw_path` | string | resolved | Explicit path to the `subzeroclaw` binary. |
+| `subzeroclaw_src` | string | resolved | Source directory mounted into Docker/Apple containers for in-container build. |
+| `api_key` / `model` / `endpoint` | string | env/provider defaults | LLM settings passed through to real backends. Prefer top-level `model` / `endpoint` for normal configs. |
+| `request_extra` / `compact_extra` | JSON string or map | none | Advanced subzeroclaw request/compaction routing payloads. |
 | `presets` | list of atoms | `[:base]` | The same agent-level `presets` key (above), forwarded to the sandbox. The bwrap backend falls back to `[:base]` when none are given. |
-| `network` | `:open` \| `:isolated` | `:open` | `:isolated` cuts the agent's network to a single forwarder pinned to the LLM endpoint — use it for agents that ingest untrusted content. See [Security › network isolation](security.md#agent-network-isolation). |
+| `network` | `:open` \| `:isolated` \| string | `:open` | `:isolated` cuts Docker/bwrap network to a single forwarder pinned to the LLM endpoint. Apple container rejects `:isolated` / `"isolated"` and fails closed. See [Security › network isolation](security.md#agent-network-isolation). |
 
 Any key in `config` not listed above (for example `population_size` or `max_iterations`) is preserved as domain config and is not interpreted by the backend.
 
@@ -137,13 +150,13 @@ Any key in `config` not listed above (for example `population_size` or `max_iter
 
 ## Objects
 
-Objects are non-agentic components that participate in topology but run deterministic code instead of LLM calls. Each object must specify either a `handler` (native Elixir) or a `backend` (Docker/SSH). See [objects.md](objects.md) for the handler behaviour.
+Objects are non-agentic components that participate in topology but run deterministic code instead of LLM calls. Each object must specify either a `handler` (native Elixir) or a `backend` (Docker/Apple container/SSH). See [objects.md](objects.md) for the handler behaviour.
 
 | Key | Type | Required | Description |
 |-----|------|----------|-------------|
 | `name` | atom or string | Yes | Unique object identifier. Normalized to an atom. |
 | `handler` | module | For native objects | Module implementing `init/1` and `handle_message/3` from `Genswarms.Objects.ObjectHandler`. |
-| `backend` | backend spec | For Docker/SSH objects | Same forms as agent backends. |
+| `backend` | backend spec | For Docker/Apple container/SSH objects | Same forms as agent backends. |
 | `config` | map | No | Passed to the handler's `init/1` (or to the backend). |
 
 If a `handler` module is already loaded, the validator checks it exports `init/1` and `handle_message/3` (raising `{:invalid_handler, handler, ...}` otherwise); if the module is not yet loaded (it may live in the host application), validation is deferred. An object map with neither `handler` nor `backend` fails with `:invalid_object_config`.
@@ -202,8 +215,8 @@ The file must evaluate to a configuration map. This is the only format that supp
 ### JSON
 
 Topology edges are two-element arrays. Backends must be scalar strings
-(`"local"`, `"bwrap"`, `"mock"`) — see the JSON/YAML limitation above; use `.exs`
-for Docker/SSH or option-map backends.
+(`"local"`, `"bwrap"`, `"apple_container"`, `"mock"`) — see the JSON/YAML limitation above; use `.exs`
+for Docker/SSH/Apple image tuples or option-map backends.
 
 ```json
 {
@@ -319,7 +332,7 @@ authoring details and built-in skills.
 ## See also
 
 - [backends.md](backends.md) — backend types and their options
-- [containers.md](containers.md) — building NixOS container images for Docker agents
+- [containers.md](containers.md) — building NixOS container images for Docker and Apple container agents
 - [objects.md](objects.md) — the `ObjectHandler` behaviour and object patterns
 - [skills.md](skills.md) — authoring and deploying agent skill files
 - [cli.md](cli.md) — validating and running configs from the command line

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Genswarms is an Elixir/OTP orchestrator for managing swarms of AI agents with pluggable backends (Local/Docker/SSH/Bwrap/Mock), arbitrary directed graph topologies, per-agent skills with template variable resolution, file-based messaging (inbox/outbox), and fault tolerance via OTP supervision trees.
+Genswarms is an Elixir/OTP orchestrator for managing swarms of AI agents with pluggable backends (Local/Docker/Apple container/SSH/Bwrap/Mock), arbitrary directed graph topologies, per-agent skills with template variable resolution, file-based messaging (inbox/outbox), and fault tolerance via OTP supervision trees.
 
 Full user/developer documentation lives in [`docs/`](docs/README.md) (configuration DSL, CLI, REST/WebSocket APIs, backends, observability, etc.). This file is the quick-reference for working in the codebase.
 
@@ -106,7 +106,7 @@ Application
     │       └── AgentDynamicSupervisor
     │               │
     │               └── AgentServer (per agent)
-    │                       ├── Backend (Local Port / Docker / SSH / Bwrap / Mock)
+    │                       ├── Backend (Local Port / Docker / Apple container / SSH / Bwrap / Mock)
     │                       └── LogWatcher (polls logs + .outbox/ for routing)
     │
     ├── ObjectSupervisor ─── manages non-agentic Elixir objects
@@ -156,7 +156,7 @@ API Server (Phoenix)                 Daemon Process (genswarms start)
 - API server queries SQLite for swarm state (running/stopped/crashed)
 - Tasks sent via API are queued in SQLite
 - Daemon polls task queue every 500ms and delivers to agents
-- Pause/resume for daemon swarms uses Docker commands directly
+- Pause/resume for daemon swarms uses Docker commands directly; Apple `container` has no pause/unpause equivalent here
 
 ### Key Modules
 
@@ -169,6 +169,7 @@ API Server (Phoenix)                 Daemon Process (genswarms start)
 | `AgentProtocol` | `lib/genswarms/agents/agent_protocol.ex` | Parses `@agent:` message syntax |
 | `LocalBackend` | `lib/genswarms/backends/local_backend.ex` | Elixir Port subprocess |
 | `DockerBackend` | `lib/genswarms/backends/docker_backend.ex` | Docker container management |
+| `AppleContainerBackend` | `lib/genswarms/backends/apple_container_backend.ex` | Apple `container` CLI management |
 | `SSHBackend` | `lib/genswarms/backends/ssh_backend.ex` | SSH remote execution |
 | `ObjectHandler` | `lib/genswarms/objects/object_handler.ex` | Behaviour for custom objects |
 | `ObjectServer` | `lib/genswarms/objects/object_server.ex` | GenServer wrapper for object handlers (supports :send_many) |
@@ -206,8 +207,8 @@ Broadcast to all connected: `@all: message`
 | POST | /api/swarms | Create swarm |
 | GET | /api/swarms/:name | Get detailed status |
 | DELETE | /api/swarms/:name | Stop swarm (?purge=true to delete all) |
-| POST | /api/swarms/:name/pause | Pause containers |
-| POST | /api/swarms/:name/resume | Resume containers |
+| POST | /api/swarms/:name/pause | Pause Docker containers |
+| POST | /api/swarms/:name/resume | Resume Docker containers |
 | POST | /api/swarms/:name/restart | Restart (?delete=true for clean) |
 | POST | /api/swarms/:name/message | Route message between agents |
 | POST | /api/swarms/clean | Clean stopped/crashed (?all=true to clear events) |
@@ -275,11 +276,11 @@ Swarm configs define agents, objects, and topology. Supports `.exs`, `.json`, `.
 }
 ```
 
-Backend types: `:local`, `{:docker, "name"}`, `{:docker, "name", %{opts}}`, `{:ssh, "user@host"}`, `{:ssh, "user@host", %{opts}}`, `:bwrap`, `{:bwrap, %{opts}}`, `:mock`, `{:mock, %{script: [...]}}`
+Backend types: `:local`, `{:docker, "name"}`, `{:docker, "name", %{opts}}`, `:apple_container`, `{:apple_container, "image"}`, `{:apple_container, "image", %{opts}}`, `{:ssh, "user@host"}`, `{:ssh, "user@host", %{opts}}`, `:bwrap`, `{:bwrap, %{opts}}`, `:mock`, `{:mock, %{script: [...]}}`
 
-### Bwrap Config Separation
+### Backend Config Separation
 
-For bwrap agents, backend keys are separated from domain keys in agent config. Backend keys control the execution environment, domain keys are application-specific:
+For agents, recognized backend keys are separated from domain keys in agent config. Backend keys control the execution environment, domain keys are application-specific:
 
 ```elixir
 %{
@@ -298,14 +299,16 @@ For bwrap agents, backend keys are separated from domain keys in agent config. B
 }
 ```
 
-Backend keys: `workspace`, `extra_path`, `extra_ro_binds`, `extra_rw_binds`, `memory_limit`, `cpu_shares`, `tasks_max`, `subzeroclaw_path`, `presets`, `network`
+Backend keys include: `workspace`, `container_name`, `env`, `volumes`, `cmd`, `extra_path`, `extra_ro_binds`, `extra_rw_binds`, `extra_env`, `memory_limit`, `memory_swap`, `cpu_limit`, `cpu_shares`, `pids_limit`, `tasks_max`, `subzeroclaw_path`, `subzeroclaw_src`, `presets`, `network`
 
 ### Network Isolation (`network: :isolated`)
 
 By default agents share the host network (bwrap shares the host network
 namespace; docker uses a normal bridge) and can therefore reach the orchestrator
 API on `localhost`/the host plus the open internet. Set `network: :isolated` in
-an agent's `config` to contain that (supported on **bwrap** and **docker**):
+an agent's `config` to contain that (supported on **bwrap** and **docker**; Apple
+`container` fails closed because it does not expose matching egress-forwarding
+semantics):
 
 ```elixir
 %{name: :researcher, backend: :bwrap,            config: %{network: :isolated}}
@@ -472,7 +475,7 @@ Tables:
 
 ### Pause/Resume for Daemon Swarms
 
-Since `SwarmManager.pause/1` requires GenServer access, daemon swarms use Docker directly:
+Since `SwarmManager.pause/1` requires GenServer access, daemon swarms use Docker directly. Apple `container` has no pause/unpause support in the current backend:
 - Pause: `docker pause szc-{swarm}-{agent}` for each container
 - Resume: `docker unpause szc-{swarm}-{agent}` for each container
 

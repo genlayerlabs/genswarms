@@ -59,6 +59,42 @@ docker logs szc-example-swarm-coder
 genswarms events --category backend
 ```
 
+## Apple container backend fails
+
+1. Confirm the `container` CLI is installed and the service is running:
+
+```bash
+container system status --format json
+container system start
+```
+
+2. Confirm the image exists in Apple's local image store:
+
+```bash
+container image inspect szc-agent-code:latest
+```
+
+Build preset images with `nix build .#agentContainer-<preset> -o result`. Current Nix container outputs are Docker archives; Apple `container image load` expects an OCI archive. Convert or publish the image before loading it into Apple's image store, for example:
+
+```bash
+docker load -i result
+skopeo copy docker-daemon:szc-agent-base:latest oci-archive:szc-agent-base-oci.tar:szc-agent-base:latest
+container image load --input szc-agent-base-oci.tar
+```
+
+The backend tries the build/load path when an image is missing, but a failed build, missing Nix, or incompatible archive leaves the final image error to `container run`.
+
+3. Inspect a container directly. GenSwarms names Apple containers `szc-{swarm}-{agent}` unless `container_name` is set:
+
+```bash
+container inspect szc-example-swarm-coder
+container logs -n 50 szc-example-swarm-coder
+```
+
+4. If the error is `{:unsupported_network, :isolated}`, the backend is refusing to run with open network. Apple `container` does not currently expose the egress-forwarding semantics GenSwarms uses for Docker/bwrap isolation; use Docker or bwrap for agents that require `network: :isolated`.
+
+5. Pause/resume is Docker-only. Apple `container` agents keep running when you call the pause/resume endpoints or Mix tasks.
+
 ## Tasks not delivered to daemon swarms
 
 Daemon swarms (started with `genswarms start`) receive tasks through a SQLite-backed queue, not directly. The daemon polls the queue every 500ms.

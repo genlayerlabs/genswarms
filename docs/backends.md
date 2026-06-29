@@ -1,10 +1,10 @@
 ---
-description: GenSwarms execution backends — Local, Docker, SSH, Bubblewrap, and Mock — and how to choose one per agent.
+description: GenSwarms execution backends — Local, Docker, Apple container, SSH, Bubblewrap, and Mock — and how to choose one per agent.
 ---
 
 # Backends
 
-A backend is how GenSwarms actually runs a subzeroclaw agent. Every agent in a swarm config declares a `backend:`, and GenSwarms uses the matching backend module to start the process, send it input, deploy skills, and health-check it. All backends implement the same `Genswarms.Backends.BackendBehaviour` contract, so they are interchangeable from the swarm's point of view — you can move an agent from `:local` to `{:docker, "researcher"}` to `:bwrap` without changing anything else in your topology.
+A backend is how GenSwarms actually runs a subzeroclaw agent. Every agent in a swarm config declares a `backend:`, and GenSwarms uses the matching backend module to start the process, send it input, deploy skills, and health-check it. All backends implement the same `Genswarms.Backends.BackendBehaviour` contract, so they are interchangeable from the swarm's point of view — you can move an agent from `:local` to `{:docker, "researcher"}` to `{:apple_container, "researcher"}` to `:bwrap` without changing anything else in your topology.
 
 This guide covers each backend: how it runs, the config it accepts, and what you need on the host.
 
@@ -32,11 +32,12 @@ All backends share the same wire protocol: subzeroclaw is run through the `szc-w
 |---------|-------------|-----------------|
 | `:local` | Development, debugging, single-host runs | None (plain subprocess) |
 | `{:docker, "name"}` | Reproducible tool environments, per-agent images | Container (namespaces + image) |
+| `{:apple_container, "name"}` | OCI containers on macOS / Apple silicon without Docker Desktop | Apple container VM |
 | `{:ssh, "user@host"}` | Bare-metal / remote NixOS machines | Remote host |
 | `:bwrap` | Massive scale (10k+ agents on one box) | Lightweight sandbox (user namespaces) |
 | `:mock` | Tests without LLM calls | None (no process spawned) |
 
-Three LLM settings are read by every *real* backend (local, docker, ssh, bwrap). Each one is taken from the agent config first and falls back to the process environment when not set: `api_key` / `SUBZEROCLAW_API_KEY`, `model` / `SUBZEROCLAW_MODEL`, and `endpoint` / `SUBZEROCLAW_ENDPOINT`. The `:mock` backend ignores them — it never spawns a process.
+Three LLM settings are read by every *real* backend (local, docker, apple_container, ssh, bwrap). Each one is taken from the agent config first and falls back to the process environment when not set: `api_key` / `SUBZEROCLAW_API_KEY`, `model` / `SUBZEROCLAW_MODEL`, and `endpoint` / `SUBZEROCLAW_ENDPOINT`. The `:mock` backend ignores them — it never spawns a process.
 
 ## Local
 
@@ -124,6 +125,72 @@ If the chosen image is not present locally, the backend attempts to build it wit
 The skills directory, if set, is mounted read-only at `/skills`, and a sibling `logs/` directory is mounted at `/root/.subzeroclaw/logs`. The workspace is mounted at `/workspace` (unless your own `volumes` already mount something under `/workspace`), the host `/tmp` is shared, and the subzeroclaw source directory is mounted read-only at `/src/subzeroclaw` for in-container compilation. Agent name and LLM settings are passed as `-e` env vars, and topology connections are exported as `SWARM_TOPOLOGY` so `swarm-msg list` works inside the container.
 
 Requirements: Docker, and Nix if you want images built on demand. For details on NixOS containers, presets, and how the images are assembled, see [containers.md](containers.md).
+
+## Apple container
+
+The Apple container backend (`lib/genswarms/backends/apple_container_backend.ex`) runs each agent with Apple's `container` CLI. It is for macOS / Apple silicon hosts that want OCI-style agent containers without Docker Desktop.
+
+```elixir
+%{
+  name: :coder,
+  backend: {:apple_container, "szc-agent-code:latest"},
+  presets: [:base, :code],
+  skills: ["code.md"]
+}
+```
+
+Options are passed as the third tuple element:
+
+```elixir
+%{
+  name: :coder,
+  backend: {:apple_container, "szc-agent-code:latest", %{
+    memory_limit: "2g",
+    cpu_limit: 2,
+    workspace: "/tmp/genswarms/coder"
+  }},
+  skills: ["code.md"]
+}
+```
+
+Use `:apple_container` when you want the backend to pick an image from presets/defaults. Do not use bare `:container`; that name is intentionally not accepted because it is ambiguous.
+
+### Service and image selection
+
+Apple's tool requires its API server to be running before agents start:
+
+```bash
+container system start
+container system status --format json
+```
+
+If `container system status --format json` does not report a running service, GenSwarms fails the agent start with `:apple_container_not_ready`.
+
+The image is chosen in the same order as Docker: explicit `image`, then `container_name`, then a preset-derived image such as `szc-agent-code:latest`, then `szc-agent-base:latest`. If the selected image is not present, the backend attempts `nix build .#agentContainer-<preset> -o result` and then asks Apple `container` to load the result. Current Nix `agentContainer-*` outputs are Docker archives, while Apple `container image load` expects an OCI archive, so operators should pre-load a compatible image by converting the Nix result to OCI or by pulling from a registry. If Nix is unavailable or the build/load fails, the agent still starts with the selected image name and the `container` CLI reports the final image error.
+
+### Apple container options
+
+| Config key | Purpose |
+|------------|---------|
+| `container_name` | Explicit container name; default `szc-{swarm}-{agent}` |
+| `image` | Explicit image to run |
+| `presets` | NixOS tool presets used to pick/build the image |
+| `workspace` | Host path mounted at `/workspace` (default `/tmp/szc-workspace`) |
+| `volumes` | Extra mounts as `[{host_path, container_path}]` |
+| `network` | Apple container network to attach (`--network`); `:isolated` / `"isolated"` is rejected |
+| `memory_limit` | Memory cap (`--memory`) |
+| `cpu_limit` | CPU cap (`--cpus`) |
+| `env` | Extra env vars (a map); values are passed as discrete argv entries |
+| `cmd` | Override the in-container command. A string runs through `sh -c` inside the container; a list is used as argv |
+| `api_key` / `model` / `endpoint` | LLM settings (fall back to env) |
+
+The runtime contract matches Docker where Apple's CLI supports it: skills are mounted read-only at `/skills`, logs at `/root/.subzeroclaw/logs`, the workspace at `/workspace`, host `/tmp` is shared, and the subzeroclaw source directory is mounted read-only at `/src/subzeroclaw` when it can be found. Agent name, LLM request routing, extra request/compaction settings, and topology are passed as environment variables. Container commands are assembled as argv lists for the host `container` process, not shell-built host commands.
+
+`network: :isolated` is not implemented for Apple `container` because the current command set does not expose the Docker/bwrap-style egress-forwarding primitive GenSwarms uses. The backend fails closed with `{:unsupported_network, :isolated}` instead of silently running with open network. Use Docker or bwrap for isolated untrusted-content agents.
+
+Apple's CLI also does not currently expose Docker-style pause/unpause semantics, so GenSwarms pause/resume remains Docker-only.
+
+Requirements: macOS on Apple silicon, Apple's `container` CLI, the `container-apiserver` service running, and Nix if you want images built on demand.
 
 ## SSH
 
@@ -227,7 +294,7 @@ The mock backend (`lib/genswarms/backends/mock_backend.ex`) spawns no external p
 
 It also accepts an optional `script` (`{:mock, %{script: [...]}}`), but the backend only stores that script on its ref for introspection — it does **not** match against it or generate responses (`send_input/2` and `handle_output/2` are no-ops). The bare `:mock` form is what the test suite and examples use.
 
-> Producing canned LLM responses (with a `match`/`response` script) is a feature of **subzeroclaw**, not of the `:mock` backend. To run *real* agents (local/docker/bwrap) without calling an LLM, point them at a subzeroclaw mock script via the `SUBZEROCLAW_MOCK_SCRIPT` environment variable, or use `mix genswarms.test --mock script.json`. See [testing.md](testing.md).
+> Producing canned LLM responses (with a `match`/`response` script) is a feature of **subzeroclaw**, not of the `:mock` backend. To run *real* agents (local/docker/apple_container/bwrap) without calling an LLM, point them at a subzeroclaw mock script via the `SUBZEROCLAW_MOCK_SCRIPT` environment variable, or use `mix genswarms.test --mock script.json`. See [testing.md](testing.md).
 
 ## See also
 

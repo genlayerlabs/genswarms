@@ -44,6 +44,22 @@ defmodule Genswarms.Config.LoaderTest do
       assert config.name == "test-swarm"
     end
 
+    test "loads Apple container scalar backend from JSON string" do
+      content = """
+      {
+        "name": "test-swarm",
+        "agents": [
+          {"name": "agent1", "backend": "apple_container"}
+        ],
+        "topology": []
+      }
+      """
+
+      {:ok, config} = Loader.load_string(content, :json)
+
+      assert [%{backend: :apple_container}] = config.agents
+    end
+
     test "loads configuration from YAML string" do
       content = """
       name: test-swarm

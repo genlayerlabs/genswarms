@@ -151,7 +151,7 @@ but is never used to generate responses. See [backends.md](backends.md).
 
 ### `--mock` / `SUBZEROCLAW_MOCK_SCRIPT` — run real agents with canned responses
 
-To run *real* agents (local/docker/bwrap) end to end without calling an LLM, give
+To run *real* agents (local/docker/apple_container/bwrap) end to end without calling an LLM, give
 subzeroclaw a mock script:
 
 ```bash

@@ -27,10 +27,13 @@ defmodule Genswarms.Backends.DockerBackendTest do
       refute "/tmp/pwned" in args
     end
 
-    test "default container command is argv ['sh','-c',script] (runs in the container, not host)" do
+    test "default container command runs the FIFO protocol wrapper inside the container" do
       args = DockerBackend.build_docker_args("c", "i", nil, nil, nil, nil, "a", %{})
-      assert ["sh", "-c", script] = Enum.take(args, -3)
-      assert script =~ "subzeroclaw"
+      assert Enum.any?(args, &String.ends_with?(&1, ":/src/genswarms-priv:ro"))
+      assert ["sh", "-c", script, "szc-wrapper", "a"] = Enum.take(args, -5)
+      assert script =~ "/src/genswarms-priv/szc-wrapper-fifo.sh \"$1\""
+      assert script =~ "/root/build/subzeroclaw /skills"
+      refute script =~ " a "
     end
 
     test "a string :cmd is wrapped as sh -c (container shell); a list :cmd is used as argv" do
@@ -79,6 +82,18 @@ defmodule Genswarms.Backends.DockerBackendTest do
 
     test "an explicit docker network name still passes through" do
       assert ["--network", "my-net" | _] = drop_until(build(%{network: "my-net"}), "--network")
+    end
+  end
+
+  describe "determine_image/1" do
+    test "matches full and devops preset combinations after sorting" do
+      assert DockerBackend.determine_image(%{
+               presets: [:base, :web, :code, :data, :python, :node]
+             }) == "szc-agent-full:latest"
+
+      assert DockerBackend.determine_image(%{
+               presets: [:base, :code, :containers, :cloud]
+             }) == "szc-agent-devops:latest"
     end
   end
 

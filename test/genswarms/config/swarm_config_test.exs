@@ -177,6 +177,31 @@ defmodule Genswarms.Config.SwarmConfigTest do
 
       assert {:ok, _} = SwarmConfig.parse(config)
     end
+
+    test "accepts Apple container backend forms" do
+      configs = [
+        %{name: "test", agents: [%{name: :a, backend: :apple_container}], topology: []},
+        %{
+          name: "test",
+          agents: [%{name: :a, backend: {:apple_container, "szc-agent-base:latest"}}],
+          topology: []
+        },
+        %{
+          name: "test",
+          agents: [
+            %{
+              name: :a,
+              backend: {:apple_container, "szc-agent-base:latest", %{memory_limit: "2g"}}
+            }
+          ],
+          topology: []
+        }
+      ]
+
+      for config <- configs do
+        assert {:ok, _} = SwarmConfig.parse(config)
+      end
+    end
   end
 
   describe "build_adjacency_map/1" do
@@ -240,6 +265,14 @@ defmodule Genswarms.Config.SwarmConfigTest do
       assert SwarmConfig.backend_module({:ssh, "user@host"}) ==
                Genswarms.Backends.SSHBackend
     end
+
+    test "returns correct module for Apple container backend" do
+      assert SwarmConfig.backend_module(:apple_container) ==
+               Genswarms.Backends.AppleContainerBackend
+
+      assert SwarmConfig.backend_module({:apple_container, "img"}) ==
+               Genswarms.Backends.AppleContainerBackend
+    end
   end
 
   describe "backend_config/1" do
@@ -267,6 +300,42 @@ defmodule Genswarms.Config.SwarmConfigTest do
     test "returns options for bwrap with opts" do
       config = SwarmConfig.backend_config({:bwrap, %{memory_limit: "256M"}})
       assert config.memory_limit == "256M"
+    end
+
+    test "extracts Apple container image and options" do
+      assert SwarmConfig.backend_config(:apple_container) == %{}
+
+      config = SwarmConfig.backend_config({:apple_container, "img:tag"})
+      assert config.image == "img:tag"
+
+      config =
+        SwarmConfig.backend_config({:apple_container, "img:tag", %{memory_limit: "2g"}})
+
+      assert config.image == "img:tag"
+      assert config.memory_limit == "2g"
+    end
+  end
+
+  describe "backend option keys" do
+    test "atomizes known backend keys and preserves domain string keys" do
+      opts =
+        SwarmConfig.atomize_known_backend_opts(%{
+          "network" => "isolated",
+          "request_extra" => %{"model" => "x/y"},
+          "compact_extra" => %{"mode" => "brief"},
+          "endpoint" => "https://llm.example",
+          "population_size" => 10
+        })
+
+      assert opts.network == "isolated"
+      assert opts.request_extra == %{"model" => "x/y"}
+      assert opts.compact_extra == %{"mode" => "brief"}
+      assert opts.endpoint == "https://llm.example"
+      assert opts["population_size"] == 10
+
+      assert :request_extra in SwarmConfig.backend_config_keys()
+      assert :compact_extra in SwarmConfig.backend_config_keys()
+      assert :endpoint in SwarmConfig.backend_config_keys()
     end
   end
 end

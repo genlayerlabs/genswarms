@@ -9,7 +9,7 @@ fault tolerance via OTP supervision trees.
 
 ## Features
 
-- **Pluggable backends** — Local (Port), Docker (NixOS containers), SSH, Bwrap (bubblewrap), Mock.
+- **Pluggable backends** — Local (Port), Docker (NixOS containers), Apple `container`, SSH, Bwrap (bubblewrap), Mock.
 - **Arbitrary topologies** — define directed graphs for inter-agent communication.
 - **Per-agent skills** — markdown skill files deployed per agent, with `{{agent_name}}` / `{{swarm_name}}` / `{{workspace}}` templating.
 - **Objects** — non-agentic Elixir components that participate in the topology and run deterministic code.
@@ -18,7 +18,7 @@ fault tolerance via OTP supervision trees.
 - **File-based messaging** — reliable delivery to sandboxed agents via `.inbox/` and `.outbox/`.
 - **Daemon-based swarms** — swarms run as independent OS processes, coordinated through SQLite.
 - **REST API + WebSocket** — full programmatic control and real-time event streaming (JSON only, Bearer-token auth, loopback-safe by default).
-- **Network isolation** — run agents that ingest untrusted content with `network: :isolated`: no network except a forwarder pinned to the LLM, so a prompt-injected agent can't reach the orchestrator or exfiltrate data.
+- **Network isolation** — run Docker/bwrap agents that ingest untrusted content with `network: :isolated`: no network except a forwarder pinned to the LLM, so a prompt-injected agent can't reach the orchestrator or exfiltrate data. Apple `container` agents reject `:isolated` until the CLI supports equivalent semantics.
 - **Validated control plane** — every swarm definition and dynamic mutation is validated by the [intermediate representation](docs/intermediate-representation.md) (`swarm.state` / `swarm.overlay`) before it touches the runtime.
 - **Runtime scaling** — grow or shrink agent groups in a live swarm.
 - **Centralized observability** — query and stream events and logs via CLI or API.
@@ -173,7 +173,7 @@ A swarm is defined by agents, optional objects, and a topology. Configs may be
 }
 ```
 
-The full DSL — every agent/object key, backend value forms, and bwrap config
+The full DSL — every agent/object key, backend value form, and backend config
 separation — is documented in [docs/configuration.md](docs/configuration.md).
 
 ## Backends
@@ -182,6 +182,7 @@ separation — is documented in [docs/configuration.md](docs/configuration.md).
 |---------|--------------|---------|
 | Local | `:local` | Development, single-host agents |
 | Docker | `{:docker, "name"}` | Isolated NixOS-based containers |
+| Apple container | `{:apple_container, "image"}` | OCI containers through Apple's `container` CLI |
 | SSH | `{:ssh, "user@host"}` | Remote / bare-metal agents |
 | Bwrap | `:bwrap` | Lightweight sandboxes at large scale |
 | Mock | `{:mock, %{script: [...]}}` | Testing without LLM calls |
@@ -196,9 +197,11 @@ network. Before exposing it:
 - Set **`GENSWARMS_API_TOKEN`** — every REST/WebSocket request then needs
   `Authorization: Bearer <token>`; unset, only loopback callers are accepted. The
   production HTTP endpoint also binds to loopback by default (`GENSWARMS_HTTP_IP`).
-- Run agents that ingest untrusted content with **`config: %{network: :isolated}`**
+- Run Docker/bwrap agents that ingest untrusted content with **`config: %{network: :isolated}`**
   — the agent gets no network except a forwarder pinned to the LLM endpoint, so a
   prompt-injected agent can neither reach the orchestrator nor exfiltrate data.
+  Apple `container` agents fail closed for `:isolated` instead of silently using
+  open network.
 
 Full reference (CORS, endpoint allowlist, config-path restriction, SSH host-key
 verification): **[docs/security.md](docs/security.md)**.
@@ -218,7 +221,7 @@ verification): **[docs/security.md](docs/security.md)**.
 - [Intermediate representation (IR)](docs/intermediate-representation.md) — the pure-data swarm model + control-plane gate
 
 **Backends & deployment**
-- [Backends](docs/backends.md) — Local / Docker / SSH / Bwrap / Mock
+- [Backends](docs/backends.md) — Local / Docker / Apple container / SSH / Bwrap / Mock
 - [Containers](docs/containers.md) — NixOS images, tool presets, bwrap internals
 
 **APIs**

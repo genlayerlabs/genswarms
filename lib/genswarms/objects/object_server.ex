@@ -206,6 +206,18 @@ defmodule Genswarms.Objects.ObjectServer do
     {:process, SwarmConfig.backend_module(backend), SwarmConfig.backend_config(backend)}
   end
 
+  defp determine_mode(:apple_container = backend, _handler) do
+    {:process, SwarmConfig.backend_module(backend), SwarmConfig.backend_config(backend)}
+  end
+
+  defp determine_mode({:apple_container, _} = backend, _handler) do
+    {:process, SwarmConfig.backend_module(backend), SwarmConfig.backend_config(backend)}
+  end
+
+  defp determine_mode({:apple_container, _, _} = backend, _handler) do
+    {:process, SwarmConfig.backend_module(backend), SwarmConfig.backend_config(backend)}
+  end
+
   defp determine_mode({:ssh, _} = backend, _handler) do
     {:process, SwarmConfig.backend_module(backend), SwarmConfig.backend_config(backend)}
   end

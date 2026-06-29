@@ -42,6 +42,7 @@ defmodule Genswarms.Agents.AgentSupervisor do
   def stop_agent(swarm_name, agent_name) do
     case find_agent_pid(swarm_name, agent_name) do
       {:ok, pid} ->
+        shutdown_backend(swarm_name, agent_name)
         DynamicSupervisor.terminate_child(@supervisor, pid)
         :ok
 
@@ -131,5 +132,11 @@ defmodule Genswarms.Agents.AgentSupervisor do
       [{pid, _}] -> {:ok, pid}
       [] -> :error
     end
+  end
+
+  defp shutdown_backend(swarm_name, agent_name) do
+    AgentServer.shutdown_backend(swarm_name, agent_name)
+  catch
+    :exit, _ -> :ok
   end
 end
