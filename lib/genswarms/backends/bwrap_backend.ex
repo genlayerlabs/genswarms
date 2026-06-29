@@ -39,7 +39,14 @@ defmodule Genswarms.Backends.BwrapBackend do
 
   require Logger
 
-  alias Genswarms.Backends.Bwrap.{OverlayManager, CgroupManager, AgentTelemetry, StoreClosure}
+  alias Genswarms.Backends.Bwrap.{
+    OverlayManager,
+    CgroupManager,
+    AgentTelemetry,
+    StoreClosure,
+    SeccompProfile
+  }
+
   alias Genswarms.Backends.EgressGuard
   alias Genswarms.Observability.LogStore
 
@@ -130,6 +137,9 @@ defmodule Genswarms.Backends.BwrapBackend do
                 config,
                 store_binds
               )
+
+            bwrap_args =
+              SeccompProfile.maybe_wrap_bwrap_args!(sandbox_id, overlay_dir, bwrap_args, config)
 
             # Wrap with systemd-run for cgroup isolation. create_scope returns the
             # executable plus its argv list (no shell involved).
@@ -438,7 +448,10 @@ defmodule Genswarms.Backends.BwrapBackend do
     # fallback: it is the dead var, and it would clobber an inherited
     # SUBZEROCLAW_REQUEST_EXTRA routing policy with a bare {"model": ...}.
     model = Map.get(config, :model)
-    request_extra = config_json(config, :request_extra) || (model && Jason.encode!(%{"model" => model}))
+
+    request_extra =
+      config_json(config, :request_extra) || (model && Jason.encode!(%{"model" => model}))
+
     compact_extra = config_json(config, :compact_extra)
     mock_script = Map.get(config, :mock_script) || System.get_env("SUBZEROCLAW_MOCK_SCRIPT")
     # If recording enabled, always write to workspace inside bwrap
@@ -462,11 +475,11 @@ defmodule Genswarms.Backends.BwrapBackend do
     # ORDER MATTERS: overlay as root first, then other mounts on top
     # User namespace isolation
     # Overlay merged directory as root (MUST be first)
+    # Nix store binds — `:full` = the single /nix/store bind; `:closure` =
+    # per-path closure binds. Spliced at the SAME position the legacy bind
+    # held (right after the merged root, before all other binds), so the
+    # existing arg ordering is preserved.
     args =
-      # Nix store binds — `:full` = the single /nix/store bind; `:closure` =
-      # per-path closure binds. Spliced at the SAME position the legacy bind
-      # held (right after the merged root, before all other binds), so the
-      # existing arg ordering is preserved.
       ([
          bwrap_path,
          "--unshare-user",
@@ -707,7 +720,8 @@ defmodule Genswarms.Backends.BwrapBackend do
           [{~c"SWARM_TOPOLOGY", String.to_charlist(topology_str)}]
       end
 
-    base_env ++ api_key_env ++ request_extra_env ++ compact_extra_env ++ endpoint_env ++ topology_env
+    base_env ++
+      api_key_env ++ request_extra_env ++ compact_extra_env ++ endpoint_env ++ topology_env
   end
 
   # Accept request_extra/compact_extra as a JSON string or an Elixir map.

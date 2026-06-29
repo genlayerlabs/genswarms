@@ -2,7 +2,7 @@ defmodule Genswarms.Backends.BwrapBackendTest do
   use ExUnit.Case, async: false
 
   alias Genswarms.Backends.BwrapBackend
-  alias Genswarms.Backends.Bwrap.{OverlayManager, AgentTelemetry}
+  alias Genswarms.Backends.Bwrap.{OverlayManager, AgentTelemetry, SeccompProfile}
 
   @moduletag :bwrap
 
@@ -361,6 +361,53 @@ defmodule Genswarms.Backends.BwrapBackendTest do
       assert chunk_count(a, ["--ro-bind", "/nix/store", "/nix/store"]) == 0
       assert chunk_count(a, ["--ro-bind", "/nix/store/p1", "/nix/store/p1"]) == 1
       assert chunk_count(a, ["--ro-bind", "/nix/store/p2", "/nix/store/p2"]) == 1
+    end
+  end
+
+  describe "seccomp wrapping" do
+    test "seccomp is disabled by default" do
+      old = System.get_env("GENSWARMS_BWRAP_SECCOMP")
+      System.delete_env("GENSWARMS_BWRAP_SECCOMP")
+
+      try do
+        args = ["bwrap", "--version"]
+
+        assert SeccompProfile.maybe_wrap_bwrap_args!("agent", "/tmp", args, %{}) == args
+      after
+        if old do
+          System.put_env("GENSWARMS_BWRAP_SECCOMP", old)
+        end
+      end
+    end
+
+    test "seccomp wraps bwrap with a profile FD helper when enabled" do
+      overlay_dir = System.tmp_dir!() |> Path.join("szc-seccomp-test-#{System.unique_integer()}")
+      File.mkdir_p!(overlay_dir)
+
+      try do
+        args = ["/usr/bin/bwrap", "--version"]
+
+        wrapped =
+          SeccompProfile.maybe_wrap_bwrap_args!("agent", overlay_dir, args, %{seccomp: true})
+
+        assert [wrapper, profile, "/usr/bin/bwrap", "--version"] = wrapped
+        assert String.ends_with?(wrapper, "bwrap-seccomp-wrapper.sh")
+        assert File.exists?(profile)
+        assert File.read!(profile) == SeccompProfile.default_profile_binary()
+      after
+        File.rm_rf!(overlay_dir)
+      end
+    end
+
+    test "default seccomp profile is a valid cBPF instruction stream shape" do
+      profile = SeccompProfile.default_profile_binary()
+
+      assert byte_size(profile) > 0
+      assert rem(byte_size(profile), 8) == 0
+      assert :ptrace in SeccompProfile.default_deny_syscalls()
+      assert :bpf in SeccompProfile.default_deny_syscalls()
+      assert :mount in SeccompProfile.default_deny_syscalls()
+      assert :umount2 in SeccompProfile.default_deny_syscalls()
     end
   end
 
