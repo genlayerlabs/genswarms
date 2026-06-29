@@ -342,23 +342,29 @@ defmodule Genswarms.Backends.AppleContainerBackend do
     presets = Map.get(config, :presets, [:base])
     preset_name = preset_to_build_name(presets)
 
-    case System.cmd("nix", ["build", ".#agentContainer-#{preset_name}", "-o", "result"],
-           stderr_to_stdout: true,
-           cd: get_project_root()
-         ) do
-      {_, 0} ->
-        case container_cmd(["image", "load", "--input", "result"]) do
+    case System.find_executable("nix") do
+      nil ->
+        Logger.warning("Cannot build Apple container image #{image}: nix executable not found")
+
+      nix ->
+        case System.cmd(nix, ["build", ".#agentContainer-#{preset_name}", "-o", "result"],
+               stderr_to_stdout: true,
+               cd: get_project_root()
+             ) do
           {_, 0} ->
-            Logger.info("Built and loaded Apple container image: #{image}")
+            case container_cmd(["image", "load", "--input", "result"]) do
+              {_, 0} ->
+                Logger.info("Built and loaded Apple container image: #{image}")
+
+              {output, code} ->
+                Logger.warning(
+                  "Built #{image}, but Apple container image load failed (#{code}): #{output}"
+                )
+            end
 
           {output, code} ->
-            Logger.warning(
-              "Built #{image}, but Apple container image load failed (#{code}): #{output}"
-            )
+            Logger.warning("Failed to build Apple container image #{image} (#{code}): #{output}")
         end
-
-      {output, code} ->
-        Logger.warning("Failed to build Apple container image #{image} (#{code}): #{output}")
     end
   end
 

@@ -111,7 +111,7 @@ defmodule GenswarmsWeb.SwarmController do
               backend_type: format_backend_type(Map.get(agent, :backend)),
               skills_paths: get_agent_skills_paths(name, agent[:name]),
               container_name: "szc-#{name}-#{agent[:name]}",
-              container_status: get_container_status(name, agent[:name])
+              container_status: get_container_status(name, agent[:name], Map.get(agent, :backend))
             })
           end)
 
@@ -719,34 +719,74 @@ defmodule GenswarmsWeb.SwarmController do
   defp stop_daemon_swarm(name) do
     prefix = "szc-#{name}-"
 
-    case System.cmd(
-           "docker",
-           ["ps", "-a", "--filter", "name=#{prefix}", "--format", "{{.Names}}"],
-           stderr_to_stdout: true
-         ) do
-      {output, 0} ->
-        containers =
-          output
-          |> String.split("\n", trim: true)
-          |> Enum.filter(&String.starts_with?(&1, prefix))
+    case SwarmRegistry.get_swarm(name) do
+      {:ok, swarm} ->
+        prefix
+        |> list_docker_containers()
+        |> Enum.each(fn container ->
+          docker_cmd(["stop", container])
+          docker_cmd(["rm", container])
+        end)
 
-        Enum.each(containers, fn container ->
-          System.cmd("docker", ["stop", container], stderr_to_stdout: true)
-          System.cmd("docker", ["rm", container], stderr_to_stdout: true)
+        prefix
+        |> list_apple_containers()
+        |> Enum.each(fn container ->
+          apple_container_cmd(["stop", container])
+          apple_container_cmd(["delete", "--force", container])
         end)
 
         SwarmRegistry.mark_stopped(name)
-
-        config_path =
-          case SwarmRegistry.get_swarm(name) do
-            {:ok, swarm} -> swarm.config_path
-            _ -> nil
-          end
-
-        {:ok, config_path}
+        {:ok, swarm.config_path}
 
       _ ->
         {:error, :not_found}
+    end
+  end
+
+  defp list_docker_containers(prefix) do
+    case docker_cmd(["ps", "-a", "--filter", "name=#{prefix}", "--format", "{{.Names}}"]) do
+      {output, 0} ->
+        output
+        |> String.split("\n", trim: true)
+        |> Enum.filter(&String.starts_with?(&1, prefix))
+
+      _ ->
+        []
+    end
+  end
+
+  defp list_apple_containers(prefix) do
+    case apple_container_cmd(["list", "--all", "--format", "json"]) do
+      {output, 0} ->
+        case Jason.decode(output) do
+          {:ok, list} when is_list(list) ->
+            list
+            |> Enum.map(fn item ->
+              Map.get(item, "id") || get_in(item, ["configuration", "id"]) ||
+                Map.get(item, "name")
+            end)
+            |> Enum.filter(&(is_binary(&1) and String.starts_with?(&1, prefix)))
+
+          _ ->
+            []
+        end
+
+      _ ->
+        []
+    end
+  end
+
+  defp docker_cmd(args) do
+    case System.find_executable("docker") do
+      nil -> {"docker executable not found", 127}
+      exe -> System.cmd(exe, args, stderr_to_stdout: true)
+    end
+  end
+
+  defp apple_container_cmd(args) do
+    case System.find_executable("container") do
+      nil -> {"container executable not found", 127}
+      exe -> System.cmd(exe, args, stderr_to_stdout: true)
     end
   end
 
@@ -840,6 +880,9 @@ defmodule GenswarmsWeb.SwarmController do
   end
 
   defp format_backend_type(:local), do: "local"
+  defp format_backend_type(:apple_container), do: "apple_container"
+  defp format_backend_type({:apple_container, _}), do: "apple_container"
+  defp format_backend_type({:apple_container, _, _}), do: "apple_container"
   defp format_backend_type({:docker, _}), do: "docker"
   defp format_backend_type({:docker, _, _}), do: "docker"
   defp format_backend_type({:ssh, _}), do: "ssh"
@@ -872,7 +915,20 @@ defmodule GenswarmsWeb.SwarmController do
     end
   end
 
-  defp get_container_status(swarm_name, agent_name) do
+  defp get_container_status(swarm_name, agent_name, backend)
+       when backend in [:apple_container] do
+    get_apple_container_status("szc-#{swarm_name}-#{agent_name}")
+  end
+
+  defp get_container_status(swarm_name, agent_name, {:apple_container, _}) do
+    get_apple_container_status("szc-#{swarm_name}-#{agent_name}")
+  end
+
+  defp get_container_status(swarm_name, agent_name, {:apple_container, _, _}) do
+    get_apple_container_status("szc-#{swarm_name}-#{agent_name}")
+  end
+
+  defp get_container_status(swarm_name, agent_name, _backend) do
     container_name = "szc-#{swarm_name}-#{agent_name}"
 
     case System.cmd("docker", ["inspect", "-f", "{{.State.Status}}", container_name],
@@ -880,6 +936,25 @@ defmodule GenswarmsWeb.SwarmController do
          ) do
       {status, 0} -> String.trim(status)
       _ -> "not_found"
+    end
+  end
+
+  defp get_apple_container_status(container_name) do
+    case apple_container_cmd(["inspect", container_name]) do
+      {output, 0} ->
+        case Jason.decode(output) do
+          {:ok, [first | _]} when is_map(first) ->
+            Map.get(first, "status") || Map.get(first, "state") || "unknown"
+
+          {:ok, %{} = map} ->
+            Map.get(map, "status") || Map.get(map, "state") || "unknown"
+
+          _ ->
+            "unknown"
+        end
+
+      _ ->
+        "not_found"
     end
   end
 
@@ -1079,7 +1154,7 @@ defmodule GenswarmsWeb.SwarmController do
       model: params["model"],
       endpoint: params["endpoint"],
       presets: (params["presets"] || []) |> Enum.map(&safe_atom/1),
-      config: params["config"] || %{}
+      config: atomize_known_backend_opts(params["config"] || %{})
     }
   end
 
@@ -1094,12 +1169,33 @@ defmodule GenswarmsWeb.SwarmController do
 
   defp parse_backend(nil), do: nil
   defp parse_backend(b) when is_binary(b), do: safe_atom(b)
+
+  defp parse_backend(%{"type" => "apple_container", "image" => img, "opts" => opts})
+       when is_map(opts),
+       do: {:apple_container, img, atomize_known_backend_opts(opts)}
+
+  defp parse_backend(%{"type" => "apple_container", "image" => img}),
+    do: {:apple_container, img}
+
   defp parse_backend(%{"type" => "docker", "image" => img}), do: {:docker, img}
   defp parse_backend(%{"type" => "ssh", "host" => host}), do: {:ssh, host}
   defp parse_backend(%{"type" => "mock"}), do: :mock
   defp parse_backend(%{"type" => "bwrap", "opts" => opts}), do: {:bwrap, opts}
   defp parse_backend(%{"type" => t}), do: safe_atom(t)
   defp parse_backend(other), do: other
+
+  @backend_opt_keys ~w(container_name workspace env volumes cmd memory_limit cpu_limit
+                       memory_swap pids_limit max_turns network subzeroclaw_src
+                       request_extra compact_extra endpoint)a
+
+  defp atomize_known_backend_opts(opts) do
+    key_map = Map.new(@backend_opt_keys, fn atom -> {Atom.to_string(atom), atom} end)
+
+    Map.new(opts, fn
+      {key, value} when is_binary(key) -> {Map.get(key_map, key, key), value}
+      other -> other
+    end)
+  end
 
   defp safe_atom(nil), do: nil
   defp safe_atom(a) when is_atom(a), do: a

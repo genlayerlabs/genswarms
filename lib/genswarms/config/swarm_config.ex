@@ -66,6 +66,9 @@ defmodule Genswarms.Config.SwarmConfig do
   - `:local` - Local Port process
   - `{:docker, container_name}` - Docker container
   - `{:docker, container_name, opts}` - Docker with options
+  - `:apple_container` - Apple `container` CLI with default image
+  - `{:apple_container, image}` - Apple `container` CLI image
+  - `{:apple_container, image, opts}` - Apple `container` with options
   - `{:ssh, "user@host"}` - SSH connection
   - `{:ssh, "user@host", opts}` - SSH with options (key_path, etc.)
 
@@ -106,6 +109,9 @@ defmodule Genswarms.Config.SwarmConfig do
           :bwrap
           | {:bwrap, map()}
           | :local
+          | :apple_container
+          | {:apple_container, String.t()}
+          | {:apple_container, String.t(), map()}
           | {:docker, String.t()}
           | {:docker, String.t(), map()}
           | {:ssh, String.t()}
@@ -207,6 +213,9 @@ defmodule Genswarms.Config.SwarmConfig do
   def backend_module(:bwrap), do: Genswarms.Backends.BwrapBackend
   def backend_module({:bwrap, _}), do: Genswarms.Backends.BwrapBackend
   def backend_module(:local), do: Genswarms.Backends.LocalBackend
+  def backend_module(:apple_container), do: Genswarms.Backends.AppleContainerBackend
+  def backend_module({:apple_container, _}), do: Genswarms.Backends.AppleContainerBackend
+  def backend_module({:apple_container, _, _}), do: Genswarms.Backends.AppleContainerBackend
   def backend_module({:docker, _}), do: Genswarms.Backends.DockerBackend
   def backend_module({:docker, _, _}), do: Genswarms.Backends.DockerBackend
   def backend_module({:ssh, _}), do: Genswarms.Backends.SSHBackend
@@ -221,6 +230,9 @@ defmodule Genswarms.Config.SwarmConfig do
   def backend_config(:bwrap), do: %{}
   def backend_config({:bwrap, opts}), do: opts
   def backend_config(:local), do: %{}
+  def backend_config(:apple_container), do: %{}
+  def backend_config({:apple_container, image}), do: %{image: image}
+  def backend_config({:apple_container, image, opts}), do: Map.merge(%{image: image}, opts)
   def backend_config({:docker, image}), do: %{image: image}
   def backend_config({:docker, image, opts}), do: Map.merge(%{image: image}, opts)
   def backend_config(:mock), do: %{}
@@ -311,6 +323,12 @@ defmodule Genswarms.Config.SwarmConfig do
   defp validate_backend(:bwrap), do: :ok
   defp validate_backend({:bwrap, opts}) when is_map(opts), do: :ok
   defp validate_backend(:local), do: :ok
+  defp validate_backend(:apple_container), do: :ok
+  defp validate_backend({:apple_container, image}) when is_binary(image), do: :ok
+
+  defp validate_backend({:apple_container, image, opts}) when is_binary(image) and is_map(opts),
+    do: :ok
+
   defp validate_backend({:docker, container}) when is_binary(container), do: :ok
 
   defp validate_backend({:docker, container, opts}) when is_binary(container) and is_map(opts),

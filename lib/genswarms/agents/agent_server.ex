@@ -257,7 +257,8 @@ defmodule Genswarms.Agents.AgentServer do
     # Domain keys are application-specific (population_size, max_iterations, etc.)
     backend_keys = ~w(workspace extra_path extra_ro_binds extra_rw_binds extra_env
                       memory_limit cpu_shares tasks_max subzeroclaw_path presets network
-                      max_turns store extra_store_paths seccomp)a
+                      max_turns store extra_store_paths seccomp env volumes cmd
+                      container_name subzeroclaw_src cpu_limit memory_swap pids_limit)a
 
     {backend_overrides, _domain_config} = Map.split(agent_config, backend_keys)
 

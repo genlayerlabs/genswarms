@@ -4,6 +4,8 @@ defmodule GenswarmsWeb.ConfigControllerTest do
 
   import Plug.Test
 
+  alias GenswarmsWeb.ConfigController
+
   setup do
     prev = Application.get_env(:genswarms, :api_token)
     # no token + loopback => auth allows the request through to the controller
@@ -42,5 +44,31 @@ defmodule GenswarmsWeb.ConfigControllerTest do
 
     assert conn.status == 200
     assert %{"valid" => true} = Jason.decode!(conn.resp_body)
+  end
+
+  test "accepts Apple container scalar backend in JSON content" do
+    content = ~s|{"name":"n","agents":[{"name":"a","backend":"apple_container"}],"topology":[]}|
+    conn = post_validate(%{"content" => content, "format" => "json"})
+
+    assert conn.status == 200
+    body = Jason.decode!(conn.resp_body)
+    assert %{"valid" => true} = body
+    assert [%{"backend" => "apple_container"}] = body["config"]["agents"]
+  end
+
+  test "formats Apple container tuple backends in config validation output" do
+    conn =
+      conn(:post, "/")
+      |> ConfigController.validate(%{
+        "config" => %{
+          name: "n",
+          agents: [%{name: :a, backend: {:apple_container, "img:tag"}}],
+          topology: []
+        }
+      })
+
+    assert conn.status in [200, nil]
+    body = Jason.decode!(conn.resp_body)
+    assert [%{"backend" => "apple_container:img:tag"}] = body["config"]["agents"]
   end
 end
