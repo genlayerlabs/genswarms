@@ -311,10 +311,14 @@ defmodule Genswarms.Backends.AppleContainerBackend do
     end
   end
 
-  defp determine_image(config) do
+  @doc false
+  def determine_image(config) do
     cond do
       Map.has_key?(config, :image) ->
         config.image
+
+      Map.has_key?(config, :container_name) ->
+        config.container_name
 
       Map.has_key?(config, :container) ->
         config.container

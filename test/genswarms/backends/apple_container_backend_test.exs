@@ -118,6 +118,20 @@ defmodule Genswarms.Backends.AppleContainerBackendTest do
     end
   end
 
+  describe "determine_image/1" do
+    test "uses explicit image before container_name" do
+      assert AppleContainerBackend.determine_image(%{
+               image: "explicit:latest",
+               container_name: "name-image:latest"
+             }) == "explicit:latest"
+    end
+
+    test "uses container_name as the image candidate for bare :apple_container configs" do
+      assert AppleContainerBackend.determine_image(%{container_name: "szc-agent-code:latest"}) ==
+               "szc-agent-code:latest"
+    end
+  end
+
   describe "resource caps" do
     test "memory_limit emits --memory with its value" do
       assert {:ok, args} = build(%{memory_limit: "2g"})
