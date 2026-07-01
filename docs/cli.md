@@ -371,7 +371,7 @@ Subcommands: `list` (default), `get <key>`, `set <key> <value>`, `unset <key>`.
 
 ### `build`
 
-Build agent Docker images via Nix (falling back to a `docker build` if no flake is found). Available images: `base`, `python`, `node`, `elixir`.
+Build agent Docker images via Nix (falling back to a `docker build` if no flake is found). The available images are the eight defined in `nix/container.nix`: `base`, `web`, `code`, `data`, `full`, `python`, `node`, `devops` — see [Containers → prebuilt images](containers.md) for what each bundles. (Equivalently, build one directly with `nix build .#agentContainer-<name>`.)
 
 ```bash
 genswarms build base              # build one image

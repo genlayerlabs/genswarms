@@ -169,12 +169,11 @@ GenSwarms keeps cross-process state under `.genswarms/` in the project directory
 
 ## Environment variables
 
-Set these in `.env` (or your shell). Only `SUBZEROCLAW_API_KEY` is required to run real agents. The defaults below are the values read by the code; entries marked "(production release)" only apply to the bundled release runtime config, not the CLI dev path.
+Set these in `.env` (or your shell). Only `SUBZEROCLAW_API_KEY` is required to run real agents. The defaults below are the values read by the code; entries marked "(production release)" only apply to the bundled release runtime config, not the CLI dev path. The **model is set per agent** (the `model` config key, or `request_extra` for router routing) — there is no `SUBZEROCLAW_MODEL` environment variable; `subzeroclaw` dropped it.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `SUBZEROCLAW_API_KEY` | API key for the LLM provider (OpenRouter, Anthropic, OpenAI, etc.) | - |
-| `SUBZEROCLAW_MODEL` | Default model for agents | `anthropic/claude-sonnet-4` |
 | `SUBZEROCLAW_ENDPOINT` | API endpoint URL passed through to the agent backend | Provider default (from `subzeroclaw`) |
 | `SUBZEROCLAW_PATH` | Path to the `subzeroclaw` binary | `subzeroclaw` (resolved from PATH) |
 | `SUBZEROCLAW_SRC` | Source directory mounted/built into Docker and Apple container agents | `../subzeroclaw` |

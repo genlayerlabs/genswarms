@@ -44,7 +44,7 @@ Each agent has three orthogonal slots, each answering a different question:
 |------|----------|---------|
 | `body` | **who is the agent / what does it do** (its persona, today the skills) | `{"ref": "inline:researcher", "kind": "data"}` |
 | `model` | **which LLM** | `{"ref": "openrouter:anthropic/claude-sonnet-4", "attested": true}` |
-| `backend` | **where it runs** | `{"ref": "bwrap"}` / `{"ref": "oci:web"}` / `{"ref": "apple_container", "image": "szc-agent-code:latest"}` / `{"ref": "ssh", "host": "pi@h"}` |
+| `backend` | **where it runs** | `{"ref": "bwrap"}` / `{"ref": "oci:web", "kind": "data"}` / `{"ref": "apple_container", "image": "szc-agent-code:latest"}` / `{"ref": "ssh", "host": "pi@h"}` |
 
 Objects have a `handler` slot (`kind: code`). References (`Genswarms.IR.Ref`) carry
 a content `digest` when they are content-addressable (`swarmidx:`/`oci:`), or are
@@ -103,7 +103,7 @@ alias Genswarms.IR
 | `skills` / `presets` | `body {ref: "inline:<name>"}` + `overrides` |
 | `model: "x/y"` | `{ref: "openrouter:x/y", attested: true}` |
 | `backend: :bwrap` / `:local` / `:mock` | bare refs `{ref: "bwrap"}` … |
-| `backend: {:docker, n}` | `{ref: "oci:<n>"}` |
+| `backend: {:docker, n}` | `{ref: "oci:<n>", kind: data}` |
 | `backend: :apple_container` | `{ref: "apple_container"}` |
 | `backend: {:apple_container, n}` | `{ref: "apple_container", image: n}` |
 | `backend: {:apple_container, n, opts}` | `{ref: "apple_container", image: n, opts: opts}` |
