@@ -60,6 +60,13 @@ truth (`start/2`, `stop/1`, `send_input/2`, `deploy_skills/2`, `health_check/1`,
    closed).
 4. Tests (a Mock-backed test where possible) + `docs/backends.md`.
 
+A new backend is not a one-liner — the concern is spread across the codebase
+(shotgun surgery): beyond `backend_module/1`, expect to touch `backend_config/1`,
+`determine_mode/1` (`lib/genswarms/objects/object_server.ex`), the `@type backend`,
+the IR round-trip (`FromConfig`/`ToConfig`), and the CLI/status + web controllers.
+`AGENTS.md` (§ Configuration, the backend argument builders) enumerates the full
+set — read it before starting, and budget for the smear.
+
 ## Add an object
 
 An object is a deterministic, non-agentic node in the topology. Implement
