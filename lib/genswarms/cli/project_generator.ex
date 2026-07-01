@@ -82,8 +82,8 @@ defmodule Genswarms.CLI.ProjectGenerator do
     # API key for LLM provider (OpenRouter, Anthropic, OpenAI, etc.)
     export SUBZEROCLAW_API_KEY=
 
-    # Model to use (e.g., anthropic/claude-sonnet-4, deepseek/deepseek-chat, etc.)
-    export SUBZEROCLAW_MODEL=anthropic/claude-sonnet-4
+    # The model is set per agent (the `model` config key, or `request_extra` for
+    # router routing) — there is no SUBZEROCLAW_MODEL env var; subzeroclaw dropped it.
 
     # API endpoint (optional, defaults based on key format)
     # export SUBZEROCLAW_ENDPOINT=https://openrouter.ai/api/v1/chat/completions

@@ -35,7 +35,9 @@ defmodule Mix.Tasks.Genswarms.Build do
 
   alias Genswarms.CLI.Output
 
-  @available_images ["base", "python", "node", "elixir"]
+  # The prebuilt container images the flake actually exposes as
+  # `agentContainer-<name>` (see nix/container.nix `images` and flake.nix).
+  @available_images ["base", "web", "code", "data", "full", "python", "node", "devops"]
 
   @impl Mix.Task
   def run(args) do
@@ -109,7 +111,7 @@ defmodule Mix.Tasks.Genswarms.Build do
   end
 
   defp build_with_nix(flake_path, image, image_name, opts) do
-    nix_attr = "packages.x86_64-linux.docker-#{image}"
+    nix_attr = "packages.x86_64-linux.agentContainer-#{image}"
 
     args = ["build", flake_path, "--attr", nix_attr]
 

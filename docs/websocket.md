@@ -12,7 +12,7 @@ The implementation lives in `lib/genswarms_web/channels/swarm_socket.ex` (the so
 
 - Socket mount path: `/swarm` (so the URL is typically `ws://localhost:4000/swarm/websocket`, port from `PORT`, default `4000`). Only the `websocket` transport is enabled; long polling is disabled (`longpoll: false` in `endpoint.ex`).
 - Channel topic: `swarm:<swarm_name>` (the socket declares `channel "swarm:*"`).
-- No authentication is performed on connect; `connect/3` accepts all clients and the socket has no per-connection id (`id/1` returns `nil`).
+- Authentication is enforced on connect with the same fail-closed policy as the REST API (`connect/3` calls `Genswarms.Auth.authorize/3`): when `GENSWARMS_API_TOKEN` is set, a matching Bearer token is required — supplied as a `?token=<token>` query param (browsers can't set WS headers) or an `Authorization: Bearer <token>` header; when no token is configured, only loopback clients may connect. A failed check rejects the connection (`:error`). The socket has no per-connection id (`id/1` returns `nil`).
 - Joining a topic verifies the swarm exists, checking the in-process `SwarmManager` first and falling back to the SQLite registry (`SwarmRegistry`). If it exists in neither, the join is rejected with `{"reason": "swarm_not_found"}`. On success the join reply is `{"swarm": "<swarm_name>"}`.
 
 On join the channel subscribes to the swarm's internal PubSub topics (`swarm:<name>`, `:output`, `:routing`, `:status`) so that output, routing, status, and lifecycle messages are pushed to the client automatically — no extra subscribe call is needed for those. The log and event streams, by contrast, are opt-in via the `subscribe_logs` / `subscribe_events` events below.

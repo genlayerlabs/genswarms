@@ -118,6 +118,7 @@ Files that match neither shape are logged as invalid and removed. Because files 
 |---------|-------------|
 | `swarm-msg send <agent> <message>` | Send a message to an agent via the outbox |
 | `swarm-msg send <agent> -f <file>` | Send a file's contents to an agent (combined with `<message>` if both given) |
+| `swarm-msg ask <object> <message>` | Send **and block** for the object's reply, printing a JSON envelope (synchronous — see below) |
 | `swarm-msg broadcast <message>` | Broadcast to all connected agents via the outbox |
 | `swarm-msg list` | List agents you can message (from the `SWARM_TOPOLOGY` env var) |
 | `swarm-msg send-stdout <agent> <msg>` | Legacy: send via the stdout `SWARM_MSG` protocol |
@@ -141,6 +142,20 @@ swarm-msg send reviewer -f /workspace/fix.patch
 ```
 
 `send` and `broadcast` write zero-padded JSON files into `/workspace/.outbox/`, which the router picks up automatically. The sequence number is derived from the count of existing `*.json` files already in the outbox, so a directed send becomes e.g. `0001_coder.json` and a broadcast becomes `0001_broadcast.json`. The legacy `send-stdout` and `broadcast-stdout` subcommands instead print `SWARM_MSG` markers to stdout for log-based routing.
+
+### Synchronous `ask` (request/response with an object)
+
+`send` is fire-and-forget. `swarm-msg ask <object> <message>` is the **synchronous** motion: it publishes the same outbox message but tags it with a `reply_to` correlation id and **blocks** until the engine writes the object's reply, then prints exactly one well-formed JSON envelope to stdout — so a shell-tool caller receives the result **inline in the same turn**:
+
+```json
+{"ok":true,"result":{...},"error":null,"timeout":false}
+```
+
+On timeout (`SWARM_ASK_TIMEOUT` seconds, default 30) it prints an `ok:false`/`timeout:true` envelope instead of hanging; a route denial or missing target likewise returns a typed `ok:false` envelope. An `error.type` of `"permanent"` means retrying the same ask can never succeed. `ask` targets an **object** with a return-path edge back to the agent.
+
+**Task gating while awaiting.** When an agent sends to an object that has a return edge to it (an async reply is expected), the agent enters an *awaiting* state: new **user** tasks are queued in its Inbox rather than forwarded to the backend immediately, preserving reply ordering and preventing mis-correlation. The flag clears when the reply arrives or a safety timeout (default 90 s) fires. (`ask` is the synchronous surface over this mechanism.)
+
+**`reply_to` auto-delivery.** An agent can be configured with a `reply_to:` object in its config; each turn's derived reply text is then delivered to that sink object automatically, once per turn — unless the agent already sent to that target during the turn. This is opt-in, for reply-sink topologies.
 
 > `swarm-msg` JSON-encodes message bodies with `jq` (for `send`) or `python3` (for `broadcast`), falling back to a `sed`/`awk` escaper when those tools are absent — so the preset's available tools affect encoding fidelity for unusual payloads.
 

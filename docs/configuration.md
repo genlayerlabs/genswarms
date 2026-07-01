@@ -42,7 +42,7 @@ Each entry in `agents` is a map. Only the keys below are recognized by the valid
 |-----|------|----------|---------|-------------|
 | `name` | atom or string | Yes | — | Unique agent identifier. Strings are normalized to atoms. |
 | `backend` | backend spec | No | `:bwrap` | Where/how the agent runs (see [Backend value forms](#backend-value-forms)). If omitted, the parser fills in `:bwrap`. |
-| `model` | string | No | — | LLM model in OpenRouter format (`provider/model-name`). When unset, the backend passes through `SUBZEROCLAW_MODEL`; `subzeroclaw` itself falls back to `anthropic/claude-sonnet-4`. |
+| `model` | string | No | — | LLM model (e.g. `provider/model-name`). Passed through to `subzeroclaw` as `SUBZEROCLAW_REQUEST_EXTRA = {"model": …}`. There is **no `SUBZEROCLAW_MODEL` env fallback** (it is a dead variable). When unset, `subzeroclaw` uses its own default. For router routing, set `request_extra` (a `policy_ir`) instead of `model`. |
 | `endpoint` | string | No | — | API endpoint URL. When unset, the backend passes through `SUBZEROCLAW_ENDPOINT`; otherwise `subzeroclaw` auto-detects from the API key. |
 | `skills` | list of strings | No | `[]` | Skill markdown filenames to deploy. All entries must be strings. |
 | `presets` | list of atoms | No | `[]` | NixOS tool presets. Must be drawn from the valid preset set below. |
@@ -254,7 +254,7 @@ topology:
 
 ## Per-agent models
 
-Each agent can run on a different model and endpoint. When omitted, the backend passes through `SUBZEROCLAW_MODEL`, and `subzeroclaw` itself falls back to `anthropic/claude-sonnet-4`; the endpoint is auto-detected from the API key. Models use OpenRouter format (`provider/model-name`); see [openrouter.ai/models](https://openrouter.ai/models) for the full list.
+Each agent can run on a different model and endpoint. The `model` is passed to `subzeroclaw` as `SUBZEROCLAW_REQUEST_EXTRA = {"model": …}` — there is no `SUBZEROCLAW_MODEL` env fallback (it is a dead variable); when unset, `subzeroclaw` uses its own default. The endpoint falls back to `SUBZEROCLAW_ENDPOINT` and is otherwise auto-detected from the API key. To route through an unhardcoded router, set `request_extra` with a `policy_ir` instead of a bare `model`.
 
 ```elixir
 agents: [
