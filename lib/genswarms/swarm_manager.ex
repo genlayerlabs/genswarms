@@ -619,15 +619,24 @@ defmodule Genswarms.SwarmManager do
       # Start objects
       object_results =
         Enum.map(config.objects || [], fn object ->
-          object_config = %{
-            name: object.name,
-            swarm_name: swarm_name,
-            handler: Map.get(object, :handler),
-            backend: Map.get(object, :backend),
-            config: Map.get(object, :config, %{})
-          }
+          # A handler may be a MODULE (the classic path) or a notarized package
+          # ref map resolved fail-closed by the Loader (gsp design §14.3):
+          # digest mismatch / missing entry ⇒ the object does NOT start.
+          case Genswarms.Packages.Loader.resolve_handler(Map.get(object, :handler)) do
+            {:ok, handler} ->
+              object_config = %{
+                name: object.name,
+                swarm_name: swarm_name,
+                handler: handler,
+                backend: Map.get(object, :backend),
+                config: Map.get(object, :config, %{})
+              }
 
-          ObjectSupervisor.start_object(object_config)
+              ObjectSupervisor.start_object(object_config)
+
+            {:error, reason} ->
+              {:error, {:handler_ref, object.name, reason}}
+          end
         end)
 
       # Check if all agents and objects started successfully
