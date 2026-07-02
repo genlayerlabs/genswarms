@@ -481,6 +481,24 @@ defmodule Genswarms.Config.SwarmConfig do
     end
   end
 
+
+  # Notarized package handler (gsp design §14.3): a ref map the Packages.Loader
+  # resolves fail-closed at object start. Validated structurally here; the
+  # digest/entry verification is the Loader's job (engine #68).
+  defp validate_object(%{name: name, handler: %{} = handler} = object)
+       when (is_binary(name) or is_atom(name)) and name != "" do
+    ref = Map.get(handler, :ref) || Map.get(handler, "ref")
+    digest = Map.get(handler, :digest) || Map.get(handler, "digest")
+    path = Map.get(handler, :path) || Map.get(handler, "path")
+
+    if is_binary(ref) and String.starts_with?(ref, "swarmidx:") and
+         is_binary(digest) and String.starts_with?(digest, "sha256:") and
+         is_binary(path) and path != "" do
+      {:ok, object}
+    else
+      {:error, {:invalid_handler_ref, handler}}
+    end
+  end
   # Docker/SSH object with backend (no handler required)
   defp validate_object(%{name: name, backend: backend} = object)
        when (is_binary(name) or is_atom(name)) and name != "" do
