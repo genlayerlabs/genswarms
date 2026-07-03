@@ -227,9 +227,15 @@ name for a multi-preset agent is the sorted, `-`-joined preset list (see below).
 
 ### Overlay assembly
 
-Per-agent isolation comes from `fuse-overlayfs` (userspace overlay, no root
+Per-agent isolation comes from an overlay filesystem. In `:cgroup` mode it is
+`fuse-overlayfs` (userspace overlay, no root
 required). For each agent, `lib/genswarms/backends/bwrap/overlay_manager.ex`
-creates a directory tree and mounts the union:
+creates a directory tree and mounts the union. In `:rootless` mode the SAME
+directory tree is created but nothing is mounted host-side: bwrap mounts the
+overlay itself inside the sandbox user namespace (`--overlay-src base
+--overlay upper work /`, kernel overlayfs-in-userns) — no fuse process, no
+`/dev/fuse`, no elevated capabilities. See "Privilege modes" in
+[backends.md](backends.md). The `:cgroup` union:
 
 ```
 /run/swarm/

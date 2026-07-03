@@ -39,7 +39,7 @@ defmodule Genswarms.Backends.Bwrap.OverlayManager do
   """
   @spec setup_overlay(String.t(), [atom()]) :: {:ok, String.t()} | {:error, term()}
   def setup_overlay(sandbox_id, presets) do
-    agent_dir = Path.join(@agents_dir, sandbox_id)
+    agent_dir = Path.join(agents_dir(), sandbox_id)
     upper_dir = Path.join(agent_dir, "upper")
     work_dir = Path.join(agent_dir, "work")
     merged_dir = Path.join(agent_dir, "merged")
@@ -53,13 +53,39 @@ defmodule Genswarms.Backends.Bwrap.OverlayManager do
   end
 
   @doc """
+  The rootless variant: creates the SAME upper/work layout but mounts NOTHING —
+  bwrap itself mounts the overlay inside the sandbox's user namespace
+  (`--overlay-src <base> --overlay <upper> <work> /`, kernel overlayfs-in-userns,
+  kernel ≥ 5.11). No fuse-overlayfs process, no `/dev/fuse`, no host mount.
+
+  Returns `{:ok, agent_dir, base_layer}` — the caller needs the base path to
+  build the bwrap argv (there is no pre-mounted `merged/` in this mode).
+  """
+  @spec setup_overlay(String.t(), [atom()], :rootless) ::
+          {:ok, String.t(), String.t()} | {:error, term()}
+  def setup_overlay(sandbox_id, presets, :rootless) do
+    agent_dir = Path.join(agents_dir(), sandbox_id)
+    upper_dir = Path.join(agent_dir, "upper")
+    work_dir = Path.join(agent_dir, "work")
+    merged_dir = Path.join(agent_dir, "merged")
+
+    with {:ok, base_layer} <- resolve_base_layer(presets),
+         :ok <- create_agent_dirs(agent_dir, upper_dir, work_dir, merged_dir) do
+      {:ok, agent_dir, base_layer}
+    else
+      {:error, {:mkdir_failed, reason}} -> {:error, {:mkdir_failed, reason}}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
   Cleans up an overlay filesystem.
 
   Unmounts the overlay and removes all per-agent directories.
   """
   @spec cleanup_overlay(String.t()) :: :ok
   def cleanup_overlay(sandbox_id) do
-    agent_dir = Path.join(@agents_dir, sandbox_id)
+    agent_dir = Path.join(agents_dir(), sandbox_id)
     merged_dir = Path.join(agent_dir, "merged")
 
     # Unmount fuse-overlayfs
@@ -132,7 +158,7 @@ defmodule Genswarms.Backends.Bwrap.OverlayManager do
   """
   @spec list_active_sandboxes() :: [String.t()]
   def list_active_sandboxes do
-    case File.ls(@agents_dir) do
+    case File.ls(agents_dir()) do
       {:ok, dirs} -> dirs
       {:error, _} -> []
     end
@@ -143,7 +169,7 @@ defmodule Genswarms.Backends.Bwrap.OverlayManager do
   """
   @spec get_overlay_size(String.t()) :: {:ok, non_neg_integer()} | {:error, term()}
   def get_overlay_size(sandbox_id) do
-    upper_dir = Path.join([@agents_dir, sandbox_id, "upper"])
+    upper_dir = Path.join([agents_dir(), sandbox_id, "upper"])
 
     case System.cmd("du", ["-sb", upper_dir], stderr_to_stdout: true) do
       {output, 0} ->
@@ -157,6 +183,11 @@ defmodule Genswarms.Backends.Bwrap.OverlayManager do
 
   # Private functions
 
+  # Overridable for tests and non-/run hosts; default unchanged.
+  defp agents_dir do
+    Application.get_env(:genswarms, :bwrap_agents_dir, @agents_dir)
+  end
+
   defp ensure_base_dirs_exist do
     cond do
       not File.dir?(@swarm_base_dir) ->
@@ -167,7 +198,7 @@ defmodule Genswarms.Backends.Bwrap.OverlayManager do
 
       true ->
         # Ensure agents directory exists
-        File.mkdir_p(@agents_dir)
+        File.mkdir_p(agents_dir())
         :ok
     end
   end
@@ -283,7 +314,9 @@ defmodule Genswarms.Backends.Bwrap.OverlayManager do
   end
 
   defp unmount_overlay(merged_dir) do
-    # fusermount -u for userspace unmount
+    # fusermount -u for userspace unmount. In :rootless mode nothing was ever
+    # mounted host-side — and the image may not even ship fusermount — so a
+    # missing binary is as benign as an already-unmounted dir.
     case System.cmd("fusermount", ["-u", merged_dir], stderr_to_stdout: true) do
       {_, 0} ->
         :ok
@@ -293,6 +326,10 @@ defmodule Genswarms.Backends.Bwrap.OverlayManager do
         Logger.debug("Unmount of #{merged_dir}: #{output}")
         :ok
     end
+  rescue
+    e in ErlangError ->
+      Logger.debug("fusermount unavailable (#{inspect(e.original)}) — nothing to unmount")
+      :ok
   end
 
   defp presets_to_name(presets) do
