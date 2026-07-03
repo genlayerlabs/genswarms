@@ -118,9 +118,29 @@ defmodule Genswarms.Backends.BwrapBackend do
     # Ensure workspace exists
     File.mkdir_p!(workspace)
 
-    # Setup overlay filesystem
-    case OverlayManager.setup_overlay(sandbox_id, presets) do
-      {:ok, overlay_dir} ->
+    rootless? = Map.get(config, :privilege_mode, :cgroup) == :rootless
+
+    # Setup overlay filesystem. :cgroup mounts fuse-overlayfs and binds the
+    # merged dir as /; :rootless creates the SAME upper/work layout but lets
+    # bwrap mount the overlay itself inside the sandbox's user namespace
+    # (kernel overlayfs-in-userns) — no fuse process, no /dev/fuse.
+    overlay_result =
+      if rootless? do
+        case OverlayManager.setup_overlay(sandbox_id, presets, :rootless) do
+          {:ok, dir, base} -> {:ok, dir, base}
+          error -> error
+        end
+      else
+        case OverlayManager.setup_overlay(sandbox_id, presets) do
+          {:ok, dir} -> {:ok, dir, nil}
+          error -> error
+        end
+      end
+
+    case overlay_result do
+      {:ok, overlay_dir, rootless_base} ->
+        config = if rootless_base, do: Map.put(config, :rootless_base, rootless_base), else: config
+
         # Copy DNS config to overlay's upper layer (required for network access)
         setup_dns_config(overlay_dir)
         # Write the harness config (per-turn step budget) into the upper layer
@@ -524,11 +544,33 @@ defmodule Genswarms.Backends.BwrapBackend do
     # Core bwrap arguments
     # ORDER MATTERS: overlay as root first, then other mounts on top
     # User namespace isolation
-    # Overlay merged directory as root (MUST be first)
+    # Root filesystem (MUST be first):
+    #   :cgroup   — the fuse-overlayfs merged dir, pre-mounted host-side.
+    #   :rootless — bwrap mounts the overlay ITSELF inside the userns
+    #               (--overlay-src base --overlay upper work /): kernel
+    #               overlayfs-in-userns, no fuse, no /dev/fuse. Same upper/
+    #               layout, so DNS/harness files written to upper/ appear in /
+    #               identically in both modes.
     # Nix store binds — `:full` = the single /nix/store bind; `:closure` =
     # per-path closure binds. Spliced at the SAME position the legacy bind
-    # held (right after the merged root, before all other binds), so the
-    # existing arg ordering is preserved.
+    # held (right after the root, before all other binds), so the existing
+    # arg ordering is preserved.
+    root_args =
+      case Map.get(config, :rootless_base) do
+        nil ->
+          ["--bind", Path.join(overlay_dir, "merged"), "/"]
+
+        base ->
+          [
+            "--overlay-src",
+            base,
+            "--overlay",
+            Path.join(overlay_dir, "upper"),
+            Path.join(overlay_dir, "work"),
+            "/"
+          ]
+      end
+
     args =
       ([
          bwrap_path,
@@ -539,11 +581,9 @@ defmodule Genswarms.Backends.BwrapBackend do
          "--uid",
          "1000",
          "--gid",
-         "1000",
-         "--bind",
-         Path.join(overlay_dir, "merged"),
-         "/"
+         "1000"
        ] ++
+         root_args ++
          store_binds ++
          [
            # Skills directory (if provided) - read-only

@@ -262,7 +262,9 @@ Bwrap config separates backend keys (which control the sandbox) from domain keys
 | `extra_env` | Extra environment variables (a map) injected into the sandbox | `%{}` |
 | `memory_limit` | cgroup memory cap | `"256M"` |
 | `cpu_shares` | cgroup CPU shares | `100` |
-| `tasks_max` | Max tasks/processes in the cgroup | `50` |
+| `tasks_max` | Max tasks/processes in the cgroup (`:cgroup` mode only) | `50` |
+| `privilege_mode` | `:cgroup` (systemd scopes, kernel-hard limits) or `:rootless` (zero elevated capabilities - see below) | `:cgroup` |
+| `nice` | CPU niceness for the sandbox in `:rootless` mode | `19` |
 | `subzeroclaw_path` | Explicit binary path | resolved (see below) |
 | `presets` | Sandbox base layers to overlay | `[:base]` |
 | `network` | Set `:isolated` to run with no network except a forwarder pinned to the LLM endpoint (untrusted-content agents) | open network |
@@ -272,7 +274,7 @@ Bwrap config separates backend keys (which control the sandbox) from domain keys
 | `max_turns` | Per-turn step budget passed to `subzeroclaw` (caps the tool-call loop per turn) | `subzeroclaw`'s own default |
 | `request_extra` / `compact_extra` | Routing / compaction JSON forwarded to `subzeroclaw` (see the LLM-settings note above) | — |
 
-`sandbox_id` is `{swarm}-{agent}-{timestamp_ms}`. Resource limits are enforced by wrapping the bwrap command in a `systemd-run` cgroup scope. Inside the sandbox, the overlay's merged directory is bound as `/`, the skills directory is bind-mounted read-only at `/root/.subzeroclaw/skills`, a sibling `logs/` directory is bound writable at `/root/.subzeroclaw/logs`, the workspace is bound at `/workspace`, and the Nix store is mounted read-only so binaries resolve. `extra_ro_binds` entries are only mounted if the host path exists. The sandbox runs with `--unshare-{user,pid,uts,ipc}` as uid/gid 1000, with `PATH` defaulting to `/bin:/usr/local/bin` (your `extra_path` dirs are prepended).
+`sandbox_id` is `{swarm}-{agent}-{timestamp_ms}`. Resource limits are enforced by wrapping the bwrap command in a `systemd-run` cgroup scope (`:cgroup` mode, the default) or in a plain-POSIX rlimit/nice launcher (`:rootless` mode - see "Privilege modes" below). Inside the sandbox, the overlay's merged directory is bound as `/`, the skills directory is bind-mounted read-only at `/root/.subzeroclaw/skills`, a sibling `logs/` directory is bound writable at `/root/.subzeroclaw/logs`, the workspace is bound at `/workspace`, and the Nix store is mounted read-only so binaries resolve. `extra_ro_binds` entries are only mounted if the host path exists. The sandbox runs with `--unshare-{user,pid,uts,ipc}` as uid/gid 1000, with `PATH` defaulting to `/bin:/usr/local/bin` (your `extra_path` dirs are prepended).
 
 > Note: `extra_rw_binds` is listed as a bwrap backend key in the project conventions (it is accepted in agent config without error), but the current backend implements only `extra_ro_binds` (read-only) for extra mounts — `extra_rw_binds` is silently ignored. Use `workspace` for the agent's writable area.
 
@@ -290,7 +292,25 @@ The bwrap backend locates the `subzeroclaw` binary in this order (first existing
 
 If `mock_script` is set in config or `SUBZEROCLAW_MOCK_SCRIPT` is set in the environment, it is passed into the sandbox as `SUBZEROCLAW_MOCK_SCRIPT`, so bwrap agents can run without LLM calls. If the `SUBZEROCLAW_RECORD_SCRIPT` environment variable is set (any value), subzeroclaw records responses to `/workspace/.recorded_responses.json` inside the sandbox.
 
-Requirements: NixOS with bubblewrap and fuse-overlayfs, unprivileged user namespaces enabled (`kernel.unprivileged_userns_clone = 1`), `/run/swarm` mounted as tmpfs, and pre-built sandbox base layers (`nix build .#sandboxBase-*`). Base layers are resolved from `/run/swarm/sandbox-base/<preset-name>` (plus any dirs in the `:extra_preset_dirs` app env), falling back to `base` when a preset is missing. For the NixOS setup, preset/base-layer internals, and overlay/cgroup details, see [containers.md](containers.md).
+### Privilege modes
+
+`privilege_mode` decides how much the HOST around the swarm must grant:
+
+- **`:cgroup`** (default) - every sandbox is a `systemd-run --user` scope with kernel-hard limits (`MemoryMax` OOM-kills a runaway tree, `CPUWeight`, `TasksMax`) and per-agent cgroup telemetry (`systemd-cgtop`, `memory.current`). The price: the host (or the container the swarm runs in) needs systemd as PID 1 and `SYS_ADMIN` for delegated cgroups. Choose it on a DEDICATED box where you own the blast radius and want the hard guarantees.
+
+- **`:rootless`** - **zero elevated capabilities**. The systemd scope is replaced by a small launcher applying `RLIMIT_AS` (from `memory_limit`) and `nice`; tree cleanup rides the sandbox's PID namespace + `--die-with-parent`. The per-agent overlay is mounted by bwrap itself inside the sandbox's user namespace (`--overlay-src base --overlay upper work /`, kernel overlayfs-in-userns, kernel >= 5.11) - **no fuse-overlayfs process and no `/dev/fuse`**. Choose it on SHARED or managed infrastructure (Kubernetes) where the pod/container is the hard security boundary and bwrap is defence-in-depth inside it; the pod then runs fully unprivileged and only needs permission to create user namespaces (a seccomp profile allowing `clone(CLONE_NEWUSER)`, or `hostUsers: false`).
+
+  The honest trade-offs: memory is a per-process address-space cap (allocations fail) rather than a cgroup OOM kill; `tasks_max` is NOT enforced per agent (RLIMIT_NPROC counts per real UID, which all agents share - bound the aggregate at the pod level instead); no per-agent cgroup telemetry.
+
+```elixir
+%{
+  name: :researcher,
+  backend: {:bwrap, %{privilege_mode: :rootless, memory_limit: "32M", network: :isolated}},
+  skills: ["web.md"]
+}
+```
+
+Requirements: bubblewrap with unprivileged user namespaces enabled (`kernel.unprivileged_userns_clone = 1`, or the equivalent seccomp/`hostUsers` arrangement on Kubernetes), `/run/swarm` available (override the agents dir with the `:bwrap_agents_dir` app env), and pre-built sandbox base layers (`nix build .#sandboxBase-*`). `:cgroup` mode additionally requires systemd and fuse-overlayfs. Base layers are resolved from `/run/swarm/sandbox-base/<preset-name>` (plus any dirs in the `:extra_preset_dirs` app env), falling back to `base` when a preset is missing. For the NixOS setup, preset/base-layer internals, and overlay/cgroup details, see [containers.md](containers.md).
 
 ## Mock
 
