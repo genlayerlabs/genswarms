@@ -74,6 +74,41 @@ defmodule Genswarms.Backends.BwrapBackendTest do
     end
   end
 
+  describe "resource_wrapper/4 (privilege_mode dispatch)" do
+    @cgroup_opts %{memory_max: "32M", cpu_shares: 1, tasks_max: 50}
+
+    test "default (:cgroup) wraps with systemd-run and yields a scope" do
+      {exe, args, scope} =
+        BwrapBackend.resource_wrapper(%{}, "sid", ["bwrap", "--", "cmd"], @cgroup_opts)
+
+      assert String.ends_with?(exe, "systemd-run")
+      assert "--user" in args
+      assert "--property=MemoryMax=32M" in args
+      assert scope == "szc-sid"
+    end
+
+    test ":rootless wraps with the priv launcher, NO scope, NO systemd" do
+      {exe, args, scope} =
+        BwrapBackend.resource_wrapper(
+          %{privilege_mode: :rootless, nice: 12},
+          "sid",
+          ["bwrap", "--", "cmd"],
+          @cgroup_opts
+        )
+
+      assert String.ends_with?(exe, "priv/bwrap-rootless-launch.sh")
+      refute exe =~ "systemd"
+      assert scope == nil, "rootless has no cgroup scope"
+      # RLIMIT_AS in KB derived from 32M, then the nice, then -- and the bwrap argv
+      assert args == ["32768", "12", "--", "bwrap", "--", "cmd"]
+    end
+
+    test ":rootless with no memory_max means an unlimited RLIMIT_AS (0)" do
+      {_exe, ["0", "19", "--" | _], nil} =
+        BwrapBackend.resource_wrapper(%{privilege_mode: :rootless}, "sid", ["bwrap"], %{})
+    end
+  end
+
   describe "send_input/2" do
     @tag :integration
     test "sends input to running sandbox", %{infrastructure_ready: ready} do

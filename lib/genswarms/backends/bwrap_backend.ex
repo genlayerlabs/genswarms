@@ -28,11 +28,32 @@ defmodule Genswarms.Backends.BwrapBackend do
         skills: ["code.md"]
       }
 
+  ## Privilege modes
+
+  `privilege_mode` selects how per-agent resource limits are enforced:
+
+  - `:cgroup` (default) — each sandbox is a `systemd-run --user` scope with
+    kernel-hard MemoryMax/CPUWeight/TasksMax. Needs systemd as the container's
+    PID 1 and `SYS_ADMIN` to manage delegated cgroups. Best on a DEDICATED host.
+  - `:rootless` — plain-POSIX limits (RLIMIT_AS + `nice`) via a small launcher;
+    **zero elevated capabilities**. For SHARED/managed infra (Kubernetes) where
+    the pod is the hard boundary and bwrap is defence-in-depth inside it. The
+    trade: memory is a per-process address-space cap (allocation fails) instead
+    of a cgroup OOM kill, and per-agent task caps are not enforced (bound the
+    aggregate at the pod level). Cleanup rides the PID namespace +
+    `--die-with-parent`, so no scope is needed.
+
+        backend: {:bwrap, %{privilege_mode: :rootless, memory_limit: "32M"}}
+
   ## Requirements
 
-  - NixOS with bubblewrap and fuse-overlayfs installed
-  - User namespaces enabled (kernel.unprivileged_userns_clone = 1)
-  - Pre-built sandbox base layers (via nix build .#sandboxBase-*)
+  - bubblewrap installed; user namespaces enabled
+    (`kernel.unprivileged_userns_clone = 1`, or a seccomp profile / `hostUsers:
+    false` that permits `clone(CLONE_NEWUSER)`)
+  - Pre-built sandbox base layers (via `nix build .#sandboxBase-*`)
+  - `:cgroup` mode additionally needs systemd + `SYS_ADMIN`; `:rootless` needs
+    neither. fuse-overlayfs (the overlay layer) still wants `/dev/fuse` — a
+    device mount, allowed in a restricted pod, NOT a capability.
   """
 
   @behaviour Genswarms.Backends.BackendBehaviour
@@ -42,6 +63,7 @@ defmodule Genswarms.Backends.BwrapBackend do
   alias Genswarms.Backends.Bwrap.{
     OverlayManager,
     CgroupManager,
+    RootlessLauncher,
     AgentTelemetry,
     StoreClosure,
     SeccompProfile
@@ -141,10 +163,10 @@ defmodule Genswarms.Backends.BwrapBackend do
             bwrap_args =
               SeccompProfile.maybe_wrap_bwrap_args!(sandbox_id, overlay_dir, bwrap_args, config)
 
-            # Wrap with systemd-run for cgroup isolation. create_scope returns the
-            # executable plus its argv list (no shell involved).
+            # Wrap for resource isolation — :cgroup (systemd) or :rootless
+            # (plain-POSIX). See resource_wrapper/4.
             {executable, full_args, scope_name} =
-              CgroupManager.create_scope(sandbox_id, bwrap_args, cgroup_opts)
+              resource_wrapper(config, sandbox_id, bwrap_args, cgroup_opts)
 
             port_opts = [
               :binary,
@@ -414,6 +436,34 @@ defmodule Genswarms.Backends.BwrapBackend do
         )
 
         :ok
+    end
+  end
+
+  @doc false
+  # Chooses the resource-isolation wrapper for a sandbox and returns the
+  # `{executable, argv, scope_name}` triple spawned via execvp. Two paths:
+  #
+  #   :cgroup   (default) — systemd-run --user scope. Kernel-hard per-agent
+  #             limits (MemoryMax/CPUWeight/TasksMax), but needs systemd as the
+  #             container's PID 1 and SYS_ADMIN to manage delegated cgroups.
+  #   :rootless — plain-POSIX launcher (RLIMIT_AS + nice). ZERO elevated
+  #             capabilities: the Kubernetes / shared-node path where the pod is
+  #             the hard boundary and bwrap is defence-in-depth inside it. No
+  #             scope (scope_name = nil); cleanup rides the sandbox's PID
+  #             namespace + --die-with-parent, which the stop/health paths
+  #             already handle for a nil scope.
+  #
+  # Public for tests — the branch is verified without needing bwrap infra.
+  def resource_wrapper(config, sandbox_id, bwrap_args, cgroup_opts) do
+    case Map.get(config, :privilege_mode, :cgroup) do
+      :rootless ->
+        RootlessLauncher.launch_spec(bwrap_args, %{
+          memory_max: Map.get(cgroup_opts, :memory_max),
+          nice: Map.get(config, :nice, 19)
+        })
+
+      _ ->
+        CgroupManager.create_scope(sandbox_id, bwrap_args, cgroup_opts)
     end
   end
 
