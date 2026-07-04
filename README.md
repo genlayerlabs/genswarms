@@ -75,6 +75,29 @@ Node.js 20 is only needed if you build agent container images.
 See [docs/getting-started.md](docs/getting-started.md) for the full setup,
 container builds, and environment variables.
 
+## Coding-agent skills
+
+GenSwarms ships installable skills for coding agents. These are different from
+the per-agent markdown skills that GenSwarms deploys into a running swarm.
+
+Claude Code:
+
+```text
+/plugin marketplace add genlayerlabs/genswarms
+/plugin install genswarms@genswarms
+```
+
+Codex CLI / Codex app:
+
+```bash
+codex plugin marketplace add genlayerlabs/genswarms
+codex
+```
+
+Then open `/plugins`, select **GenSwarms**, and install it. After install, use
+the `genswarms-use` skill to define/run swarms and `genswarms-contribute` when
+changing the GenSwarms Elixir codebase.
+
 ## Quick start
 
 ```bash

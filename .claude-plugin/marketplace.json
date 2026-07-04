@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "genswarms",
+  "description": "GenSwarms skills for operating and extending Elixir/OTP agent swarms.",
+  "owner": {
+    "name": "GenLayer Labs",
+    "url": "https://github.com/genlayerlabs"
+  },
+  "plugins": [
+    {
+      "name": "genswarms",
+      "description": "Operate and extend GenSwarms agent swarms.",
+      "source": "./plugins/genswarms",
+      "category": "developer-tools"
+    }
+  ]
+}
