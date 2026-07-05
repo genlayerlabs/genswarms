@@ -15,6 +15,31 @@ defmodule GenswarmsWeb.Router do
     plug GenswarmsWeb.Plugs.ApiAuth
   end
 
+  # The config surface: also accepts the narrow GENSWARMS_CONFIG_API_TOKEN,
+  # so config tooling (the dashboard configurator) can be granted these two
+  # routes WITHOUT the full-control-plane token. The full token works here
+  # too; the config token never works anywhere else.
+  pipeline :api_config do
+    plug :accepts, ["json"]
+
+    plug Corsica,
+      origins: {GenswarmsWeb.Cors, :allowed_origin?, []},
+      allow_headers: :all,
+      allow_methods: :all
+
+    plug GenswarmsWeb.Plugs.ApiAuth, scope: :config
+  end
+
+  scope "/api", GenswarmsWeb do
+    pipe_through :api_config
+
+    patch "/swarms/:swarm_name/objects/:object_name/config",
+          SwarmController,
+          :update_object_config
+
+    get "/swarms/:swarm_name/overlay", SwarmController, :show_overlay
+  end
+
   # API root - returns API info
   scope "/", GenswarmsWeb do
     pipe_through :api
@@ -63,14 +88,13 @@ defmodule GenswarmsWeb.Router do
     post "/swarms/:swarm_name/agents/:base_name/scale", SwarmController, :scale_agent_group
     post "/swarms/:swarm_name/objects", SwarmController, :add_object
     delete "/swarms/:swarm_name/objects/:object_name", SwarmController, :remove_object
-    patch "/swarms/:swarm_name/objects/:object_name/config", SwarmController, :update_object_config
 
     # Object introspection (read-only live state)
     get "/swarms/:swarm_name/objects", SwarmController, :list_objects
     get "/swarms/:swarm_name/objects/:object_name", SwarmController, :show_object
 
-    # Overlay
-    get "/swarms/:swarm_name/overlay", SwarmController, :show_overlay
+    # Overlay (GET lives in the :api_config scope above — config-token readable;
+    # clearing it stays full-token only)
     delete "/swarms/:swarm_name/overlay", SwarmController, :clear_overlay
     post "/swarms/:swarm_name/snapshot", SwarmController, :snapshot
 
