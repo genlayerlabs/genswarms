@@ -112,6 +112,7 @@ Objects are the non-agentic components of a swarm. See [objects.md](objects.md).
 | GET | /api/swarms/:name/objects | List objects with their lifecycle state |
 | POST | /api/swarms/:name/objects | Add an object to a running swarm |
 | GET | /api/swarms/:name/objects/:object | Get an object's live read-only state |
+| PATCH | /api/swarms/:name/objects/:object/config | Update a running object's config (schema-gated) |
 | DELETE | /api/swarms/:name/objects/:object | Remove an object from a running swarm |
 
 Notes:
@@ -119,6 +120,7 @@ Notes:
 - `GET .../objects` returns `{"objects": [{"name", "state", "handler"}, ...]}`, where `name` is a string and `handler` is the inspected handler module (or `null`).
 - `POST .../objects` accepts an object spec (`name`, `handler` module name, `backend`, `config`) plus optional `connections`/`incoming`. Returns `201 Created` with `{"status": "added", "name": "..."}`, or `400` with `{"error": "..."}` on failure.
 - `GET .../objects/:object` returns `{"object": "...", "state": <handler domain state>}`. The framework imposes no schema on the state. An unknown object returns `404` with `{"error": "Object not found"}`.
+- `PATCH .../objects/:object/config` requires `{"config": { ... }}` — a partial, string-keyed patch. It is gated by the package's `config_schema` (the `swarm-object.json` next to the handler's source, gsp design §14.2.1), **fail-closed**: a handler without a schema returns `422 {"error": "no_config_schema"}`; any key that is not `x-mutable: true` returns `422` with `immutable_keys`; host-escape backend keys (`subzeroclaw_path`, `extra_*`) are always rejected. On success the object restarts with the merged config (topology edges preserved; a rejected `init/1` rolls back to the old config), the patch persists as an `:update_config` overlay event (replayed on boot), and the response is `{"status": "updated", "object": "...", "keys": [...]}`.
 - `DELETE .../objects/:object` returns `{"status": "removed", "name": "..."}` or `404`.
 
 ## Overlay and snapshot

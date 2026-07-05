@@ -63,6 +63,7 @@ defmodule GenswarmsWeb.Router do
     post "/swarms/:swarm_name/agents/:base_name/scale", SwarmController, :scale_agent_group
     post "/swarms/:swarm_name/objects", SwarmController, :add_object
     delete "/swarms/:swarm_name/objects/:object_name", SwarmController, :remove_object
+    patch "/swarms/:swarm_name/objects/:object_name/config", SwarmController, :update_object_config
 
     # Object introspection (read-only live state)
     get "/swarms/:swarm_name/objects", SwarmController, :list_objects

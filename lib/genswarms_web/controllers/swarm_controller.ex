@@ -1056,6 +1056,63 @@ defmodule GenswarmsWeb.SwarmController do
   end
 
   @doc """
+  PATCH /api/swarms/:swarm_name/objects/:object_name/config
+
+  The update_config control-plane surface. Body: `{"config": {...}}` — a
+  partial, string-keyed patch. Gated by the package's `config_schema`
+  (gsp design §14.2.1) via `Genswarms.Objects.ConfigSchema.validate_patch/2`,
+  fail-closed: no schema → 422; any non-`x-mutable` or host-escape key → 422.
+  On success the object restarts with the merged config (topology preserved)
+  and the patch persists as an `:update_config` overlay event.
+  """
+  def update_object_config(
+        conn,
+        %{"swarm_name" => swarm, "object_name" => name, "config" => patch}
+      )
+      when is_map(patch) do
+    with {:ok, handler} <- object_handler(swarm, name),
+         {:ok, atom_patch} <- Genswarms.Objects.ConfigSchema.validate_patch(handler, patch),
+         {:ok, _name} <- SwarmManager.update_object_config(swarm, name, atom_patch, persist: true) do
+      json(conn, %{status: "updated", object: name, keys: Map.keys(patch)})
+    else
+      {:error, :swarm_not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "Swarm not found"})
+
+      {:error, {:object_not_found, _}} ->
+        conn |> put_status(:not_found) |> json(%{error: "Object not found"})
+
+      {:error, reason}
+      when reason == :no_config_schema or
+             (is_tuple(reason) and elem(reason, 0) in [:immutable_keys, :forbidden_keys]) ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: format_error(reason)})
+
+      {:error, reason} ->
+        conn |> put_status(:bad_request) |> json(%{error: format_error(reason)})
+    end
+  end
+
+  def update_object_config(conn, _params) do
+    conn
+    |> put_status(:bad_request)
+    |> json(%{error: "Missing 'config' object parameter"})
+  end
+
+  # the declared handler for a named object, from the effective config
+  defp object_handler(swarm, object_name) do
+    with {:ok, config} <- SwarmManager.get_full_config(swarm) do
+      config
+      |> Map.get(:objects, [])
+      |> Enum.find(fn spec ->
+        to_string(Map.get(spec, :name) || Map.get(spec, "name")) == to_string(object_name)
+      end)
+      |> case do
+        nil -> {:error, {:object_not_found, object_name}}
+        spec -> {:ok, Map.get(spec, :handler) || Map.get(spec, "handler")}
+      end
+    end
+  end
+
+  @doc """
   DELETE /api/swarms/:swarm_name/objects/:object_name
   """
   def remove_object(conn, %{"swarm_name" => swarm, "object_name" => name}) do

@@ -166,6 +166,28 @@ defmodule Genswarms.SwarmManager do
   end
 
   @doc """
+  Updates a running object's config: merges `config_patch` over the declared
+  config and restarts the object with the merged map (the IR `update_config`
+  actuation — an object's config is `init/1` input, so a restart is the only
+  deterministic apply). Topology edges touching the object are preserved.
+  With `persist: true` the patch is recorded as an `:update_config` overlay
+  event and re-applied on boot.
+
+  Mutability gating (config_schema x-mutable) is the CALLER's job — this is
+  the mechanism, `Genswarms.Objects.ConfigSchema.validate_patch/2` is the
+  gate the HTTP surface applies.
+  """
+  @spec update_object_config(String.t(), atom() | String.t(), map(), keyword()) ::
+          {:ok, atom()} | {:error, term()}
+  def update_object_config(swarm_name, object_name, config_patch, opts \\ []) do
+    GenServer.call(
+      __MODULE__,
+      {:update_object_config, swarm_name, normalize_name(object_name), config_patch, opts},
+      60_000
+    )
+  end
+
+  @doc """
   Adds topology edges to a running swarm.
   """
   @spec add_topology_edges(String.t(), [{atom(), atom()}], keyword()) ::
@@ -453,6 +475,25 @@ defmodule Genswarms.SwarmManager do
             maybe_persist(opts, swarm_name, :remove_object, %{name: object_name})
             broadcast_topology_changed(swarm_name)
             {:reply, :ok, new_state}
+
+          {:error, _} = err ->
+            {:reply, err, state}
+        end
+    end
+  end
+
+  def handle_call({:update_object_config, swarm_name, object_name, patch, opts}, _from, state) do
+    case Map.get(state.swarms, swarm_name) do
+      nil ->
+        {:reply, {:error, :swarm_not_found}, state}
+
+      swarm_info ->
+        case do_update_object_config(swarm_name, swarm_info, object_name, patch) do
+          {:ok, name, new_info} ->
+            new_state = put_swarm(state, swarm_name, new_info)
+            maybe_persist(opts, swarm_name, :update_config, %{name: object_name, config: patch})
+            broadcast_topology_changed(swarm_name)
+            {:reply, {:ok, name}, new_state}
 
           {:error, _} = err ->
             {:reply, err, state}
@@ -839,6 +880,26 @@ defmodule Genswarms.SwarmManager do
     end
   end
 
+  defp apply_overlay_event(swarm_name, :update_config, %{name: name, config: patch}, state) do
+    case Map.get(state.swarms, swarm_name) do
+      nil ->
+        state
+
+      swarm_info ->
+        case do_update_object_config(swarm_name, swarm_info, name, patch) do
+          {:ok, _name, new_info} ->
+            put_swarm(state, swarm_name, new_info)
+
+          {:error, reason} ->
+            Logger.warning(
+              "Overlay replay: failed to apply update_config on #{inspect(name)}: #{inspect(reason)}"
+            )
+
+            state
+        end
+    end
+  end
+
   defp apply_overlay_event(swarm_name, :remove_object, %{name: name}, state) do
     case Map.get(state.swarms, swarm_name) do
       nil ->
@@ -1060,6 +1121,51 @@ defmodule Genswarms.SwarmManager do
 
           err ->
             err
+        end
+    end
+  end
+
+  # update_config actuation: remove + re-add with the merged config (config is
+  # init/1 input — a restart is the only deterministic apply; same motion as
+  # IR.Executor's :restart_object). Edges touching the object are captured
+  # first and re-declared on the re-add, so topology survives the restart.
+  # If the re-add fails (e.g. the handler rejects the new config), roll back
+  # to the old spec — the object must not stay dead after a bad patch.
+  defp do_update_object_config(swarm_name, swarm_info, object_name, patch) when is_map(patch) do
+    case Enum.find(swarm_info.config.objects || [], &spec_has_name?(&1, object_name)) do
+      nil ->
+        {:error, {:object_not_found, object_name}}
+
+      spec ->
+        connections = for {f, t} <- swarm_info.config.topology, f == object_name, do: t
+        incoming = for {f, t} <- swarm_info.config.topology, t == object_name, do: f
+
+        merged = Map.merge(Map.get(spec, :config, %{}) || %{}, patch)
+        new_spec = Map.put(Map.new(spec), :config, merged)
+        opts = [connections: connections, incoming: incoming]
+
+        with {:ok, info_removed} <- do_remove_object(swarm_name, swarm_info, object_name) do
+          case do_add_object(swarm_name, info_removed, new_spec, opts) do
+            {:ok, name, new_info} ->
+              emit_telemetry(:object_config_updated, %{swarm: swarm_name, object: name})
+              {:ok, name, new_info}
+
+            {:error, reason} ->
+              case do_add_object(swarm_name, info_removed, Map.new(spec), opts) do
+                {:ok, _name, _rolled_back} ->
+                  # runtime restored to the old spec; state was never mutated
+                  {:error, {:config_rejected, reason}}
+
+                {:error, rollback_reason} ->
+                  Logger.error(
+                    "update_object_config: #{object_name} rejected new config " <>
+                      "(#{inspect(reason)}) AND rollback failed (#{inspect(rollback_reason)}) — " <>
+                      "object is DOWN; restart the swarm or re-add it manually"
+                  )
+
+                  {:error, {:config_rejected_and_rollback_failed, reason, rollback_reason}}
+              end
+          end
         end
     end
   end
