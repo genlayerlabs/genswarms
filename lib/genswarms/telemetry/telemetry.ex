@@ -107,19 +107,26 @@ defmodule Genswarms.Telemetry do
 
   @doc false
   def measure_swarms do
-    # Guard against SwarmManager not running (e.g., in CLI commands)
+    # A periodic measurement must never blow up the poller: SwarmManager may
+    # not be running (CLI commands → :noproc), the call can TIME OUT while the
+    # manager is busy (:timeout — seen live under agent load), and a swarm
+    # entry missing :agent_count would raise. Any of those previously escaped
+    # the old {:noproc, _}-only guard and logged
+    # "Error when calling MFA defined by measurement" every poll tick.
     try do
       swarms = Genswarms.SwarmManager.list()
 
       Enum.each(swarms, fn swarm ->
         :telemetry.execute(
           [:genswarms, :swarm, :agent_count],
-          %{agent_count: swarm.agent_count},
+          %{agent_count: Map.get(swarm, :agent_count, 0)},
           %{swarm: swarm.name}
         )
       end)
+    rescue
+      _ -> :ok
     catch
-      :exit, {:noproc, _} -> :ok
+      :exit, _ -> :ok
     end
   end
 end
