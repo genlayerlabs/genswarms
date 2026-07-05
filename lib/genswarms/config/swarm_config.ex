@@ -150,7 +150,7 @@ defmodule Genswarms.Config.SwarmConfig do
                           memory_limit cpu_shares tasks_max subzeroclaw_path presets network
                           max_turns store extra_store_paths seccomp env volumes cmd container_name
                           subzeroclaw_src cpu_limit memory_swap pids_limit request_extra
-                          compact_extra endpoint api_key model privilege_mode nice)a
+                          compact_extra endpoint api_key model privilege_mode nice proc_mount)a
 
   @type topology_edge :: {atom(), atom()}
 

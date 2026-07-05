@@ -637,15 +637,30 @@ defmodule Genswarms.Backends.BwrapBackend do
         dirs -> Enum.join(dirs, ":") <> ":" <> base_path
       end
 
+    # /proc for the sandbox. :new (default) mounts a fresh procfs — correct
+    # wherever the source /proc is unmasked. :bind recursively ro-binds the
+    # host's /proc instead: on Kubernetes the runtime masks /proc paths
+    # (procMount: Default) and the kernel refuses a fresh procfs mount in a
+    # userns over a masked source — every spawn dies with EPERM
+    # "Can't mount proc". The recursive bind carries the masks along (no
+    # unmasking), and --unshare-pid still blocks signaling the outer world;
+    # the trade is that the sandbox can SEE the outer pid namespace's
+    # process list. /proc/self keeps working (the reader resolves via its
+    # pid in the procfs's own namespace).
+    proc_args =
+      case Map.get(config, :proc_mount, :new) do
+        b when b in [:bind, "bind"] -> ["--ro-bind", "/proc", "/proc"]
+        _ -> ["--proc", "/proc"]
+      end
+
     rest_args =
+      proc_args ++
       [
         # Essential virtual filesystems
         "--tmpfs",
         "/tmp",
         "--dev",
         "/dev",
-        "--proc",
-        "/proc",
 
         # Provide /usr/bin/env so shebangs like `#!/usr/bin/env bash` work.
         # The base layer ships env at /bin/env; this symlink makes the standard
