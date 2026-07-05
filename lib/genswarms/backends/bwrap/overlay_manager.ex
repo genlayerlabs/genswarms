@@ -38,7 +38,22 @@ defmodule Genswarms.Backends.Bwrap.OverlayManager do
   Returns `{:ok, overlay_dir}` or `{:error, reason}`.
   """
   @spec setup_overlay(String.t(), [atom()]) :: {:ok, String.t()} | {:error, term()}
-  def setup_overlay(sandbox_id, presets) do
+  def setup_overlay(sandbox_id, presets), do: setup_overlay(sandbox_id, presets, [])
+
+  @doc """
+  As `setup_overlay/2`, with options:
+
+    * `:seed` — `fn agent_dir -> :ok end`, invoked AFTER the upper/work/merged
+      dirs exist and BEFORE fuse-overlayfs mounts. The only safe moment to
+      write seed files (DNS, harness config) into `upper/`: mutating it behind
+      a live FUSE daemon is undefined (its cache never sees the entries — a
+      `/root/.subzeroclaw` seeded that way broke the sandbox's skills/logs
+      bind targets, bwrap exit 1 at launch), and writing through `merged/` is
+      blocked by base-layer permissions (`/etc`, `/root` are root-owned).
+      A raising or non-`:ok` seed aborts the setup — fail closed.
+  """
+  @spec setup_overlay(String.t(), [atom()], keyword()) :: {:ok, String.t()} | {:error, term()}
+  def setup_overlay(sandbox_id, presets, opts) when is_list(opts) do
     agent_dir = Path.join(agents_dir(), sandbox_id)
     upper_dir = Path.join(agent_dir, "upper")
     work_dir = Path.join(agent_dir, "work")
@@ -47,9 +62,21 @@ defmodule Genswarms.Backends.Bwrap.OverlayManager do
     with :ok <- ensure_base_dirs_exist(),
          :ok <- create_agent_dirs(agent_dir, upper_dir, work_dir, merged_dir),
          {:ok, base_layer} <- resolve_base_layer(presets),
+         :ok <- run_seed(Keyword.get(opts, :seed), agent_dir),
          :ok <- mount_overlay(base_layer, upper_dir, work_dir, merged_dir) do
       {:ok, agent_dir}
     end
+  end
+
+  defp run_seed(nil, _agent_dir), do: :ok
+
+  defp run_seed(seed, agent_dir) when is_function(seed, 1) do
+    case seed.(agent_dir) do
+      :ok -> :ok
+      other -> {:error, {:seed_failed, other}}
+    end
+  rescue
+    e -> {:error, {:seed_failed, Exception.message(e)}}
   end
 
   @doc """

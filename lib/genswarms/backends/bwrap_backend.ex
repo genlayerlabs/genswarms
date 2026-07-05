@@ -124,14 +124,28 @@ defmodule Genswarms.Backends.BwrapBackend do
     # merged dir as /; :rootless creates the SAME upper/work layout but lets
     # bwrap mount the overlay itself inside the sandbox's user namespace
     # (kernel overlayfs-in-userns) — no fuse process, no /dev/fuse.
+    # Seed files (DNS + harness config) go into upper/ BEFORE any mount:
+    # in :cgroup mode the seed callback runs pre-fuse-overlayfs (writing
+    # upper/ under a live mount is undefined and broke the sandbox's
+    # /root/.subzeroclaw bind targets — bwrap exit 1 at launch); in
+    # :rootless nothing mounts on the host, so seeding right after is safe.
+    seed = fn agent_dir ->
+      setup_dns_config(agent_dir)
+      setup_harness_config(agent_dir, config)
+    end
+
     overlay_result =
       if rootless? do
         case OverlayManager.setup_overlay(sandbox_id, presets, :rootless) do
-          {:ok, dir, base} -> {:ok, dir, base}
-          error -> error
+          {:ok, dir, base} ->
+            :ok = seed.(dir)
+            {:ok, dir, base}
+
+          error ->
+            error
         end
       else
-        case OverlayManager.setup_overlay(sandbox_id, presets) do
+        case OverlayManager.setup_overlay(sandbox_id, presets, seed: seed) do
           {:ok, dir} -> {:ok, dir, nil}
           error -> error
         end
@@ -140,11 +154,6 @@ defmodule Genswarms.Backends.BwrapBackend do
     case overlay_result do
       {:ok, overlay_dir, rootless_base} ->
         config = if rootless_base, do: Map.put(config, :rootless_base, rootless_base), else: config
-
-        # Copy DNS config to overlay's upper layer (required for network access)
-        setup_dns_config(overlay_dir)
-        # Write the harness config (per-turn step budget) into the upper layer
-        setup_harness_config(overlay_dir, config)
 
         # Compute the /nix/store bind set. `:full` (default) = the legacy single
         # /nix/store bind; `:closure` = the minimal per-path closure. Fail closed:
@@ -414,7 +423,11 @@ defmodule Genswarms.Backends.BwrapBackend do
 
   defp setup_dns_config(overlay_dir) do
     # Copy DNS configuration files to the overlay's upper layer
-    # This is required because the sandbox base /etc is read-only
+    # This is required because the sandbox base /etc is read-only.
+    # MUST run BEFORE the overlay is mounted (see the seed callback in
+    # start/2): mutating upper/ behind a live fuse-overlayfs is undefined —
+    # its cache never sees the entries, and writing THROUGH the mount is
+    # blocked by base-layer permissions (/etc and /root are root-owned).
     upper_etc = Path.join([overlay_dir, "upper", "etc"])
     File.mkdir_p!(upper_etc)
 
@@ -434,9 +447,10 @@ defmodule Genswarms.Backends.BwrapBackend do
   @doc false
   # Write the harness config file into the overlay's upper layer, where it
   # materializes as $HOME/.subzeroclaw/config inside the sandbox (HOME=/root).
-  # Currently carries one knob: `max_turns` — subzeroclaw's per-turn step
-  # budget (genswarms#53 G3), integer-guarded. No max_turns ⇒ no file ⇒
-  # harness defaults (current behavior). Public for tests.
+  # MUST run pre-mount (same rule as setup_dns_config — see the seed
+  # callback in start/2). Currently carries one knob: `max_turns` —
+  # subzeroclaw's per-turn step budget (genswarms#53 G3), integer-guarded.
+  # No max_turns ⇒ no file ⇒ harness defaults. Public for tests.
   def setup_harness_config(overlay_dir, config) do
     case Map.get(config, :max_turns) do
       n when is_integer(n) and n > 0 ->
