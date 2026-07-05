@@ -45,4 +45,8 @@ config :genswarms,
   # API auth token. When set, every REST/WebSocket request must present
   # `Authorization: Bearer <token>`. When unset, only loopback callers are
   # allowed (see Genswarms.Auth). The CLI sends this token automatically.
-  api_token: System.get_env("GENSWARMS_API_TOKEN")
+  api_token: System.get_env("GENSWARMS_API_TOKEN"),
+  # CONFIG-scoped API token: authorizes ONLY the config surface (schema-gated
+  # object config PATCH + overlay audit trail) — never the full control plane.
+  # Hand THIS one to config tooling (the dashboard configurator).
+  config_api_token: System.get_env("GENSWARMS_CONFIG_API_TOKEN")

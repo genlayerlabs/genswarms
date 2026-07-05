@@ -2,24 +2,27 @@ defmodule GenswarmsWeb.Plugs.ApiAuth do
   @moduledoc """
   Authenticates REST API requests using `Genswarms.Auth`.
 
-  Expects `Authorization: Bearer <token>` when `GENSWARMS_API_TOKEN` is set;
+  Expects `Authorization: Bearer <token>` when a token is configured;
   otherwise allows loopback callers only. Responds `401` (JSON) and halts on
   failure.
+
+  Scoping: `plug ApiAuth` guards with the FULL token (`GENSWARMS_API_TOKEN`,
+  the whole control plane). `plug ApiAuth, scope: :config` additionally
+  accepts the narrow `GENSWARMS_CONFIG_API_TOKEN` — the grant for config
+  tooling (schema-gated object config PATCHes + the overlay audit trail),
+  which never unlocks the full API.
   """
 
   @behaviour Plug
   import Plug.Conn
 
   @impl true
-  def init(opts), do: opts
+  def init(opts) when is_list(opts), do: Keyword.get(opts, :scope, :full)
+  def init(_opts), do: :full
 
   @impl true
-  def call(conn, _opts) do
-    case Genswarms.Auth.authorize(
-           Genswarms.Auth.configured_token(),
-           bearer_token(conn),
-           conn.remote_ip
-         ) do
+  def call(conn, scope) do
+    case Genswarms.Auth.authorize_scoped(scope, bearer_token(conn), conn.remote_ip) do
       :ok ->
         conn
 
