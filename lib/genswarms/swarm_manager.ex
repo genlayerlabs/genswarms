@@ -613,6 +613,18 @@ defmodule Genswarms.SwarmManager do
 
       {:reply, {:error, :already_exists}, state}
     else
+      # Fold persisted :update_config overlay events for SEED objects into the
+      # config BEFORE anything starts: each object then boots ONCE with its
+      # effective config. Replaying them post-start (the old motion) did a
+      # remove+re-add against a Registry whose deregistration is eventually
+      # consistent — at boot that raced the just-started seed object
+      # (already_exists on the re-add AND on the rollback), leaving the
+      # manager's spec, the runtime object, and the overlay disagreeing.
+      # Events are loaded ONCE and indexed so the fold and the replay agree
+      # on exactly which events were consumed.
+      overlay_events = Genswarms.CLI.SwarmRegistry.load_overlay(swarm_name) |> Enum.with_index()
+      {config, consumed} = prefold_update_config_events(config, overlay_events)
+
       object_count = length(config.objects || [])
 
       Logger.info(
@@ -709,8 +721,9 @@ defmodule Genswarms.SwarmManager do
       })
 
       if Enum.empty?(errors) do
-        # Replay overlay events on top of the freshly started seed
-        replayed_state = replay_overlay(swarm_name, final_state)
+        # Replay overlay events on top of the freshly started seed (the
+        # :update_config events already folded above are skipped)
+        replayed_state = replay_overlay(swarm_name, final_state, overlay_events, consumed)
 
         {:reply, {:ok, swarm_name}, replayed_state}
       else
@@ -801,8 +814,11 @@ defmodule Genswarms.SwarmManager do
 
   # -- Overlay replay --
 
-  defp replay_overlay(swarm_name, state) do
-    events = Genswarms.CLI.SwarmRegistry.load_overlay(swarm_name)
+  defp replay_overlay(swarm_name, state, indexed_events, consumed) do
+    events =
+      for {{op, payload}, idx} <- indexed_events,
+          not MapSet.member?(consumed, idx),
+          do: {op, payload}
 
     if events == [] do
       state
@@ -812,6 +828,70 @@ defmodule Genswarms.SwarmManager do
       Enum.reduce(events, state, fn {op, payload}, acc_state ->
         apply_overlay_event(swarm_name, op, payload, acc_state)
       end)
+    end
+  end
+
+  # Pure pre-start fold of :update_config overlay events into the seed config
+  # (same Map.merge the runtime actuation uses). An event folds only while its
+  # target is still the SEED incarnation: once a remove_object/add_object
+  # event touches that name, later update_configs belong to the NEW
+  # incarnation and must replay post-start, in order (skipping them by name
+  # would silently drop the re-added object's trailing patches). Returns the
+  # folded config plus the set of consumed event INDEXES for replay to skip.
+  defp prefold_update_config_events(config, indexed_events) do
+    seed_names =
+      for spec <- config.objects || [], into: MapSet.new(), do: to_string(Map.get(spec, :name))
+
+    {config, consumed, _still_seed} =
+      Enum.reduce(indexed_events, {config, MapSet.new(), seed_names}, fn
+        {{:update_config, %{name: name, config: patch}}, idx}, {cfg, consumed, still_seed}
+        when is_map(patch) ->
+          if MapSet.member?(still_seed, to_string(name)) do
+            objects =
+              Enum.map(cfg.objects || [], fn spec ->
+                if same_object_name?(spec, name) do
+                  merged = Map.merge(Map.get(spec, :config, %{}) || %{}, patch)
+                  Map.put(spec, :config, merged)
+                else
+                  spec
+                end
+              end)
+
+            {%{cfg | objects: objects}, MapSet.put(consumed, idx), still_seed}
+          else
+            {cfg, consumed, still_seed}
+          end
+
+        {{op, payload}, _idx}, {cfg, consumed, still_seed}
+        when op in [:remove_object, :add_object, :remove_agent, :add_agent] ->
+          name = payload[:name] || payload["name"]
+          {cfg, consumed, MapSet.delete(still_seed, to_string(name))}
+
+        _event, acc ->
+          acc
+      end)
+
+    {config, consumed}
+  end
+
+  defp same_object_name?(spec, name),
+    do: to_string(Map.get(spec, :name) || Map.get(spec, "name") || "") == to_string(name)
+
+  defp await_unregistered(swarm_name, name, attempts \\ 100) do
+    case Registry.lookup(Genswarms.AgentRegistry, {swarm_name, name}) do
+      [] ->
+        :ok
+
+      _ when attempts > 0 ->
+        Process.sleep(10)
+        await_unregistered(swarm_name, name, attempts - 1)
+
+      _ ->
+        Logger.warning(
+          "#{inspect(name)} still registered in #{swarm_name} after stop — re-add may collide"
+        )
+
+        :timeout
     end
   end
 
@@ -1183,6 +1263,10 @@ defmodule Genswarms.SwarmManager do
   defp do_remove_object(swarm_name, swarm_info, object_name) do
     case ObjectSupervisor.stop_object(swarm_name, object_name) do
       :ok ->
+        # Registry deregistration is eventually consistent after process
+        # death; an immediate re-add (update_config's remove→add motion)
+        # would hit the stale entry and fail with already_exists.
+        await_unregistered(swarm_name, object_name)
         Router.remove_node(swarm_name, object_name)
 
         new_topology =
