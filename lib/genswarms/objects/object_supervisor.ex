@@ -28,7 +28,7 @@ defmodule Genswarms.Objects.ObjectSupervisor do
     case DynamicSupervisor.start_child(@supervisor, child_spec) do
       {:ok, pid} ->
         Logger.info(
-          "Started object #{object_config[:name]} (#{object_config[:handler]}) in swarm #{object_config[:swarm_name]}"
+          "Started object #{object_config[:name]} (#{inspect(object_config[:handler])}) in swarm #{object_config[:swarm_name]}"
         )
 
         {:ok, pid}

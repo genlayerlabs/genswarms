@@ -1093,30 +1093,40 @@ defmodule Genswarms.SwarmManager do
 
         case Router.add_edges(swarm_name, all_new_edges) do
           :ok ->
-            object_config = %{
-              name: name,
-              swarm_name: swarm_name,
-              handler: Map.get(spec, :handler),
-              backend: Map.get(spec, :backend),
-              config: Map.get(spec, :config, %{})
-            }
-
-            case ObjectSupervisor.start_object(object_config) do
-              {:ok, _pid} ->
-                new_objects = (swarm_info.config.objects || []) ++ [spec]
-
-                new_config = %{
-                  swarm_info.config
-                  | objects: new_objects,
-                    topology: existing ++ all_new_edges
+            # Same fail-closed ref resolution as the boot path (design §14.3):
+            # a notarized handler ref map is resolved to the bound MODULE here;
+            # the spec stored in config keeps the original ref (provenance).
+            case Genswarms.Packages.Loader.resolve_handler(Map.get(spec, :handler)) do
+              {:ok, resolved_handler} ->
+                object_config = %{
+                  name: name,
+                  swarm_name: swarm_name,
+                  handler: resolved_handler,
+                  backend: Map.get(spec, :backend),
+                  config: Map.get(spec, :config, %{})
                 }
 
-                emit_telemetry(:object_added, %{swarm: swarm_name, object: name})
-                {:ok, name, %{swarm_info | config: new_config}}
+                case ObjectSupervisor.start_object(object_config) do
+                  {:ok, _pid} ->
+                    new_objects = (swarm_info.config.objects || []) ++ [spec]
+
+                    new_config = %{
+                      swarm_info.config
+                      | objects: new_objects,
+                        topology: existing ++ all_new_edges
+                    }
+
+                    emit_telemetry(:object_added, %{swarm: swarm_name, object: name})
+                    {:ok, name, %{swarm_info | config: new_config}}
+
+                  {:error, reason} ->
+                    Router.remove_edges(swarm_name, all_new_edges)
+                    {:error, {:object_start_failed, reason}}
+                end
 
               {:error, reason} ->
                 Router.remove_edges(swarm_name, all_new_edges)
-                {:error, {:object_start_failed, reason}}
+                {:error, {:handler_ref, name, reason}}
             end
 
           err ->

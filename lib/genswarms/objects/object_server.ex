@@ -598,7 +598,8 @@ defmodule Genswarms.Objects.ObjectServer do
 
   @impl true
   def terminate(reason, %{mode: :native} = state) do
-    if state.handler && function_exported?(state.handler, :terminate, 2) do
+    if is_atom(state.handler) and state.handler != nil and
+         function_exported?(state.handler, :terminate, 2) do
       state.handler.terminate(reason, state.handler_state)
     end
 
