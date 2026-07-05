@@ -318,7 +318,11 @@ defmodule Genswarms.Agents.AgentServer do
             swarm_name: state.swarm_name,
             agent_name: state.name,
             log_dir: log_dir,
-            workspace: Map.get(state.backend_config, :workspace),
+            # Effective workspace: explicit config wins; otherwise the
+            # backend's RESOLVED one (bwrap invents /tmp/szc-workspace/<id>
+            # per sandbox — with nil here the watcher never polled that
+            # .outbox and every swarm-msg ask/send died on timeout).
+            workspace: Map.get(state.backend_config, :workspace) || Map.get(ref, :workspace),
             # Accumulate poll-routed sends for the TURN_COMPLETE sweep only
             # when something will actually sweep them: with reply_to off there
             # is no auto-delivery to suppress and no sweep to clear the
@@ -766,9 +770,7 @@ defmodule Genswarms.Agents.AgentServer do
   # of the ask path). Failures are logged and dropped; the asker's timeout
   # envelope is the catch-all.
   def handle_cast({:deliver_ask_reply, corr, envelope}, state) do
-    workspace = Map.get(state.backend_config, :workspace)
-
-    case Ask.write_reply(workspace, corr, envelope) do
+    case Ask.write_reply(effective_workspace(state), corr, envelope) do
       :ok ->
         Logger.debug("[#{state.swarm_name}/#{state.name}] Ask reply written: #{corr}")
 
@@ -1164,8 +1166,19 @@ defmodule Genswarms.Agents.AgentServer do
   # Write message to file-inbox at {workspace}/.inbox/{seq}_{from}.json
   # This provides a reliable file-based delivery channel for bwrap agents
   # that may not parse stdin JSON messages correctly.
+  # The agent's EFFECTIVE workspace: explicit config wins, otherwise the
+  # backend's resolved one (bwrap invents /tmp/szc-workspace/<sandbox_id>
+  # per boot — the config cannot know it). With a bare config lookup every
+  # workspace-based channel (outbox polling, ask replies, file inbox,
+  # {{workspace}} templating) silently no-opped for default bwrap agents:
+  # asks timed out even though the object had answered (:no_workspace).
+  defp effective_workspace(state) do
+    Map.get(state.backend_config, :workspace) ||
+      (state.backend_ref && Map.get(state.backend_ref, :workspace))
+  end
+
   defp write_file_inbox(state, seq, from, content) do
-    workspace = Map.get(state.backend_config, :workspace)
+    workspace = effective_workspace(state)
 
     if workspace && workspace != "" do
       inbox_dir = Path.join(Path.expand(workspace), ".inbox")
@@ -1232,7 +1245,7 @@ defmodule Genswarms.Agents.AgentServer do
       if File.exists?(src) do
         # Copy and resolve template variables
         content = File.read!(src)
-        workspace = Map.get(state.backend_config, :workspace, "")
+        workspace = effective_workspace(state) || ""
 
         resolved =
           content
