@@ -620,7 +620,10 @@ defmodule Genswarms.SwarmManager do
       # consistent — at boot that raced the just-started seed object
       # (already_exists on the re-add AND on the rollback), leaving the
       # manager's spec, the runtime object, and the overlay disagreeing.
-      {config, prefolded} = prefold_update_config_events(swarm_name, config)
+      # Events are loaded ONCE and indexed so the fold and the replay agree
+      # on exactly which events were consumed.
+      overlay_events = Genswarms.CLI.SwarmRegistry.load_overlay(swarm_name) |> Enum.with_index()
+      {config, consumed} = prefold_update_config_events(config, overlay_events)
 
       object_count = length(config.objects || [])
 
@@ -720,7 +723,7 @@ defmodule Genswarms.SwarmManager do
       if Enum.empty?(errors) do
         # Replay overlay events on top of the freshly started seed (the
         # :update_config events already folded above are skipped)
-        replayed_state = replay_overlay(swarm_name, final_state, prefolded)
+        replayed_state = replay_overlay(swarm_name, final_state, overlay_events, consumed)
 
         {:reply, {:ok, swarm_name}, replayed_state}
       else
@@ -811,13 +814,11 @@ defmodule Genswarms.SwarmManager do
 
   # -- Overlay replay --
 
-  defp replay_overlay(swarm_name, state, prefolded) do
+  defp replay_overlay(swarm_name, state, indexed_events, consumed) do
     events =
-      Genswarms.CLI.SwarmRegistry.load_overlay(swarm_name)
-      |> Enum.reject(fn
-        {:update_config, %{name: name}} -> MapSet.member?(prefolded, to_string(name))
-        _event -> false
-      end)
+      for {{op, payload}, idx} <- indexed_events,
+          not MapSet.member?(consumed, idx),
+          do: {op, payload}
 
     if events == [] do
       state
@@ -831,35 +832,46 @@ defmodule Genswarms.SwarmManager do
   end
 
   # Pure pre-start fold of :update_config overlay events into the seed config
-  # (same Map.merge the runtime actuation uses). Only events whose target is a
-  # SEED object fold — an update_config for an object added by a later
-  # add_object overlay event still replays post-start, in order. Returns the
-  # folded config plus the names consumed (for replay_overlay to skip).
-  defp prefold_update_config_events(swarm_name, config) do
-    seed_specs = config.objects || []
+  # (same Map.merge the runtime actuation uses). An event folds only while its
+  # target is still the SEED incarnation: once a remove_object/add_object
+  # event touches that name, later update_configs belong to the NEW
+  # incarnation and must replay post-start, in order (skipping them by name
+  # would silently drop the re-added object's trailing patches). Returns the
+  # folded config plus the set of consumed event INDEXES for replay to skip.
+  defp prefold_update_config_events(config, indexed_events) do
+    seed_names =
+      for spec <- config.objects || [], into: MapSet.new(), do: to_string(Map.get(spec, :name))
 
-    Genswarms.CLI.SwarmRegistry.load_overlay(swarm_name)
-    |> Enum.reduce({config, MapSet.new()}, fn
-      {:update_config, %{name: name, config: patch}}, {cfg, folded} when is_map(patch) ->
-        if Enum.any?(seed_specs, &same_object_name?(&1, name)) do
-          objects =
-            Enum.map(cfg.objects || [], fn spec ->
-              if same_object_name?(spec, name) do
-                merged = Map.merge(Map.get(spec, :config, %{}) || %{}, patch)
-                Map.put(spec, :config, merged)
-              else
-                spec
-              end
-            end)
+    {config, consumed, _still_seed} =
+      Enum.reduce(indexed_events, {config, MapSet.new(), seed_names}, fn
+        {{:update_config, %{name: name, config: patch}}, idx}, {cfg, consumed, still_seed}
+        when is_map(patch) ->
+          if MapSet.member?(still_seed, to_string(name)) do
+            objects =
+              Enum.map(cfg.objects || [], fn spec ->
+                if same_object_name?(spec, name) do
+                  merged = Map.merge(Map.get(spec, :config, %{}) || %{}, patch)
+                  Map.put(spec, :config, merged)
+                else
+                  spec
+                end
+              end)
 
-          {%{cfg | objects: objects}, MapSet.put(folded, to_string(name))}
-        else
-          {cfg, folded}
-        end
+            {%{cfg | objects: objects}, MapSet.put(consumed, idx), still_seed}
+          else
+            {cfg, consumed, still_seed}
+          end
 
-      _event, acc ->
-        acc
-    end)
+        {{op, payload}, _idx}, {cfg, consumed, still_seed}
+        when op in [:remove_object, :add_object, :remove_agent, :add_agent] ->
+          name = payload[:name] || payload["name"]
+          {cfg, consumed, MapSet.delete(still_seed, to_string(name))}
+
+        _event, acc ->
+          acc
+      end)
+
+    {config, consumed}
   end
 
   defp same_object_name?(spec, name),

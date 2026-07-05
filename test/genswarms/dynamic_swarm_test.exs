@@ -418,6 +418,47 @@ defmodule Genswarms.DynamicSwarmTest do
       SwarmRegistry.clear_overlay(swarm_name)
     end
 
+    test "a seed object removed and re-added via overlay keeps its trailing update_config" do
+      swarm_name = "replay-reincarnate-#{System.unique_integer([:positive])}"
+      SwarmRegistry.clear_overlay(swarm_name)
+
+      config = %{
+        name: swarm_name,
+        agents: [%{name: :alpha, backend: :mock}],
+        objects: [%{name: :probe, handler: EchoConfigHandler, config: %{n: 0, seed: true}}],
+        topology: []
+      }
+
+      {:ok, ^swarm_name} = SwarmManager.start_from_config(config)
+
+      # patch the SEED incarnation (this one may prefold at boot) …
+      {:ok, :probe} = SwarmManager.update_object_config(swarm_name, :probe, %{n: 1}, persist: true)
+
+      # … then remove it and re-add a NEW incarnation, and patch THAT one.
+      :ok = SwarmManager.remove_object(swarm_name, :probe, persist: true)
+
+      {:ok, :probe} =
+        SwarmManager.add_object(
+          swarm_name,
+          %{name: :probe, handler: EchoConfigHandler, config: %{n: 0, seed: false}},
+          persist: true
+        )
+
+      {:ok, :probe} = SwarmManager.update_object_config(swarm_name, :probe, %{n: 2}, persist: true)
+
+      {:ok, _} = SwarmManager.stop(swarm_name)
+      {:ok, ^swarm_name} = SwarmManager.start_from_config(config)
+
+      # the trailing patch belongs to the re-added incarnation and must NOT be
+      # swallowed by the boot-time prefold of the seed's earlier patch
+      live = live_object_config(swarm_name, :probe)
+      assert live.n == 2
+      assert live.seed == false
+
+      SwarmManager.stop(swarm_name)
+      SwarmRegistry.clear_overlay(swarm_name)
+    end
+
     test "rapid successive update_config patches survive the registry sweep" do
       swarm_name = "cfg-rapid-#{System.unique_integer([:positive])}"
       SwarmRegistry.clear_overlay(swarm_name)
