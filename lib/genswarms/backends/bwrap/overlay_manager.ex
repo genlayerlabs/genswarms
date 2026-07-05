@@ -52,7 +52,8 @@ defmodule Genswarms.Backends.Bwrap.OverlayManager do
       blocked by base-layer permissions (`/etc`, `/root` are root-owned).
       A raising or non-`:ok` seed aborts the setup — fail closed.
   """
-  @spec setup_overlay(String.t(), [atom()], keyword()) :: {:ok, String.t()} | {:error, term()}
+  @spec setup_overlay(String.t(), [atom()], keyword() | :rootless) ::
+          {:ok, String.t()} | {:ok, String.t(), String.t()} | {:error, term()}
   def setup_overlay(sandbox_id, presets, opts) when is_list(opts) do
     agent_dir = Path.join(agents_dir(), sandbox_id)
     upper_dir = Path.join(agent_dir, "upper")
@@ -68,28 +69,14 @@ defmodule Genswarms.Backends.Bwrap.OverlayManager do
     end
   end
 
-  defp run_seed(nil, _agent_dir), do: :ok
-
-  defp run_seed(seed, agent_dir) when is_function(seed, 1) do
-    case seed.(agent_dir) do
-      :ok -> :ok
-      other -> {:error, {:seed_failed, other}}
-    end
-  rescue
-    e -> {:error, {:seed_failed, Exception.message(e)}}
-  end
-
-  @doc """
-  The rootless variant: creates the SAME upper/work layout but mounts NOTHING —
-  bwrap itself mounts the overlay inside the sandbox's user namespace
-  (`--overlay-src <base> --overlay <upper> <work> /`, kernel overlayfs-in-userns,
-  kernel ≥ 5.11). No fuse-overlayfs process, no `/dev/fuse`, no host mount.
-
-  Returns `{:ok, agent_dir, base_layer}` — the caller needs the base path to
-  build the bwrap argv (there is no pre-mounted `merged/` in this mode).
-  """
-  @spec setup_overlay(String.t(), [atom()], :rootless) ::
-          {:ok, String.t(), String.t()} | {:error, term()}
+  # The rootless variant: creates the SAME upper/work layout but mounts
+  # NOTHING — bwrap itself mounts the overlay inside the sandbox's user
+  # namespace (`--overlay-src <base> --overlay <upper> <work> /`, kernel
+  # overlayfs-in-userns, kernel ≥ 5.11). No fuse-overlayfs process, no
+  # `/dev/fuse`, no host mount. Returns `{:ok, agent_dir, base_layer}` —
+  # the caller needs the base path to build the bwrap argv (there is no
+  # pre-mounted `merged/` in this mode). Seeding upper/ is safe at any
+  # point in this mode; no :seed option needed.
   def setup_overlay(sandbox_id, presets, :rootless) do
     agent_dir = Path.join(agents_dir(), sandbox_id)
     upper_dir = Path.join(agent_dir, "upper")
@@ -104,6 +91,18 @@ defmodule Genswarms.Backends.Bwrap.OverlayManager do
       {:error, reason} -> {:error, reason}
     end
   end
+
+  defp run_seed(nil, _agent_dir), do: :ok
+
+  defp run_seed(seed, agent_dir) when is_function(seed, 1) do
+    case seed.(agent_dir) do
+      :ok -> :ok
+      other -> {:error, {:seed_failed, other}}
+    end
+  rescue
+    e -> {:error, {:seed_failed, Exception.message(e)}}
+  end
+
 
   @doc """
   Cleans up an overlay filesystem.

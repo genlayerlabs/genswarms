@@ -77,6 +77,7 @@ defmodule Genswarms.Backends.BwrapBackend do
     :name,
     :sandbox_id,
     :overlay_dir,
+    :workspace,
     :cgroup_path,
     :skills_dir,
     :scope_name,
@@ -89,6 +90,7 @@ defmodule Genswarms.Backends.BwrapBackend do
           name: String.t(),
           sandbox_id: String.t(),
           overlay_dir: String.t(),
+          workspace: String.t() | nil,
           cgroup_path: String.t() | nil,
           skills_dir: String.t() | nil,
           scope_name: String.t() | nil,
@@ -227,6 +229,11 @@ defmodule Genswarms.Backends.BwrapBackend do
                   name: name,
                   sandbox_id: sandbox_id,
                   overlay_dir: overlay_dir,
+                  # the RESOLVED workspace: without an explicit config the
+                  # backend invents a per-sandbox dir the caller cannot know
+                  # (the sandbox_id carries a timestamp) — expose it so the
+                  # LogWatcher can poll the right .outbox (swarm-msg ask/send)
+                  workspace: workspace,
                   cgroup_path: CgroupManager.get_cgroup_path(scope_name),
                   skills_dir: skills_dir,
                   scope_name: scope_name,
