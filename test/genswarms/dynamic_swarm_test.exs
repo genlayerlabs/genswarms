@@ -21,6 +21,25 @@ defmodule Genswarms.DynamicSwarmTest do
     def interface(), do: %{}
   end
 
+  # Keeps its init config as domain state so tests can assert the EFFECTIVE
+  # config an object actually booted with (via ObjectServer.get_state/2).
+  defmodule EchoConfigHandler do
+    @behaviour Genswarms.Objects.ObjectHandler
+    @impl true
+    def init(config), do: {:ok, %{config: config}}
+    @impl true
+    def handle_message(_from, _content, state), do: {:noreply, state}
+    @impl true
+    def interface(), do: %{}
+  end
+
+  # The EFFECTIVE config a live object booted with (its handler keeps it as
+  # domain state — see EchoConfigHandler). Test-only introspection.
+  defp live_object_config(swarm, name) do
+    [{pid, _}] = Registry.lookup(Genswarms.AgentRegistry, {swarm, name})
+    :sys.get_state(pid).handler_state.config
+  end
+
   # Registry deregistration is eventually consistent after process death;
   # wait briefly for the entry to clear.
   defp wait_unregistered(swarm, name, attempts \\ 50) do
@@ -311,6 +330,119 @@ defmodule Genswarms.DynamicSwarmTest do
 
       # :extra should be back via replay
       assert [_] = Registry.lookup(Genswarms.AgentRegistry, {swarm_name, :extra})
+
+      SwarmManager.stop(swarm_name)
+      SwarmRegistry.clear_overlay(swarm_name)
+    end
+
+    test "update_config events pre-fold at boot: runtime, spec and listing agree" do
+      swarm_name = "replay-cfg-#{System.unique_integer([:positive])}"
+      SwarmRegistry.clear_overlay(swarm_name)
+
+      config = %{
+        name: swarm_name,
+        agents: [%{name: :alpha, backend: :mock}],
+        objects: [
+          %{name: :probe, handler: EchoConfigHandler, config: %{registry: %{a: 1}}}
+        ],
+        topology: [{:alpha, :probe}]
+      }
+
+      {:ok, ^swarm_name} = SwarmManager.start_from_config(config)
+
+      # two sequential patches: the second REPLACES the registry key (removes :ghost)
+      {:ok, :probe} =
+        SwarmManager.update_object_config(
+          swarm_name,
+          :probe,
+          %{registry: %{a: 1, ghost: 2}, thresholds: %{k: 1}},
+          persist: true
+        )
+
+      {:ok, :probe} =
+        SwarmManager.update_object_config(swarm_name, :probe, %{registry: %{a: 1}},
+          persist: true
+        )
+
+      {:ok, _} = SwarmManager.stop(swarm_name)
+      {:ok, ^swarm_name} = SwarmManager.start_from_config(config)
+
+      # the runtime object booted ONCE with the effective (folded) config
+      live = live_object_config(swarm_name, :probe)
+      assert live.registry == %{a: 1}
+      assert live.thresholds == %{k: 1}
+
+      # the manager's spec (what /snapshot renders) agrees with the runtime
+      {:ok, full} = SwarmManager.get_full_config(swarm_name)
+      spec = Enum.find(full.objects, &(&1.name == :probe))
+      assert spec.config.registry == %{a: 1}
+      assert spec.config.thresholds == %{k: 1}
+
+      # and the engine's object listing still knows the object
+      listed = Genswarms.Objects.ObjectSupervisor.list_objects(swarm_name)
+      assert :probe in Enum.map(listed, & &1.name)
+
+      SwarmManager.stop(swarm_name)
+      SwarmRegistry.clear_overlay(swarm_name)
+    end
+
+    test "update_config on an overlay-added object still replays post-start" do
+      swarm_name = "replay-cfg-added-#{System.unique_integer([:positive])}"
+      SwarmRegistry.clear_overlay(swarm_name)
+
+      config = %{
+        name: swarm_name,
+        agents: [%{name: :alpha, backend: :mock}],
+        objects: [],
+        topology: []
+      }
+
+      {:ok, ^swarm_name} = SwarmManager.start_from_config(config)
+
+      {:ok, :late} =
+        SwarmManager.add_object(
+          swarm_name,
+          %{name: :late, handler: EchoConfigHandler, config: %{n: 0}},
+          persist: true
+        )
+
+      {:ok, :late} = SwarmManager.update_object_config(swarm_name, :late, %{n: 7}, persist: true)
+
+      {:ok, _} = SwarmManager.stop(swarm_name)
+      {:ok, ^swarm_name} = SwarmManager.start_from_config(config)
+
+      live = live_object_config(swarm_name, :late)
+      assert live.n == 7
+
+      SwarmManager.stop(swarm_name)
+      SwarmRegistry.clear_overlay(swarm_name)
+    end
+
+    test "rapid successive update_config patches survive the registry sweep" do
+      swarm_name = "cfg-rapid-#{System.unique_integer([:positive])}"
+      SwarmRegistry.clear_overlay(swarm_name)
+
+      config = %{
+        name: swarm_name,
+        agents: [%{name: :alpha, backend: :mock}],
+        objects: [%{name: :probe, handler: EchoConfigHandler, config: %{n: 0}}],
+        topology: []
+      }
+
+      {:ok, ^swarm_name} = SwarmManager.start_from_config(config)
+
+      # each patch is a remove→re-add; without awaiting Registry
+      # deregistration the re-add collides with the stale entry
+      for i <- 1..5 do
+        assert {:ok, :probe} =
+                 SwarmManager.update_object_config(swarm_name, :probe, %{n: i}, [])
+      end
+
+      live = live_object_config(swarm_name, :probe)
+      assert live.n == 5
+
+      listed = Genswarms.Objects.ObjectSupervisor.list_objects(swarm_name)
+      assert :probe in Enum.map(listed, & &1.name)
 
       SwarmManager.stop(swarm_name)
       SwarmRegistry.clear_overlay(swarm_name)
