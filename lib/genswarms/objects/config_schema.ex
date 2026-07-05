@@ -110,6 +110,22 @@ defmodule Genswarms.Objects.ConfigSchema do
     _ -> nil
   end
 
+  # ref-map handlers (loader :require/:verify, design §14.3): the schema comes
+  # straight from the swarm-object.json at the ref's path — the same notarized
+  # bytes the loader already digest-verified when it bound the module.
+  def schema_for(%{} = ref_spec) do
+    with path when is_binary(path) and path != "" <-
+           Map.get(ref_spec, :path) || Map.get(ref_spec, "path"),
+         {:ok, raw} <- File.read(Path.join(path, "swarm-object.json")),
+         {:ok, %{"config_schema" => schema}} when is_map(schema) <- Jason.decode(raw) do
+      schema
+    else
+      _ -> nil
+    end
+  rescue
+    _ -> nil
+  end
+
   def schema_for(_), do: nil
 
   defp find_schema(_dir, _handler, 0), do: nil
