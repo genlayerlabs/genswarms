@@ -138,6 +138,7 @@ cfgtok = System.get_env("GENSWARMS_CONFIG_API_TOKEN") || "e2e-cfg"
 Code.require_file(Path.join(__DIR__, "support/echo_object.ex"))
 Code.require_file(Path.join(__DIR__, "support/counter_object.ex"))
 Code.require_file(Path.join(__DIR__, "support/reject/reject_object.ex"))
+Code.require_file(Path.join(__DIR__, "support/shape_object.ex"))
 
 # The Cron object ships in the genswarms-objects package (not the engine);
 # load it by require, like a host swarm would, if the checkout is present.
@@ -592,7 +593,81 @@ steps = [
      Map.put(ctx, :ep_key, key)
    end},
   {~r/^no API key is handed out$/,
-   fn ctx, _ -> assert!.(ctx.ep_key in [nil, ""], "key handed out: #{inspect(ctx.ep_key)}"); ctx end}
+   fn ctx, _ -> assert!.(ctx.ep_key in [nil, ""], "key handed out: #{inspect(ctx.ep_key)}"); ctx end},
+
+  # ── messaging & topology (deterministic: Router + object shapes) ───────────
+  {~r/^a swarm where shape is connected to seen but not to unseen$/,
+   fn ctx, _ ->
+     swarm = "e2e-#{ctx[:_feature]}-#{System.unique_integer([:positive])}"
+     {:ok, ^swarm} = Genswarms.SwarmManager.start_from_config(
+       %{name: swarm, agents: [%{name: :seed, backend: :mock}],
+         objects: [
+           %{name: :shape, handler: Genswarms.E2E.ShapeObject, config: %{}},
+           %{name: :seen, handler: Genswarms.E2E.CounterObject, config: %{}},
+           %{name: :unseen, handler: Genswarms.E2E.CounterObject, config: %{}}
+         ],
+         topology: [{:shape, :seen}]})
+     Agent.update(created, &[swarm | &1]); Map.merge(ctx, %{swarm: swarm})
+   end},
+
+  {~r/^a swarm where shape is connected to both seen and also_seen$/,
+   fn ctx, _ ->
+     swarm = "e2e-#{ctx[:_feature]}-#{System.unique_integer([:positive])}"
+     {:ok, ^swarm} = Genswarms.SwarmManager.start_from_config(
+       %{name: swarm, agents: [%{name: :seed, backend: :mock}],
+         objects: [
+           %{name: :shape, handler: Genswarms.E2E.ShapeObject, config: %{}},
+           %{name: :seen, handler: Genswarms.E2E.CounterObject, config: %{}},
+           %{name: :also_seen, handler: Genswarms.E2E.CounterObject, config: %{}}
+         ],
+         topology: [{:shape, :seen}, {:shape, :also_seen}]})
+     Agent.update(created, &[swarm | &1]); Map.merge(ctx, %{swarm: swarm})
+   end},
+
+  {~r/^shape is told to send to (\w+)$/,
+   fn ctx, [to] ->
+     Genswarms.Objects.ObjectServer.deliver_message(ctx.swarm, :shape, :seed,
+       Jason.encode!(%{do: "send", to: to}))
+     Process.sleep(800); ctx
+   end},
+
+  {~r/^an edge from shape to unseen is added and shape sends to unseen$/,
+   fn ctx, _ ->
+     Genswarms.Routing.Router.add_edges(ctx.swarm, [{:shape, :unseen}])
+     Process.sleep(200)
+     Genswarms.Objects.ObjectServer.deliver_message(ctx.swarm, :shape, :seed,
+       Jason.encode!(%{do: "send", to: "unseen"}))
+     Process.sleep(800); ctx
+   end},
+
+  {~r/^shape broadcasts$/,
+   fn ctx, _ ->
+     Genswarms.Objects.ObjectServer.deliver_message(ctx.swarm, :shape, :seed,
+       Jason.encode!(%{do: "broadcast"}))
+     Process.sleep(800); ctx
+   end},
+
+  {~r/^(\w+) never receives it$/,
+   fn ctx, [obj] ->
+     s = :sys.get_state(reg.(ctx.swarm, String.to_atom(obj))).handler_state
+     assert!.(s.received == 0, "#{obj} got #{s.received}, expected 0"); ctx
+   end},
+
+  {~r/^(\w+) receives exactly one tick$/,
+   fn ctx, [obj] ->
+     cnt = fn -> :sys.get_state(reg.(ctx.swarm, String.to_atom(obj))).handler_state end
+     ok = poll.(fn -> cnt.().received >= 1 end, 8)
+     s = cnt.()
+     assert!.(ok and s.received == 1 and Map.get(s.by_action, "tick") == 1, "#{obj}=#{inspect(s)}"); ctx
+   end},
+
+  {~r/^both (\w+) and (\w+) receive a tick$/,
+   fn ctx, [a, b] ->
+     ca = fn -> :sys.get_state(reg.(ctx.swarm, String.to_atom(a))).handler_state.received end
+     cb = fn -> :sys.get_state(reg.(ctx.swarm, String.to_atom(b))).handler_state.received end
+     ok = poll.(fn -> ca.() >= 1 and cb.() >= 1 end, 8)
+     assert!.(ok, "#{a}=#{ca.()} #{b}=#{cb.()}"); ctx
+   end}
 ]
 
 # ── run all features ────────────────────────────────────────────────────────
