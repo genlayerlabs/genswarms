@@ -853,6 +853,32 @@ steps = [
    end},
   {~r/^the swarm is stopped$/,
    fn ctx, _ -> Genswarms.SwarmManager.stop(ctx.swarm); ctx end},
+  {~r/^an ssh-backend agent pointed at localhost$/,
+   fn ctx, _ ->
+     swarm = "e2e-#{ctx[:_feature]}-#{System.unique_integer([:positive])}"
+     skills_dir = Path.join(System.tmp_dir!(), "e2e-ssh-skills-#{System.unique_integer([:positive])}")
+     File.mkdir_p!(skills_dir)
+     File.cp!(Path.join(here, "support/economist.md"), Path.join(skills_dir, "economist.md"))
+     ssh = %{name: :remote, backend: {:ssh, "jm@localhost"},
+       config: %{nixos: false, key_path: "/home/jm/.ssh/id_rsa",
+                 subzeroclaw_path: "/home/jm/docs/personal/subzeroclaw/subzeroclaw",
+                 remote_skills_dir: Path.join(System.tmp_dir!(), "e2e-ssh-remote-#{System.unique_integer([:positive])}"),
+                 skills_dir: skills_dir,
+                 endpoint: "https://router.ygr.ai/v1/chat/completions",
+                 api_key: System.get_env("UNHARDCODED_CONSUMER_KEY"),
+                 request_extra: Jason.decode!(free_pol)}}
+     res = Genswarms.SwarmManager.start_from_config(
+       %{name: swarm, agents: [ssh], objects: [], topology: []})
+     Agent.update(created, &[swarm | &1])
+     Map.merge(ctx, %{swarm: swarm, start_res: res})
+   end},
+  {~r/^the ssh agent is registered and running$/,
+   fn ctx, _ ->
+     assert!.(match?({:ok, _}, ctx.start_res), "ssh swarm start failed: #{inspect(ctx.start_res)}")
+     ok = poll.(fn -> reg.(ctx.swarm, :remote) != nil end, 15)
+     assert!.(ok, "ssh agent not registered"); ctx
+   end},
+
   {~r/^the sandbox directory is gone$/,
    fn ctx, _ ->
      gone = poll.(fn ->

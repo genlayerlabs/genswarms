@@ -20,3 +20,7 @@ Feature: Backends — substrate guarantees
     Given a bwrap agent has started and recorded its sandbox directory
     When the swarm is stopped
     Then the sandbox directory is gone
+
+  Scenario: an ssh-backend agent connects and runs against localhost
+    Given an ssh-backend agent pointed at localhost
+    Then the ssh agent is registered and running
