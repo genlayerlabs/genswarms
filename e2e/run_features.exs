@@ -703,7 +703,66 @@ steps = [
    fn ctx, _ ->
      args = Genswarms.Backends.EgressGuard.bwrap_net_args(%{})
      assert!.("--unshare-net" not in args, "open agent got net-unshare: #{inspect(args)}"); ctx
-   end}
+   end},
+
+  # ── observability (event stream + observer detectors, no tokens) ──────────
+  {~r/^a running swarm with an agent and an object$/,
+   fn ctx, _ ->
+     swarm = "e2e-#{ctx[:_feature]}-#{System.unique_integer([:positive])}"
+     {:ok, ^swarm} = Genswarms.SwarmManager.start_from_config(
+       %{name: swarm, agents: [%{name: :worker, backend: :mock}],
+         objects: [%{name: :echo, handler: Genswarms.E2E.EchoObject, config: %{tag: "base"}}], topology: []})
+     Agent.update(created, &[swarm | &1])
+     Map.merge(ctx, %{swarm: swarm})
+   end},
+
+  {~r/^the swarm's events are queried$/,
+   fn ctx, _ ->
+     types = fn ->
+       Genswarms.Observability.LogStore.query(swarm: ctx.swarm, limit: 200)
+       |> Enum.map(&(&1[:event_type] || &1["event_type"]))
+       |> Enum.map(&to_string/1)
+     end
+     poll.(fn -> "agent_started" in types.() end, 15)
+     Map.put(ctx, :event_types, types.())
+   end},
+  {~r/^an agent_started event is present$/,
+   fn ctx, _ -> assert!.("agent_started" in ctx.event_types, "types=#{inspect(Enum.uniq(ctx.event_types))}"); ctx end},
+  {~r/^an object_started event is present$/,
+   fn ctx, _ -> assert!.("object_started" in ctx.event_types, "types=#{inspect(Enum.uniq(ctx.event_types))}"); ctx end},
+
+  {~r/^the observer detectors are loaded$/,
+   fn ctx, _ ->
+     obs = Path.expand("~/docs/genlayer/genswarms-observer/lib/genswarms/observer/detectors.ex")
+     if File.exists?(obs) and not Code.ensure_loaded?(Genswarms.Observer.Detectors),
+       do: Code.require_file(obs)
+     assert!.(Code.ensure_loaded?(Genswarms.Observer.Detectors), "observer Detectors not available"); ctx
+   end},
+  {~r/^a swarm's dashboard fetch is a connection error$/,
+   fn ctx, _ ->
+     {alerts, _} = Genswarms.Observer.Detectors.detect("target",
+       %{dashboard: {:error, :econnrefused}, events: {:error, :econnrefused}}, %{}, nil,
+       System.system_time(:millisecond))
+     Map.put(ctx, :alerts, alerts)
+   end},
+  {~r/^the detectors raise an endpoint_down alert for that swarm$/,
+   fn ctx, _ ->
+     types = Enum.map(ctx.alerts, & &1.type)
+     assert!.(:endpoint_down in types, "alerts=#{inspect(types)}"); ctx
+   end},
+  {~r/^a swarm's dashboard is healthy and idle$/,
+   fn ctx, _ ->
+     now = System.system_time(:millisecond)
+     healthy = %{"status" => "running", "summary" => %{"pool" => %{"leased" => 0, "size" => 4}},
+                 "nodes" => [%{"name" => "a", "type" => "agent", "state" => "idle"}]}
+     event = %{"id" => 1, "level" => "info",
+               "timestamp" => now |> DateTime.from_unix!(:millisecond) |> DateTime.to_iso8601()}
+     {alerts, _} = Genswarms.Observer.Detectors.detect("target",
+       %{dashboard: {:ok, healthy}, events: {:ok, [event]}}, %{}, nil, now)
+     Map.put(ctx, :alerts, alerts)
+   end},
+  {~r/^the detectors raise nothing$/,
+   fn ctx, _ -> assert!.(ctx.alerts == [], "expected no alerts, got #{inspect(ctx.alerts)}"); ctx end}
 ]
 
 # ── run all features ────────────────────────────────────────────────────────
