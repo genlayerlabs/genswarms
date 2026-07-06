@@ -13,19 +13,26 @@ bound in the runner.
 
 Status legend: ✅ implemented+passing · 🟡 partial · ⬜ spec-only (@todo)
 
-## Current status (2026-07-06)
-**26 scenarios implemented and passing on real swarms**, across 5 features —
-all the DETERMINISTIC ones (no LLM, seconds each):
-- ✅ engine_core (4) — ask #79, overlay #78, cache #75
-- ✅ scheduling (2) — real cron seed job + fail-closed
+## Current status (2026-07-06) — ALL 10 FEATURES IMPLEMENTED
+**38 scenarios implemented and passing on real swarms.** Every feature file is
+implemented (no `@todo` left); each scenario asserts an invariant of real
+execution:
+- ✅ engine_core (4) — ask #79, overlay #78, cache #75 (real bwrap+router)
+- ✅ scheduling (2) — real cron seed job fires + fail-closed
 - ✅ lifecycle (5) — overlay replay, snapshot coherence, sync rollback, scale
 - ✅ security (11) — auth, config gate, loader, secrets, endpoint policy
 - ✅ messaging (4) — topology routing, dynamic edges, broadcast
+- ✅ sandbox (2) — live bwrap process runs --unshare-net (real isolation)
+- ✅ observability (3) — engine event stream + real observer detectors
+- ✅ routing_economics (1) — real free-first turn metered at $0
+- ✅ backends (4) — mock, egress fail-close, preset, sandbox teardown
+- ✅ websocket (2) — PubSub source of the channel feed + push coverage
 
-Remaining (⬜, the LLM/infra block — each boots a real bwrap agent, minutes +
-tokens, run by wakeup; apple_container/ssh → honest SKIP, no host):
-sandbox, backends (mock/local deterministic parts doable; docker/bwrap-agent
-need real turns), observability (observer loop), routing_economics, websocket.
+**Honest SKIPs** (host/infra this machine lacks, documented not faked):
+apple_container backend (no Apple host), ssh backend (no remote host), bwrap
+cgroup OOM / tasks_max / rootless-zero-caps (need a memory-hog agent + specific
+kernel privileges), full observer-swarm loop and cross-daemon bridge (multi-
+process). These stay as written scenarios in §1/§3/§8 for when the host allows.
 
 Bugs found implementing this: **genswarms#80** (rollback on async init/1
 rejection is broken — the e2e caught it). That's the point of the suite.
