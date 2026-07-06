@@ -21,13 +21,18 @@ defmodule E2E.Gherkin do
   @moduledoc "Parse Feature/Background/Scenario/Given-When-Then-And; run steps."
 
   def parse(text) do
+    # a @todo tag anywhere marks the whole feature as a not-yet-implemented
+    # spec: its scenarios are the written map of what's missing, run as PENDING
+    todo? = text |> String.split("\n") |> Enum.any?(&(String.trim(&1) == "@todo"))
+
     lines =
       text
       |> String.split("\n")
       |> Enum.map(&String.trim/1)
-      |> Enum.reject(&(&1 == "" or String.starts_with?(&1, "#")))
+      |> Enum.reject(&(&1 == "" or String.starts_with?(&1, "#") or String.starts_with?(&1, "@")))
 
-    Enum.reduce(lines, %{feature: nil, background: [], scenarios: [], _cur: nil}, fn line, acc ->
+    parsed =
+      Enum.reduce(lines, %{feature: nil, background: [], scenarios: [], _cur: nil}, fn line, acc ->
       cond do
         kw?(line, "Feature:") ->
           %{acc | feature: rest(line, "Feature:")}
@@ -47,6 +52,8 @@ defmodule E2E.Gherkin do
           acc
       end
     end)
+
+    Map.put(parsed, :todo, todo?)
   end
 
   defp add_step(%{_cur: :background} = acc, step),
@@ -71,8 +78,14 @@ defmodule E2E.Gherkin do
   defp rest(line, kw), do: line |> String.replace_prefix(kw, "") |> String.trim()
 
   @doc "Run one parsed feature against a step registry [{regex, fun/2}]. fun raises to fail."
+  def run(%{todo: true} = parsed, _registry, report) do
+    Enum.each(parsed.scenarios, fn sc -> report.({:scenario_pending, sc.name}) end)
+    {0, 0, length(parsed.scenarios)}
+  end
+
   def run(parsed, registry, report) do
-    Enum.reduce(parsed.scenarios, {0, 0}, fn sc, {pass, fail} ->
+    {p, f} =
+      Enum.reduce(parsed.scenarios, {0, 0}, fn sc, {pass, fail} ->
       report.({:scenario, sc.name})
       steps = parsed.background ++ sc.steps
 
@@ -92,6 +105,8 @@ defmodule E2E.Gherkin do
         {:fail, msg} -> report.({:scenario_fail, msg}); {pass, fail + 1}
       end
     end)
+
+    {p, f, 0}
   end
 
   defp run_step(kw, text, registry, ctx, report) do
@@ -283,23 +298,23 @@ files =
 
 report = fn
   {:scenario, name} -> IO.puts("\n  Scenario: #{name}")
+  {:scenario_pending, name} -> IO.puts("  Scenario: #{name}  — PENDING (spec only)")
   {:step_ok, kw, text} -> IO.puts("    ✓ #{kw} #{text}")
   {:step_undef, kw, text} -> IO.puts("    ? #{kw} #{text}  (UNDEFINED)")
   {:scenario_fail, msg} -> IO.puts("    ✗ FAILED: #{msg}")
 end
 
-{tp, tf} =
-  Enum.reduce(files, {0, 0}, fn file, {p, f} ->
+{tp, tf, tpend} =
+  Enum.reduce(files, {0, 0, 0}, fn file, {p, f, pend} ->
     parsed = E2E.Gherkin.parse(File.read!(file))
     fname = Path.basename(file, ".feature")
-    IO.puts("\nFeature: #{parsed.feature}  [#{fname}]")
-    # thread the feature slug into ctx via a wrapper background step
+    IO.puts("\nFeature: #{parsed.feature}  [#{fname}]#{if parsed.todo, do: "  @todo", else: ""}")
     reg2 = [{~r/^a running engine on an isolated port$/, fn ctx, _ -> Map.put(ctx, :_feature, fname) end} | steps]
-    {sp, sf} = E2E.Gherkin.run(parsed, reg2, report)
-    {p + sp, f + sf}
+    {sp, sf, spend} = E2E.Gherkin.run(parsed, reg2, report)
+    {p + sp, f + sf, pend + spend}
   end)
 
 Enum.each(Agent.get(created, & &1), &Genswarms.SwarmManager.stop/1)
 
-IO.puts("\n== features: #{tp} scenarios passed, #{tf} failed ==")
+IO.puts("\n== features: #{tp} passed, #{tf} failed, #{tpend} pending (unwritten coverage) ==")
 if tf > 0, do: System.halt(1), else: IO.puts("E2E FEATURES OK")
