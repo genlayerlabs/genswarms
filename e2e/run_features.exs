@@ -667,6 +667,42 @@ steps = [
      cb = fn -> :sys.get_state(reg.(ctx.swarm, String.to_atom(b))).handler_state.received end
      ok = poll.(fn -> ca.() >= 1 and cb.() >= 1 end, 8)
      assert!.(ok, "#{a}=#{ca.()} #{b}=#{cb.()}"); ctx
+   end},
+
+  # ── sandbox isolation (real bwrap sandbox, deterministic) ─────────────────
+  {~r/^a bwrap agent started with network isolated$/,
+   fn ctx, _ ->
+     assert!.(System.get_env("UNHARDCODED_CONSUMER_KEY") not in [nil, ""], "no router key")
+     swarm = "e2e-#{ctx[:_feature]}-#{System.unique_integer([:positive])}"
+     {:ok, ^swarm} = Genswarms.SwarmManager.start_from_config(
+       %{name: swarm, agents: [agent.(:prober, "prober.md", free_pol)], objects: [], topology: []})
+     Agent.update(created, &[swarm | &1])
+     Process.sleep(4000)
+     Map.merge(ctx, %{swarm: swarm})
+   end},
+
+  {~r/^the engine's egress guard requests --unshare-net for it$/,
+   fn ctx, _ ->
+     args = Genswarms.Backends.EgressGuard.bwrap_net_args(%{network: :isolated})
+     assert!.("--unshare-net" in args, "egress guard args=#{inspect(args)}"); ctx
+   end},
+
+  {~r/^the live sandbox process runs with --unshare-net$/,
+   fn ctx, _ ->
+     # find the running bwrap process for this swarm's sandbox and confirm the
+     # network namespace is actually unshared (real isolation, not just config)
+     found = poll.(fn ->
+       {out, _} = System.cmd("bash", ["-c",
+         "for p in /proc/[0-9]*/cmdline; do tr '\\0' ' ' < $p 2>/dev/null | grep -q '#{ctx.swarm}' && tr '\\0' ' ' < $p 2>/dev/null; echo; done | grep bwrap || true"])
+       String.contains?(out, "--unshare-net")
+     end, 20)
+     assert!.(found, "no bwrap process with --unshare-net for #{ctx.swarm}"); ctx
+   end},
+
+  {~r/^the engine's egress guard requests no net-unshare for an open agent$/,
+   fn ctx, _ ->
+     args = Genswarms.Backends.EgressGuard.bwrap_net_args(%{})
+     assert!.("--unshare-net" not in args, "open agent got net-unshare: #{inspect(args)}"); ctx
    end}
 ]
 
