@@ -239,6 +239,18 @@ poll = fn fun, secs ->
   end)
 end
 
+# like poll, but returns the first truthy VALUE the fun produces (or nil)
+poll_val = fn fun, secs ->
+  Enum.reduce_while(1..div(secs * 1000, 2000), nil, fn _i, _ ->
+    Process.sleep(2000)
+    case fun.() do
+      nil -> {:cont, nil}
+      false -> {:cont, nil}
+      v -> {:halt, v}
+    end
+  end)
+end
+
 # ── step registry ───────────────────────────────────────────────────────────
 steps = [
   {~r/^a running engine on an isolated port$/, fn ctx, _ -> ctx end},
@@ -882,7 +894,41 @@ steps = [
        assert!.(String.contains?(ctx.chan_src, "\"#{k}\""), "channel never pushes #{k}")
      end
      ctx
-   end}
+   end},
+
+  # ── resource limits (real cgroup scope inspection) ────────────────────────
+  {~r/^a bwrap cgroup agent limited to 64M memory, 30 tasks, cpu weight 50$/,
+   fn ctx, _ ->
+     assert!.(System.get_env("UNHARDCODED_CONSUMER_KEY") not in [nil, ""], "no router key")
+     swarm = "e2e-#{ctx[:_feature]}-#{System.unique_integer([:positive])}"
+     limited = %{name: :limited, backend: :bwrap,
+       endpoint: "https://router.ygr.ai/v1/chat/completions",
+       skills: [Path.join(here, "support/economist.md")],
+       config: %{privilege_mode: :cgroup, memory_limit: "64M", tasks_max: 30, cpu_shares: 50,
+                 api_key: System.get_env("UNHARDCODED_CONSUMER_KEY"), request_extra: Jason.decode!(free_pol)}}
+     {:ok, ^swarm} = Genswarms.SwarmManager.start_from_config(
+       %{name: swarm, agents: [limited], objects: [], topology: []})
+     Agent.update(created, &[swarm | &1])
+     unit = poll_val.(fn ->
+       {out, _} = System.cmd("systemctl", ["--user", "list-units", "--all", "--plain", "--no-legend", "szc-*"])
+       out |> String.split("\n")
+           |> Enum.map(&(String.split(&1, ~r/\s+/, trim: true) |> List.first()))
+           |> Enum.filter(& &1)
+           |> Enum.find(&String.contains?(&1, swarm))
+     end, 20)
+     assert!.(unit != nil, "no szc scope found for #{swarm}")
+     show = fn prop ->
+       {o, _} = System.cmd("systemctl", ["--user", "show", unit, "-p", prop])
+       o |> String.trim() |> String.split("=", parts: 2) |> List.last()
+     end
+     Map.merge(ctx, %{swarm: swarm, show: show})
+   end},
+  {~r/^its systemd scope carries MemoryMax of 64M$/,
+   fn ctx, _ -> assert!.(ctx.show.("MemoryMax") == "#{64 * 1024 * 1024}", "MemoryMax=#{ctx.show.("MemoryMax")}"); ctx end},
+  {~r/^its systemd scope carries TasksMax of 30$/,
+   fn ctx, _ -> assert!.(ctx.show.("TasksMax") == "30", "TasksMax=#{ctx.show.("TasksMax")}"); ctx end},
+  {~r/^its systemd scope carries CPUWeight of 50$/,
+   fn ctx, _ -> assert!.(ctx.show.("CPUWeight") == "50", "CPUWeight=#{ctx.show.("CPUWeight")}"); ctx end}
 ]
 
 # ── run all features ────────────────────────────────────────────────────────
