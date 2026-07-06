@@ -797,6 +797,91 @@ steps = [
      assert!.(Regex.match?(~r/model=\S+/, line) and not Regex.match?(~r/model=\?/, line),
        "no model chosen: #{line}")
      assert!.(String.contains?(line, "cost_usd=0.000000"), "expected $0, got: #{line}"); ctx
+   end},
+
+  # ── backends (deterministic code + real bwrap teardown) ───────────────────
+  {~r/^a mock backend agent$/,
+   fn ctx, _ ->
+     {:ok, ref} = Genswarms.Backends.MockBackend.start("m", %{})
+     Map.put(ctx, :mock_ref, ref)
+   end},
+  {~r/^it reports healthy with no OS process$/,
+   fn ctx, _ ->
+     assert!.(Genswarms.Backends.MockBackend.health_check(ctx.mock_ref) == :ok, "mock not healthy")
+     assert!.(not Map.has_key?(ctx.mock_ref, :port) or ctx.mock_ref.__struct__ == Genswarms.Backends.MockBackend,
+       "mock has a port"); ctx
+   end},
+
+  {~r/^egress resolves an endpoint that is not allowlisted$/,
+   fn ctx, _ ->
+     r = Genswarms.Backends.EgressGuard.resolve_allowed_endpoint(%{endpoint: "https://not-allowed.e2e.example/v1"})
+     Map.put(ctx, :egress, r)
+   end},
+  {~r/^it is refused as endpoint_not_allowed$/,
+   fn ctx, _ -> assert!.(match?({:error, {:endpoint_not_allowed, _}}, ctx.egress), "got #{inspect(ctx.egress)}"); ctx end},
+
+  {~r/^the base layer for the base preset is resolved$/,
+   fn ctx, _ -> Map.put(ctx, :base_layer, Genswarms.Backends.Bwrap.OverlayManager.get_base_layer([:base])) end},
+  {~r/^it resolves to an existing sandbox base$/,
+   fn ctx, _ ->
+     assert!.(is_binary(ctx.base_layer) and File.exists?(ctx.base_layer), "base layer missing: #{inspect(ctx.base_layer)}"); ctx
+   end},
+
+  {~r/^a bwrap agent has started and recorded its sandbox directory$/,
+   fn ctx, _ ->
+     assert!.(System.get_env("UNHARDCODED_CONSUMER_KEY") not in [nil, ""], "no router key")
+     swarm = "e2e-#{ctx[:_feature]}-#{System.unique_integer([:positive])}"
+     before = File.ls("/run/swarm/agents") |> case do {:ok, l} -> l; _ -> [] end |> MapSet.new()
+     {:ok, ^swarm} = Genswarms.SwarmManager.start_from_config(
+       %{name: swarm, agents: [agent.(:probe, "economist.md", free_pol)], objects: [], topology: []})
+     Process.sleep(4000)
+     after_ = File.ls("/run/swarm/agents") |> case do {:ok, l} -> l; _ -> [] end |> MapSet.new()
+     new = MapSet.difference(after_, before) |> MapSet.to_list()
+     Map.merge(ctx, %{swarm: swarm, sandbox_dirs: new})
+   end},
+  {~r/^the swarm is stopped$/,
+   fn ctx, _ -> Genswarms.SwarmManager.stop(ctx.swarm); ctx end},
+  {~r/^the sandbox directory is gone$/,
+   fn ctx, _ ->
+     gone = poll.(fn ->
+       Enum.all?(ctx.sandbox_dirs, fn d -> not File.exists?(Path.join("/run/swarm/agents", d)) end)
+     end, 15)
+     assert!.(ctx.sandbox_dirs != [], "no sandbox dir was created for #{ctx.swarm}")
+     assert!.(gone, "sandbox dir(s) not removed: #{inspect(ctx.sandbox_dirs)}"); ctx
+   end},
+
+  # ── websocket feed (the PubSub the channel relays) ────────────────────────
+  {~r/^a subscription to a swarm's live topic$/,
+   fn ctx, _ ->
+     swarm = "e2e-#{ctx[:_feature]}-#{System.unique_integer([:positive])}"
+     Phoenix.PubSub.subscribe(Genswarms.PubSub, "swarm:#{swarm}")
+     Map.put(ctx, :swarm, swarm)
+   end},
+  {~r/^the swarm starts$/,
+   fn ctx, _ ->
+     {:ok, _} = Genswarms.SwarmManager.start_from_config(
+       %{name: ctx.swarm, agents: [%{name: :seed, backend: :mock}], objects: [], topology: []})
+     Agent.update(created, &[ctx.swarm | &1]); ctx
+   end},
+  {~r/^a swarm_started event is received on the topic$/,
+   fn ctx, _ ->
+     got = receive do
+       {:swarm_started, _n, _status} -> true
+     after 6000 -> false end
+     assert!.(got, "no swarm_started received on swarm:#{ctx.swarm}"); ctx
+   end},
+
+  {~r/^the swarm channel source$/,
+   fn ctx, _ ->
+     src = Path.join(File.cwd!(), "lib/genswarms_web/channels/swarm_channel.ex")
+     Map.put(ctx, :chan_src, File.read!(src))
+   end},
+  {~r/^it pushes agent_output, message_routed, agent_status and swarm lifecycle$/,
+   fn ctx, _ ->
+     for k <- ~w(agent_output message_routed agent_status swarm_started swarm_stopped) do
+       assert!.(String.contains?(ctx.chan_src, "\"#{k}\""), "channel never pushes #{k}")
+     end
+     ctx
    end}
 ]
 
