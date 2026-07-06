@@ -19,6 +19,12 @@ the daemons coordinate through SQLite at `.genswarms/swarms.db`. This skill is t
 orientation; the root **`SKILL.md`** (`operating-genswarms`) is the full
 operating guide and `docs/` carries every topic.
 
+## Update requests
+
+If the user asks to update vendors or "everything", treat that as packages +
+vendors + dependencies together. Explain the result in chat: version deltas first,
+then the main features or compatibility changes, simply and briefly.
+
 ## Define a swarm
 
 A config file (`.exs` / `.json` / `.yaml`) with required `name:` and `agents:`,
