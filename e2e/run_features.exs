@@ -762,7 +762,42 @@ steps = [
      Map.put(ctx, :alerts, alerts)
    end},
   {~r/^the detectors raise nothing$/,
-   fn ctx, _ -> assert!.(ctx.alerts == [], "expected no alerts, got #{inspect(ctx.alerts)}"); ctx end}
+   fn ctx, _ -> assert!.(ctx.alerts == [], "expected no alerts, got #{inspect(ctx.alerts)}"); ctx end},
+
+  # ── routing economics (real agent, gpt-5.5 is $0) ─────────────────────────
+  {~r/^a free-first economist agent$/,
+   fn ctx, _ ->
+     assert!.(System.get_env("UNHARDCODED_CONSUMER_KEY") not in [nil, ""], "no router key")
+     swarm = "e2e-#{ctx[:_feature]}-#{System.unique_integer([:positive])}"
+     {:ok, ^swarm} = Genswarms.SwarmManager.start_from_config(
+       %{name: swarm, agents: [agent.(:economist, "economist.md", free_pol)], objects: [], topology: []})
+     Agent.update(created, &[swarm | &1])
+     Process.sleep(3000)
+     Map.merge(ctx, %{swarm: swarm})
+   end},
+  {~r/^it takes a turn$/,
+   fn ctx, _ ->
+     Genswarms.SwarmManager.send_task(ctx.swarm, :economist, "Di OK.")
+     usage = fn ->
+       dir = Path.expand("~/.subzeroclaw/swarms/#{ctx.swarm}/economist/logs")
+       case File.ls(dir) do
+         {:ok, fs} ->
+           fs |> Enum.flat_map(&String.split(File.read!(Path.join(dir, &1)), "\n"))
+              |> Enum.filter(&String.contains?(&1, "USAGE"))
+         _ -> []
+       end
+     end
+     poll.(fn -> usage.() != [] end, 120)
+     Map.put(ctx, :usage, usage.())
+   end},
+  {~r/^a model was chosen and the turn was metered at zero cost$/,
+   fn ctx, _ ->
+     assert!.(ctx.usage != [], "no USAGE line — turn never metered")
+     line = hd(ctx.usage)
+     assert!.(Regex.match?(~r/model=\S+/, line) and not Regex.match?(~r/model=\?/, line),
+       "no model chosen: #{line}")
+     assert!.(String.contains?(line, "cost_usd=0.000000"), "expected $0, got: #{line}"); ctx
+   end}
 ]
 
 # ── run all features ────────────────────────────────────────────────────────
