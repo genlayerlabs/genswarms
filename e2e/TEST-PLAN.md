@@ -13,8 +13,8 @@ bound in the runner.
 
 Status legend: ✅ implemented+passing · 🟡 partial · ⬜ spec-only (@todo)
 
-## Current status (2026-07-06) — ALL 10 FEATURES IMPLEMENTED
-**38 scenarios implemented and passing on real swarms.** Every feature file is
+## Current status (2026-07-06) — 40 GREEN, SKIPs down to what's truly impossible here
+**40 scenarios implemented and passing on real swarms.** Every feature file is
 implemented (no `@todo` left); each scenario asserts an invariant of real
 execution:
 - ✅ engine_core (4) — ask #79, overlay #78, cache #75 (real bwrap+router)
@@ -25,14 +25,28 @@ execution:
 - ✅ sandbox (2) — live bwrap process runs --unshare-net (real isolation)
 - ✅ observability (3) — engine event stream + real observer detectors
 - ✅ routing_economics (1) — real free-first turn metered at $0
-- ✅ backends (4) — mock, egress fail-close, preset, sandbox teardown
+- ✅ backends (5) — mock, egress fail-close, preset, sandbox teardown, **ssh→localhost**
 - ✅ websocket (2) — PubSub source of the channel feed + push coverage
+- ✅ resource_limits (1) — **real cgroup** MemoryMax/TasksMax/CPUWeight on the scope
 
-**Honest SKIPs** (host/infra this machine lacks, documented not faked):
-apple_container backend (no Apple host), ssh backend (no remote host), bwrap
-cgroup OOM / tasks_max / rootless-zero-caps (need a memory-hog agent + specific
-kernel privileges), full observer-swarm loop and cross-daemon bridge (multi-
-process). These stay as written scenarios in §1/§3/§8 for when the host allows.
+**SKIPs — now down to what's genuinely not possible on this host:**
+- **apple_container** — needs a macOS/Apple-container host. Genuinely impossible
+  on this Linux box. The only hard SKIP.
+
+**Deferred (possible here, but bigger scope than engine-core e2e):**
+- Full **observer-swarm loop** end-to-end (a live observer swarm alerting on a
+  killed target). The observer's *detectors* are already tested (observability
+  §8); the full loop belongs to the genswarms-observer repo, which has its own
+  tests — an integration test of that package, not the engine.
+- **cross-daemon bridge** (two OS daemons + shared SQLite queue) — needs a second
+  BEAM; a multi-process harness, not a single-runner scenario.
+- bwrap **OOM kill / fork-bomb runtime** — the cgroup *caps* are now asserted on
+  the live scope (resource_limits); provoking the actual kill adds a memory-hog
+  agent for little extra signal over "the kernel carries the cap."
+
+Earlier these were all filed as "no infra"; most were just conservatism — ssh
+(localhost is a host) and cgroup enforcement (systemd --user works) are now
+green. What's left is one true impossibility + two multi-component integrations.
 
 Bugs found implementing this: **genswarms#80** (rollback on async init/1
 rejection is broken — the e2e caught it). That's the point of the suite.
