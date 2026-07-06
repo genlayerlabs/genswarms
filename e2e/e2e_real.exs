@@ -67,6 +67,22 @@ policy =
     ]
   })
 
+# apex policy: claude via openrouter — the route the router injects cache
+# breakpoints on (#75), so a repeated prefix reports cache hits. gpt-5.5/codex
+# report cached=0, so the cache case must ride claude to be meaningful.
+apex =
+  Jason.encode!(%{
+    "policy_ir" => [
+      "policy",
+      ["and", ["meets_req"], ["not", ["is", "disabled"]],
+       ["family_eq", "claude-opus-4-8"], ["provider_eq", "openrouter"]],
+      ["neg", ["add", ["field", "price_in"], ["field", "price_out"]]],
+      ["argmax"],
+      ["id"],
+      ["always", %{"action" => "next_candidate"}]
+    ]
+  })
+
 config = %{
   name: swarm,
   agents: [
@@ -80,6 +96,17 @@ config = %{
         api_key: System.get_env("UNHARDCODED_CONSUMER_KEY"),
         request_extra: Jason.decode!(policy)
       }
+    },
+    %{
+      name: :cacher,
+      backend: :bwrap,
+      endpoint: "https://router.ygr.ai/v1/chat/completions",
+      skills: [Path.join(__DIR__, "support/cacher.md")],
+      config: %{
+        network: :isolated,
+        api_key: System.get_env("UNHARDCODED_CONSUMER_KEY"),
+        request_extra: Jason.decode!(apex)
+      }
     }
   ],
   objects: [
@@ -88,6 +115,27 @@ config = %{
   # asker → echo (ask) and echo → asker (return edge, required for ask replies)
   topology: [{:asker, :echo}, {:echo, :asker}]
 }
+
+# per-call USAGE lines subzeroclaw writes to the agent's session log
+usage_cached = fn agent ->
+  dir = Path.expand("~/.subzeroclaw/swarms/#{swarm}/#{agent}/logs")
+
+  case File.ls(dir) do
+    {:ok, files} ->
+      files
+      |> Enum.flat_map(fn f -> File.read!(Path.join(dir, f)) |> String.split("\n") end)
+      |> Enum.filter(&String.contains?(&1, "USAGE"))
+      |> Enum.map(fn line ->
+        case Regex.run(~r/cached=(\d+)/, line) do
+          [_, n] -> String.to_integer(n)
+          _ -> 0
+        end
+      end)
+
+    _ ->
+      []
+  end
+end
 
 IO.puts("\n== e2e-real: #{swarm} ==")
 
@@ -146,6 +194,25 @@ check.("overlay: snapshot reflects the patch (no divergence #78)", snap_ok, nil)
 listed = Genswarms.Objects.ObjectSupervisor.list_objects(swarm) |> Enum.map(& &1.name)
 check.("overlay: object still listed after the patch-restart (#78)", :echo in listed,
   inspect(listed))
+
+# ── 4. prompt cache (the #75 path) ──────────────────────────────────────────
+# Two turns in the SAME szc session (the agent's szc process persists across
+# tasks) with an identical ~13 KB stable prefix. Turn 1 seeds the router's
+# anthropic prompt cache; turn 2 must re-read it — asserted from szc's local
+# USAGE meter (independent of the router's own session view).
+Genswarms.SwarmManager.send_task(swarm, :cacher, "Turno uno. Di OK.")
+Process.sleep(60_000)
+Genswarms.SwarmManager.send_task(swarm, :cacher, "Turno dos. Di OK.")
+
+cache_hit? =
+  Enum.reduce_while(1..45, false, fn _i, _ ->
+    Process.sleep(2_000)
+    if Enum.any?(usage_cached.(:cacher), &(&1 > 0)), do: {:halt, true}, else: {:cont, false}
+  end)
+
+hits = usage_cached.(:cacher)
+check.("cache: a repeated prefix reports prompt-cache hits on the claude route (#75)",
+  cache_hit?, "cached tokens per call: #{inspect(hits)}")
 
 # ── teardown + report ───────────────────────────────────────────────────────
 Genswarms.SwarmManager.stop(swarm)
