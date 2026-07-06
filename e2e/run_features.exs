@@ -136,6 +136,25 @@ base = "http://127.0.0.1:#{port}"
 full = System.get_env("GENSWARMS_API_TOKEN") || "e2e-full"
 cfgtok = System.get_env("GENSWARMS_CONFIG_API_TOKEN") || "e2e-cfg"
 Code.require_file(Path.join(__DIR__, "support/echo_object.ex"))
+Code.require_file(Path.join(__DIR__, "support/counter_object.ex"))
+
+# The Cron object ships in the genswarms-objects package (not the engine);
+# load it by require, like a host swarm would, if the checkout is present.
+cron_pkg = Path.expand("~/docs/genlayer/genswarms-objects/packages/cron")
+
+cron_loaded? =
+  if File.dir?(cron_pkg) do
+    for f <- ["cron_expr.ex", "schedule.ex", "job.ex", "store.ex", "cron.ex"] do
+      p = Path.join(cron_pkg, f)
+      if File.exists?(p) and not Code.ensure_loaded?(Module.concat([:"Elixir", "Genswarms", "Cron"])),
+        do: Code.require_file(p)
+    end
+
+    Code.ensure_loaded?(Genswarms.Cron)
+  else
+    false
+  end
+
 here = __DIR__
 
 assert! = fn cond?, msg -> unless cond?, do: raise(msg) end
@@ -286,6 +305,76 @@ steps = [
    fn ctx, _ ->
      ok = poll.(fn -> Enum.any?(usage_cached.(ctx.swarm, ctx.cacher), &(&1 > 0)) end, 90)
      assert!.(ok, "no cache hit: #{inspect(usage_cached.(ctx.swarm, ctx.cacher))}"); ctx
+   end},
+
+  # ── scheduling (cron) ─────────────────────────────────────────────────────
+  {~r/^a cron swarm with a seed job due shortly targeting a counter object$/,
+   fn ctx, _ ->
+     assert!.(cron_loaded?, "Genswarms.Cron not available (genswarms-objects checkout?)")
+     swarm = "e2e-#{ctx[:_feature]}-#{System.unique_integer([:positive])}"
+     now = System.system_time(:millisecond)
+     config = %{
+       name: swarm,
+       agents: [%{name: :noop, backend: :mock}],
+       objects: [
+         %{name: :counter, handler: Genswarms.E2E.CounterObject, config: %{}},
+         %{name: :cron, handler: Genswarms.Cron, config: %{
+            swarm_name: swarm,
+            trusted_sources: [],
+            allowed_targets: %{counter: ["tick"]},
+            seed_jobs: [%{name: "e2e-seed", dedupe_key: "e2e-seed-#{swarm}",
+                          schedule: %{"run_at" => now + 1500},
+                          target: "counter", message: %{"action" => "tick"}}]
+          }}
+       ],
+       topology: [{:cron, :counter}]
+     }
+     {:ok, ^swarm} = Genswarms.SwarmManager.start_from_config(config)
+     Agent.update(created, &[swarm | &1])
+     Map.merge(ctx, %{swarm: swarm})
+   end},
+
+  {~r/^the job's run_at elapses$/, fn ctx, _ -> Process.sleep(2500); ctx end},
+
+  {~r/^the counter object receives exactly one scheduled tick within (\d+) seconds$/,
+   fn ctx, [secs] ->
+     cnt = fn -> :sys.get_state(reg.(ctx.swarm, :counter)).handler_state end
+     ok = poll.(fn -> cnt.().received >= 1 end, String.to_integer(secs))
+     s = cnt.()
+     assert!.(ok and s.received == 1 and Map.get(s.by_action, "tick") == 1,
+       "counter=#{inspect(s)}"); ctx
+   end},
+
+  {~r/^a cron swarm with empty trusted_sources$/,
+   fn ctx, _ ->
+     assert!.(cron_loaded?, "Genswarms.Cron not available")
+     swarm = "e2e-#{ctx[:_feature]}-#{System.unique_integer([:positive])}"
+     config = %{
+       name: swarm, agents: [%{name: :noop, backend: :mock}],
+       objects: [
+         %{name: :counter, handler: Genswarms.E2E.CounterObject, config: %{}},
+         %{name: :cron, handler: Genswarms.Cron, config: %{
+            swarm_name: swarm, trusted_sources: [],
+            allowed_targets: %{counter: ["tick"]}, seed_jobs: []}}
+       ],
+       topology: [{:cron, :counter}]
+     }
+     {:ok, ^swarm} = Genswarms.SwarmManager.start_from_config(config)
+     Agent.update(created, &[swarm | &1])
+     Map.merge(ctx, %{swarm: swarm})
+   end},
+
+  {~r/^an untrusted node sends a tick to cron$/,
+   fn ctx, _ ->
+     Genswarms.Objects.ObjectServer.deliver_message(ctx.swarm, :cron, :intruder,
+       Jason.encode!(%{action: "tick"}))
+     Process.sleep(1000); ctx
+   end},
+
+  {~r/^no scheduled delivery reaches the counter$/,
+   fn ctx, _ ->
+     s = :sys.get_state(reg.(ctx.swarm, :counter)).handler_state
+     assert!.(s.received == 0, "counter got #{s.received}, expected 0"); ctx
    end}
 ]
 
