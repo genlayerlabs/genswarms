@@ -1,0 +1,14 @@
+{
+  "module": "Genswarms.E2E.EchoObject",
+  "note": "e2e harness echo object — asks counter + one x-mutable field for real overlay hot-patch.",
+  "config_schema": {
+    "type": "object",
+    "properties": {
+      "tag": {
+        "type": "string",
+        "x-mutable": true,
+        "description": "Free-form label echoed back; hot-patchable, so the e2e can drive a real overlay through the REST config gate."
+      }
+    }
+  }
+}
