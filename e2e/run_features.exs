@@ -169,6 +169,18 @@ curl = fn method, path, token, body ->
   out
 end
 
+# {status, body} — for the auth/gate scenarios that assert on HTTP codes
+curl2 = fn method, path, token, body ->
+  base_args = ["-s", "-o", "/dev/null", "-w", "%{http_code}", "-X", method, "#{base}#{path}"]
+  auth = if token, do: ["-H", "Authorization: Bearer #{token}"], else: []
+  data = if body, do: ["-H", "Content-Type: application/json", "-d", body], else: []
+  {status, _} = System.cmd("curl", base_args ++ auth ++ data)
+  # separate call for the body when needed
+  bargs = ["-s", "-X", method, "#{base}#{path}"] ++ auth ++ data
+  {b, _} = System.cmd("curl", bargs)
+  {String.trim(status), b}
+end
+
 reg = fn swarm, name ->
   case Registry.lookup(Genswarms.AgentRegistry, {swarm, name}) do
     [{pid, _}] -> pid
@@ -489,7 +501,98 @@ steps = [
 
   {~r/^the second start is refused as already running$/,
    fn ctx, _ -> assert!.(match?({:error, :already_exists}, ctx.restart_result),
-     "got #{inspect(ctx.restart_result)}"); ctx end}
+     "got #{inspect(ctx.restart_result)}"); ctx end},
+
+  # ── security (deterministic: REST + auth/loader/endpoint-policy) ───────────
+  {~r/^the swarm list is requested with no token$/,
+   fn ctx, _ -> {s, _} = curl2.("GET", "/api/swarms", nil, nil); Map.put(ctx, :http, s) end},
+  {~r/^the swarm list is requested with the full token$/,
+   fn ctx, _ -> {s, _} = curl2.("GET", "/api/swarms", full, nil); Map.put(ctx, :http, s) end},
+  {~r/^a swarm create is attempted with the config-scoped token$/,
+   fn ctx, _ -> {s, _} = curl2.("POST", "/api/swarms", cfgtok, Jason.encode!(%{config: %{name: "x", agents: [], objects: [], topology: []}})); Map.put(ctx, :http, s) end},
+  {~r/^it is rejected 401$/, fn ctx, _ -> assert!.(ctx.http == "401", "got #{ctx.http}"); ctx end},
+  {~r/^it is accepted 200$/, fn ctx, _ -> assert!.(ctx.http == "200", "got #{ctx.http}"); ctx end},
+
+  {~r/^a running swarm with an echo object$/,
+   fn ctx, _ ->
+     swarm = "e2e-#{ctx[:_feature]}-#{System.unique_integer([:positive])}"
+     {:ok, ^swarm} = Genswarms.SwarmManager.start_from_config(
+       %{name: swarm, agents: [%{name: :seed, backend: :mock}],
+         objects: [%{name: :echo, handler: Genswarms.E2E.EchoObject, config: %{tag: "base"}}], topology: []})
+     Agent.update(created, &[swarm | &1]); Map.merge(ctx, %{swarm: swarm})
+   end},
+  {~r/^its tag is patched with the config-scoped token$/,
+   fn ctx, _ -> {s, _} = curl2.("PATCH", "/api/swarms/#{ctx.swarm}/objects/echo/config", cfgtok, Jason.encode!(%{config: %{tag: "cfg"}})); Map.put(ctx, :http, s) end},
+  {~r/^it is accepted$/, fn ctx, _ -> assert!.(ctx.http == "200", "got #{ctx.http}"); ctx end},
+
+  {~r/^an immutable key is patched$/,
+   fn ctx, _ -> {s, b} = curl2.("PATCH", "/api/swarms/#{ctx.swarm}/objects/echo/config", cfgtok, Jason.encode!(%{config: %{sender: "x"}})); Map.merge(ctx, %{http: s, body: b}) end},
+  {~r/^it is rejected 422$/, fn ctx, _ -> assert!.(ctx.http == "422", "got #{ctx.http}: #{ctx[:body]}"); ctx end},
+
+  {~r/^a running swarm with a schemaless counter object$/,
+   fn ctx, _ ->
+     swarm = "e2e-#{ctx[:_feature]}-#{System.unique_integer([:positive])}"
+     {:ok, ^swarm} = Genswarms.SwarmManager.start_from_config(
+       %{name: swarm, agents: [%{name: :seed, backend: :mock}],
+         objects: [%{name: :counter, handler: Genswarms.E2E.CounterObject, config: %{}}], topology: []})
+     Agent.update(created, &[swarm | &1]); Map.merge(ctx, %{swarm: swarm})
+   end},
+  {~r/^any key is patched$/,
+   fn ctx, _ -> {s, b} = curl2.("PATCH", "/api/swarms/#{ctx.swarm}/objects/counter/config", cfgtok, Jason.encode!(%{config: %{anything: 1}})); Map.merge(ctx, %{http: s, body: b}) end},
+  {~r/^it is rejected 422 no schema$/,
+   fn ctx, _ -> assert!.(ctx.http == "422" and String.contains?(ctx.body, "no_config_schema"), "#{ctx.http}: #{ctx.body}"); ctx end},
+
+  {~r/^subzeroclaw_path is patched$/,
+   fn ctx, _ -> {s, b} = curl2.("PATCH", "/api/swarms/#{ctx.swarm}/objects/echo/config", cfgtok, Jason.encode!(%{config: %{subzeroclaw_path: "/evil"}})); Map.merge(ctx, %{http: s, body: b}) end},
+
+  {~r/^a patch with over 200 keys is applied$/,
+   fn ctx, _ ->
+     big = for i <- 1..250, into: %{}, do: {"k#{i}", i}
+     {s, b} = curl2.("PATCH", "/api/swarms/#{ctx.swarm}/objects/echo/config", cfgtok, Jason.encode!(%{config: big}))
+     Map.merge(ctx, %{http: s, body: b})
+   end},
+  {~r/^it is refused as patch_too_large$/,
+   fn ctx, _ -> assert!.(ctx.http in ["400", "422"] and String.contains?(ctx.body, "patch_too_large"),
+     "#{ctx.http}: #{ctx.body}"); ctx end},
+
+  {~r/^a running swarm whose agent config holds an api_key$/,
+   fn ctx, _ ->
+     swarm = "e2e-#{ctx[:_feature]}-#{System.unique_integer([:positive])}"
+     {:ok, ^swarm} = Genswarms.SwarmManager.start_from_config(
+       %{name: swarm, agents: [%{name: :seed, backend: :mock, config: %{api_key: "sk-e2e-supersecret"}}],
+         objects: [], topology: []})
+     Agent.update(created, &[swarm | &1]); Map.merge(ctx, %{swarm: swarm})
+   end},
+  {~r/^the snapshot is rendered$/,
+   fn ctx, _ -> {_, b} = curl2.("POST", "/api/swarms/#{ctx.swarm}/snapshot", full, nil); Map.put(ctx, :body, b) end},
+  {~r/^the api_key reads REDACTED and the secret is nowhere in the text$/,
+   fn ctx, _ ->
+     assert!.(String.contains?(ctx.body, "REDACTED"), "no REDACTED in snapshot")
+     assert!.(not String.contains?(ctx.body, "sk-e2e-supersecret"), "SECRET LEAKED in snapshot"); ctx
+   end},
+
+  {~r/^a package entry file list contains a traversal path$/,
+   fn ctx, _ ->
+     dir = Path.join(System.tmp_dir!(), "e2e-pkg-#{System.unique_integer([:positive])}")
+     File.mkdir_p!(dir)
+     File.write!(Path.join(dir, "swarm-object.json"),
+       Jason.encode!(%{"module" => "Genswarms.E2E.EchoObject", "files" => ["../../etc/passwd"]}))
+     {:ok, digest} = Genswarms.Packages.Dirhash.hash_dir(dir)
+     result = Genswarms.Packages.Loader.resolve_handler(
+       %{ref: "e2e:test@0", digest: digest, path: dir, mode: :require})
+     Map.put(ctx, :loader_result, result)
+   end},
+  {~r/^the loader rejects it as unsafe$/,
+   fn ctx, _ -> assert!.(match?({:error, {:unsafe_entry_files, _}}, ctx.loader_result),
+     "got #{inspect(ctx.loader_result)}"); ctx end},
+
+  {~r/^endpoint policy resolves an untrusted per-agent endpoint$/,
+   fn ctx, _ ->
+     {_ep, key} = Genswarms.Backends.EndpointPolicy.resolve(%{endpoint: "https://untrusted.e2e.example/v1"})
+     Map.put(ctx, :ep_key, key)
+   end},
+  {~r/^no API key is handed out$/,
+   fn ctx, _ -> assert!.(ctx.ep_key in [nil, ""], "key handed out: #{inspect(ctx.ep_key)}"); ctx end}
 ]
 
 # ── run all features ────────────────────────────────────────────────────────
