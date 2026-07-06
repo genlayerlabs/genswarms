@@ -137,6 +137,7 @@ full = System.get_env("GENSWARMS_API_TOKEN") || "e2e-full"
 cfgtok = System.get_env("GENSWARMS_CONFIG_API_TOKEN") || "e2e-cfg"
 Code.require_file(Path.join(__DIR__, "support/echo_object.ex"))
 Code.require_file(Path.join(__DIR__, "support/counter_object.ex"))
+Code.require_file(Path.join(__DIR__, "support/reject/reject_object.ex"))
 
 # The Cron object ships in the genswarms-objects package (not the engine);
 # load it by require, like a host swarm would, if the checkout is present.
@@ -375,7 +376,120 @@ steps = [
    fn ctx, _ ->
      s = :sys.get_state(reg.(ctx.swarm, :counter)).handler_state
      assert!.(s.received == 0, "counter got #{s.received}, expected 0"); ctx
-   end}
+   end},
+
+  # ── lifecycle (deterministic, mock agents) ────────────────────────────────
+  {~r/^a running swarm with an overlay-added counter object$/,
+   fn ctx, _ ->
+     swarm = "e2e-#{ctx[:_feature]}-#{System.unique_integer([:positive])}"
+     Genswarms.CLI.SwarmRegistry.clear_overlay(swarm)
+     {:ok, ^swarm} = Genswarms.SwarmManager.start_from_config(
+       %{name: swarm, agents: [%{name: :seed, backend: :mock}], objects: [], topology: []})
+     {:ok, :counter} = Genswarms.SwarmManager.add_object(
+       swarm, %{name: :counter, handler: Genswarms.E2E.CounterObject, config: %{}}, persist: true)
+     Agent.update(created, &[swarm | &1])
+     Map.merge(ctx, %{swarm: swarm, seed_config:
+       %{name: swarm, agents: [%{name: :seed, backend: :mock}], objects: [], topology: []}})
+   end},
+
+  {~r/^the swarm is stopped and started again$/,
+   fn ctx, _ ->
+     Genswarms.SwarmManager.stop(ctx.swarm)
+     Process.sleep(300)
+     {:ok, _} = Genswarms.SwarmManager.start_from_config(ctx.seed_config)
+     Process.sleep(500); ctx
+   end},
+
+  {~r/^the counter object is present again via overlay replay$/,
+   fn ctx, _ ->
+     Genswarms.CLI.SwarmRegistry.clear_overlay(ctx.swarm)
+     assert!.(reg.(ctx.swarm, :counter) != nil, "counter not replayed"); ctx
+   end},
+
+  {~r/^a swarm whose echo object was hot-patched to tag "(\w+)"$/,
+   fn ctx, [tag] ->
+     swarm = "e2e-#{ctx[:_feature]}-#{System.unique_integer([:positive])}"
+     Genswarms.CLI.SwarmRegistry.clear_overlay(swarm)
+     cfg = %{name: swarm, agents: [%{name: :seed, backend: :mock}],
+             objects: [%{name: :echo, handler: Genswarms.E2E.EchoObject, config: %{tag: "base"}}],
+             topology: []}
+     {:ok, ^swarm} = Genswarms.SwarmManager.start_from_config(cfg)
+     {:ok, :echo} = Genswarms.SwarmManager.update_object_config(swarm, :echo, %{tag: tag}, persist: true)
+     Agent.update(created, &[swarm | &1])
+     Map.merge(ctx, %{swarm: swarm, seed_config: cfg, tag: tag})
+   end},
+
+  {~r/^the live object, the snapshot and the listing all agree on tag "(\w+)"$/,
+   fn ctx, [tag] ->
+     live = echo_state.(ctx.swarm).tag
+     snap = curl.("POST", "/api/swarms/#{ctx.swarm}/snapshot", full, nil)
+     listed = Genswarms.Objects.ObjectSupervisor.list_objects(ctx.swarm) |> Enum.map(& &1.name)
+     Genswarms.CLI.SwarmRegistry.clear_overlay(ctx.swarm)
+     assert!.(live == tag, "live tag=#{inspect(live)}")
+     assert!.(String.contains?(snap, tag), "snapshot missing #{tag}")
+     assert!.(:echo in listed, "not listed: #{inspect(listed)}"); ctx
+   end},
+
+  {~r/^a running swarm with an echo object at tag "(\w+)"$/,
+   fn ctx, [tag] ->
+     swarm = "e2e-#{ctx[:_feature]}-#{System.unique_integer([:positive])}"
+     {:ok, ^swarm} = Genswarms.SwarmManager.start_from_config(
+       %{name: swarm, agents: [%{name: :seed, backend: :mock}],
+         objects: [%{name: :echo, handler: Genswarms.E2E.EchoObject, config: %{tag: tag}}],
+         topology: []})
+     Agent.update(created, &[swarm | &1])
+     Map.merge(ctx, %{swarm: swarm})
+   end},
+
+  {~r/^an immutable key is patched on it$/,
+   fn ctx, _ ->
+     resp = curl.("PATCH", "/api/swarms/#{ctx.swarm}/objects/echo/config", cfgtok,
+       Jason.encode!(%{config: %{sender: "hijack"}}))
+     Process.sleep(300)
+     Map.merge(ctx, %{patch_resp: resp})
+   end},
+
+  {~r/^the patch is refused and the echo object still runs at tag "(\w+)"$/,
+   fn ctx, [tag] ->
+     refused = not String.contains?(ctx.patch_resp, "\"status\":\"updated\"")
+     assert!.(refused, "patch unexpectedly accepted: #{ctx.patch_resp}")
+     live = echo_state.(ctx.swarm).tag
+     assert!.(live == tag, "echo tag=#{inspect(live)} expected #{tag}"); ctx
+   end},
+
+  {~r/^a swarm with a worker group scaled to (\d+) and persisted$/,
+   fn ctx, [n] ->
+     swarm = "e2e-#{ctx[:_feature]}-#{System.unique_integer([:positive])}"
+     Genswarms.CLI.SwarmRegistry.clear_overlay(swarm)
+     cfg = %{name: swarm, agents: [%{name: :worker_1, backend: :mock}], objects: [], topology: []}
+     {:ok, ^swarm} = Genswarms.SwarmManager.start_from_config(cfg)
+     {:ok, _} = Genswarms.SwarmManager.scale_agent_group(swarm, :worker, String.to_integer(n), persist: true)
+     Agent.update(created, &[swarm | &1])
+     Map.merge(ctx, %{swarm: swarm, seed_config: cfg, n: String.to_integer(n)})
+   end},
+
+  {~r/^all (\d+) worker members are restored$/,
+   fn ctx, [n] ->
+     all = Enum.all?(1..String.to_integer(n), fn i -> reg.(ctx.swarm, :"worker_#{i}") != nil end)
+     Genswarms.CLI.SwarmRegistry.clear_overlay(ctx.swarm)
+     assert!.(all, "not all workers restored"); ctx
+   end},
+
+  {~r/^a running swarm$/,
+   fn ctx, _ ->
+     swarm = "e2e-#{ctx[:_feature]}-#{System.unique_integer([:positive])}"
+     cfg = %{name: swarm, agents: [%{name: :seed, backend: :mock}], objects: [], topology: []}
+     {:ok, ^swarm} = Genswarms.SwarmManager.start_from_config(cfg)
+     Agent.update(created, &[swarm | &1])
+     Map.merge(ctx, %{swarm: swarm, seed_config: cfg})
+   end},
+
+  {~r/^it is started again under the same name$/,
+   fn ctx, _ -> Map.merge(ctx, %{restart_result: Genswarms.SwarmManager.start_from_config(ctx.seed_config)}) end},
+
+  {~r/^the second start is refused as already running$/,
+   fn ctx, _ -> assert!.(match?({:error, :already_exists}, ctx.restart_result),
+     "got #{inspect(ctx.restart_result)}"); ctx end}
 ]
 
 # ── run all features ────────────────────────────────────────────────────────
