@@ -13,6 +13,23 @@ bound in the runner.
 
 Status legend: ✅ implemented+passing · 🟡 partial · ⬜ spec-only (@todo)
 
+## Current status (2026-07-06)
+**26 scenarios implemented and passing on real swarms**, across 5 features —
+all the DETERMINISTIC ones (no LLM, seconds each):
+- ✅ engine_core (4) — ask #79, overlay #78, cache #75
+- ✅ scheduling (2) — real cron seed job + fail-closed
+- ✅ lifecycle (5) — overlay replay, snapshot coherence, sync rollback, scale
+- ✅ security (11) — auth, config gate, loader, secrets, endpoint policy
+- ✅ messaging (4) — topology routing, dynamic edges, broadcast
+
+Remaining (⬜, the LLM/infra block — each boots a real bwrap agent, minutes +
+tokens, run by wakeup; apple_container/ssh → honest SKIP, no host):
+sandbox, backends (mock/local deterministic parts doable; docker/bwrap-agent
+need real turns), observability (observer loop), routing_economics, websocket.
+
+Bugs found implementing this: **genswarms#80** (rollback on async init/1
+rejection is broken — the e2e caught it). That's the point of the suite.
+
 ---
 
 ## 0. engine_core — the bug surface of the week ✅
