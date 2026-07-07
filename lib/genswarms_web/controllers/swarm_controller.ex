@@ -1211,7 +1211,10 @@ defmodule GenswarmsWeb.SwarmController do
       name: safe_atom(params["name"]),
       handler: safe_module(params["handler"]),
       backend: parse_backend(params["backend"]),
-      config: params["config"] || %{}
+      # JSON gives string keys; a handler reads config with atom keys (as at
+      # boot). Atomize the first level to EXISTING atoms only (never mints), so
+      # e.g. GenswarmsDashboard reads config[:swarm] added over REST.
+      config: SwarmConfig.atomize_config_keys(params["config"] || %{})
     }
   end
 
