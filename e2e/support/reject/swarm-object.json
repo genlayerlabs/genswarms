@@ -1,0 +1,11 @@
+{
+  "module": "Genswarms.E2E.RejectObject",
+  "note": "e2e rollback handler — n is x-mutable so a patch can be attempted; bad triggers init rejection.",
+  "config_schema": {
+    "type": "object",
+    "properties": {
+      "n": { "type": "integer", "x-mutable": true, "description": "Observable counter to see which config took." },
+      "bad": { "type": "boolean", "x-mutable": true, "description": "When true, init rejects — used to force a rollback." }
+    }
+  }
+}
