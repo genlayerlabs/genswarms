@@ -386,6 +386,23 @@ defmodule Genswarms.Objects.ObjectServer do
       when not is_nil(handler) do
     # Check if handler implements handle_info/2
     if function_exported?(handler, :handle_info, 2) do
+      dispatch_native_info(msg, state)
+    else
+      Logger.debug("[#{state.swarm_name}/#{state.name}] Unhandled message: #{inspect(msg)}")
+      {:noreply, state}
+    end
+  end
+
+  def handle_info(msg, state) do
+    Logger.debug("[#{state.swarm_name}/#{state.name}] Unhandled message: #{inspect(msg)}")
+    {:noreply, state}
+  end
+
+  # Same containment as handle_native_message: a handler timer callback that
+  # raises (or returns a shape the case below doesn't know, which
+  # CaseClauseErrors here) must log-and-survive, not wipe the object's state.
+  defp dispatch_native_info(msg, %{handler: handler} = state) do
+    try do
       case handler.handle_info(msg, state.handler_state) do
         {:reply, _response, handler_state} ->
           # Reply doesn't make sense for handle_info, but handle it anyway
@@ -420,15 +437,19 @@ defmodule Genswarms.Objects.ObjectServer do
 
           {:noreply, %{state | handler_state: handler_state, last_activity: DateTime.utc_now()}}
       end
-    else
-      Logger.debug("[#{state.swarm_name}/#{state.name}] Unhandled message: #{inspect(msg)}")
-      {:noreply, state}
-    end
-  end
+    rescue
+      e ->
+        log_handler_crash(state, :handle_info, "raised", Exception.message(e), __STACKTRACE__)
+        {:noreply, state}
+    catch
+      :throw, value ->
+        log_handler_crash(state, :handle_info, "threw", inspect(value), __STACKTRACE__)
+        {:noreply, state}
 
-  def handle_info(msg, state) do
-    Logger.debug("[#{state.swarm_name}/#{state.name}] Unhandled message: #{inspect(msg)}")
-    {:noreply, state}
+      :exit, reason ->
+        log_handler_crash(state, :handle_info, "exited", inspect(reason), __STACKTRACE__)
+        {:noreply, state}
+    end
   end
 
   @impl true
@@ -672,25 +693,79 @@ defmodule Genswarms.Objects.ObjectServer do
     end
   end
 
+  # Like the ask path below, a raising handler must not take the ObjectServer
+  # down with it: the supervisor restart wipes the handler's accumulated state
+  # (bindings, counters, timers) and the reason only reaches stdout — the
+  # LogStore shows a bare object_started and nothing else, which is
+  # undiagnosable in a container. Contain the crash, log it WITH the
+  # stacktrace where operators can query it, and keep the state the failed
+  # call never replaced.
   defp handle_native_message(from, content, state) do
-    {reply, handler_state} =
-      dispatch_handler_return(
-        state.handler.handle_message(from, content, state.handler_state),
-        state
-      )
+    result =
+      try do
+        {:ok,
+         dispatch_handler_return(
+           state.handler.handle_message(from, content, state.handler_state),
+           state
+         )}
+      rescue
+        e ->
+          log_handler_crash(state, from, "raised", Exception.message(e), __STACKTRACE__)
+          :crashed
+      catch
+        :throw, value ->
+          log_handler_crash(state, from, "threw", inspect(value), __STACKTRACE__)
+          :crashed
 
-    case reply do
-      {:reply, response} -> route_message(state.swarm_name, state.name, from, response)
-      nil -> :ok
+        :exit, reason ->
+          log_handler_crash(state, from, "exited", inspect(reason), __STACKTRACE__)
+          :crashed
+      end
+
+    case result do
+      {:ok, {reply, handler_state}} ->
+        case reply do
+          {:reply, response} -> route_message(state.swarm_name, state.name, from, response)
+          nil -> :ok
+        end
+
+        {:noreply,
+         %{
+           state
+           | handler_state: handler_state,
+             state: :idle,
+             message_count: state.message_count + 1
+         }}
+
+      :crashed ->
+        {:noreply, %{state | state: :idle, message_count: state.message_count + 1}}
     end
+  end
 
-    {:noreply,
-     %{
-       state
-       | handler_state: handler_state,
-         state: :idle,
-         message_count: state.message_count + 1
-     }}
+  defp log_handler_crash(state, from, verb, detail, stacktrace) do
+    formatted = Exception.format_stacktrace(stacktrace)
+
+    Logger.error(
+      "[#{state.swarm_name}/#{state.name}] handler #{verb} on message from #{from}: " <>
+        "#{detail}\n#{formatted}"
+    )
+
+    LogStore.log(
+      :error,
+      :object,
+      :handler_crashed,
+      "Object #{state.name} handler #{verb} on message from #{from}: " <>
+        String.slice(detail, 0, 300),
+      swarm: state.swarm_name,
+      agent: state.name,
+      metadata: %{
+        from: from,
+        detail: String.slice(detail, 0, 500),
+        stacktrace: String.slice(formatted, 0, 2_000)
+      }
+    )
+
+    emit_telemetry(:object_error, state, %{reason: detail, phase: :message})
   end
 
   # The ask variant: the handler and dispatcher run identically, but a
