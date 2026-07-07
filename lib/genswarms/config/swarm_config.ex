@@ -265,6 +265,36 @@ defmodule Genswarms.Config.SwarmConfig do
     end)
   end
 
+  @doc """
+  Atomizes the first-level string keys of an object handler's config to atoms
+  that ALREADY EXIST — never mints (uses `String.to_existing_atom/1`), so no
+  untrusted API input can grow the atom table.
+
+  Why: an ObjectHandler reads its config with atom keys (`Map.get(config,
+  :swarm)`), which is how it arrives at boot (`.exs` = atom keys). But the REST
+  `add_object` body is JSON, so its keys are strings — and the handler's
+  `:swarm` lookup misses (`:missing_swarm`). Every atom a handler reads is
+  compiled into its module, so the atom already exists; this bridges the two
+  without minting. Keys with no existing atom are left as strings (the handler
+  ignores them); values are untouched — nested maps (e.g. a `policy_ir`) keep
+  their string keys.
+  """
+  @spec atomize_config_keys(map()) :: map()
+  def atomize_config_keys(config) when is_map(config) do
+    Map.new(config, fn
+      {key, value} when is_binary(key) -> {existing_atom(key), value}
+      other -> other
+    end)
+  end
+
+  def atomize_config_keys(other), do: other
+
+  defp existing_atom(key) do
+    String.to_existing_atom(key)
+  rescue
+    ArgumentError -> key
+  end
+
   # Private validation functions
 
   # A safe identifier: starts with a letter, then alphanumerics / underscore / hyphen.

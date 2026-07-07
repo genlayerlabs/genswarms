@@ -338,4 +338,31 @@ defmodule Genswarms.Config.SwarmConfigTest do
       assert :endpoint in SwarmConfig.backend_config_keys()
     end
   end
+
+  describe "atomize_config_keys/1" do
+    test "atomizes first-level string keys to existing atoms" do
+      # these atoms exist (referenced here, and by real handlers)
+      _ = {:swarm, :port, :dashboard_title}
+      out = SwarmConfig.atomize_config_keys(%{"swarm" => "x", "port" => "4005"})
+      assert out[:swarm] == "x"
+      assert out[:port] == "4005"
+    end
+
+    test "never mints: a key with no existing atom stays a string" do
+      key = "no_such_atom_#{System.unique_integer([:positive])}"
+      out = SwarmConfig.atomize_config_keys(%{key => 1})
+      assert Map.get(out, key) == 1
+      assert_raise ArgumentError, fn -> String.to_existing_atom(key) end
+    end
+
+    test "leaves values untouched — nested maps keep their string keys" do
+      _ = :request_extra
+      out = SwarmConfig.atomize_config_keys(%{"request_extra" => %{"policy_ir" => [1, 2]}})
+      assert out[:request_extra] == %{"policy_ir" => [1, 2]}
+    end
+
+    test "passes non-maps through" do
+      assert SwarmConfig.atomize_config_keys(nil) == nil
+    end
+  end
 end
