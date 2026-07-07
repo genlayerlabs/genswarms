@@ -242,6 +242,17 @@ defmodule Genswarms.Objects.ObjectServer do
       "[#{state.swarm_name}/#{state.name}] Initializing native object handler #{state.handler}"
     )
 
+    # A native object should own no long-lived links, but handler code that
+    # shells out (System.cmd opens a LINKED port) or links by accident turns
+    # any abnormal linked exit into a silent kill: no terminate callback, and
+    # the proc_lib crash report is domain [otp, sasl] — suppressed by default,
+    # so nothing reaches stdout OR LogStore (observed live 2026-07-07: a prod
+    # sender object crash-looped with zero evidence anywhere). Trap exits so
+    # a linked death becomes a queryable {:EXIT, ...} info message below;
+    # parent (supervisor) exits still shut the object down normally —
+    # gen_server handles those before handle_info.
+    Process.flag(:trap_exit, true)
+
     if state.handler do
       case state.handler.init(state.config) do
         {:ok, handler_state} ->
@@ -380,6 +391,32 @@ defmodule Genswarms.Objects.ObjectServer do
 
   def handle_info({_port, {:data, data}}, %{mode: :process} = state) when is_binary(data) do
     handle_process_output(data, state)
+  end
+
+  # Trapped linked exits (native mode traps in :init_object). :normal is the
+  # routine System.cmd port-close noise; anything else is the previously
+  # silent killer — log it where operators can query it and keep serving.
+  def handle_info({:EXIT, _from, :normal}, %{mode: :native} = state), do: {:noreply, state}
+
+  def handle_info({:EXIT, from, reason}, %{mode: :native} = state) do
+    detail = inspect(reason)
+
+    Logger.error(
+      "[#{state.swarm_name}/#{state.name}] linked process #{inspect(from)} exited: #{detail}"
+    )
+
+    LogStore.log(
+      :error,
+      :object,
+      :linked_exit,
+      "Object #{state.name} received abnormal linked exit: #{String.slice(detail, 0, 300)}",
+      swarm: state.swarm_name,
+      agent: state.name,
+      metadata: %{from: inspect(from), reason: String.slice(detail, 0, 500)}
+    )
+
+    emit_telemetry(:object_error, state, %{reason: detail, phase: :linked_exit})
+    {:noreply, state}
   end
 
   def handle_info(msg, %{mode: :native, handler: handler} = state)

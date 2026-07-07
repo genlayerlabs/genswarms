@@ -33,6 +33,14 @@ defmodule Genswarms.Objects.ObjectServerCrashContainmentTest do
     def handle_message(_from, "toss", _state), do: throw(:tossed)
     def handle_message(_from, "bail", _state), do: exit(:bailed)
 
+    def handle_message(_from, "link_bomb", state) do
+      # the previously silent killer: a linked process dying abnormally
+      # AFTER the handler returned (an async exit signal, not an in-stack
+      # exit) — System.cmd ports and accidental links behave like this
+      spawn_link(fn -> exit(:linked_boom) end)
+      {:noreply, state}
+    end
+
     def handle_message(_from, _content, state) do
       state = %{state | count: state.count + 1}
       send(state.test_pid, {:counted, state.count})
@@ -146,6 +154,23 @@ defmodule Genswarms.Objects.ObjectServerCrashContainmentTest do
     assert event.message =~ "raised"
     assert event.message =~ "kaboom"
     assert event.metadata.stacktrace =~ "object_server_crash_containment_test"
+  end
+
+  test "an abnormal LINKED exit no longer kills the object silently", %{swarm: swarm, pid: pid} do
+    deliver(swarm, "link_bomb")
+    deliver(swarm, "after the bomb")
+
+    # the object outlived the linked death, same pid, and it's queryable
+    assert_receive {:counted, 1}, 2_000
+    assert GenServer.whereis(ObjectServer.via_tuple(swarm, :fragile)) == pid
+
+    linked =
+      [swarm: swarm, limit: 50]
+      |> LogStore.query()
+      |> Enum.filter(&(&1.event_type == :linked_exit))
+
+    assert [event | _] = linked
+    assert event.message =~ "linked_boom"
   end
 
   test "a raising handle_info keeps the object alive", %{swarm: swarm, pid: pid} do
