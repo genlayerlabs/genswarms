@@ -64,6 +64,7 @@ defmodule Genswarms.Config.SwarmConfig do
   ## Backend Types
 
   - `:local` - Local Port process
+  - `{:local, opts}` - Local Port process with options
   - `{:docker, container_name}` - Docker container
   - `{:docker, container_name, opts}` - Docker with options
   - `:apple_container` - Apple `container` CLI with default image
@@ -109,6 +110,7 @@ defmodule Genswarms.Config.SwarmConfig do
           :bwrap
           | {:bwrap, map()}
           | :local
+          | {:local, map()}
           | :apple_container
           | {:apple_container, String.t()}
           | {:apple_container, String.t(), map()}
@@ -219,6 +221,7 @@ defmodule Genswarms.Config.SwarmConfig do
   def backend_module(:bwrap), do: Genswarms.Backends.BwrapBackend
   def backend_module({:bwrap, _}), do: Genswarms.Backends.BwrapBackend
   def backend_module(:local), do: Genswarms.Backends.LocalBackend
+  def backend_module({:local, _}), do: Genswarms.Backends.LocalBackend
   def backend_module(:apple_container), do: Genswarms.Backends.AppleContainerBackend
   def backend_module({:apple_container, _}), do: Genswarms.Backends.AppleContainerBackend
   def backend_module({:apple_container, _, _}), do: Genswarms.Backends.AppleContainerBackend
@@ -236,6 +239,7 @@ defmodule Genswarms.Config.SwarmConfig do
   def backend_config(:bwrap), do: %{}
   def backend_config({:bwrap, opts}), do: opts
   def backend_config(:local), do: %{}
+  def backend_config({:local, opts}), do: opts
   def backend_config(:apple_container), do: %{}
   def backend_config({:apple_container, image}), do: %{image: image}
   def backend_config({:apple_container, image, opts}), do: Map.merge(%{image: image}, opts)
@@ -378,6 +382,7 @@ defmodule Genswarms.Config.SwarmConfig do
   defp validate_backend(:bwrap), do: :ok
   defp validate_backend({:bwrap, opts}) when is_map(opts), do: :ok
   defp validate_backend(:local), do: :ok
+  defp validate_backend({:local, opts}) when is_map(opts), do: :ok
   defp validate_backend(:apple_container), do: :ok
   defp validate_backend({:apple_container, image}) when is_binary(image), do: :ok
 

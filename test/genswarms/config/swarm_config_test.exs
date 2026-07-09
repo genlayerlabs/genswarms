@@ -36,6 +36,19 @@ defmodule Genswarms.Config.SwarmConfigTest do
       assert [%{name: :agent1}] = parsed.agents
     end
 
+    test "accepts local backend options tuple" do
+      config = %{
+        name: "test-swarm",
+        agents: [
+          %{name: "agent1", backend: {:local, %{workspace: "/tmp/ws"}}}
+        ],
+        topology: []
+      }
+
+      {:ok, parsed} = SwarmConfig.parse(config)
+      assert [%{backend: {:local, %{workspace: "/tmp/ws"}}}] = parsed.agents
+    end
+
     test "normalizes string topology names to atoms" do
       config = %{
         name: "test-swarm",
@@ -254,6 +267,8 @@ defmodule Genswarms.Config.SwarmConfigTest do
   describe "backend_module/1" do
     test "returns correct module for local backend" do
       assert SwarmConfig.backend_module(:local) == Genswarms.Backends.LocalBackend
+      assert SwarmConfig.backend_module({:local, %{workspace: "/tmp/ws"}}) ==
+               Genswarms.Backends.LocalBackend
     end
 
     test "returns correct module for docker backend" do
@@ -300,6 +315,11 @@ defmodule Genswarms.Config.SwarmConfigTest do
     test "returns options for bwrap with opts" do
       config = SwarmConfig.backend_config({:bwrap, %{memory_limit: "256M"}})
       assert config.memory_limit == "256M"
+    end
+
+    test "returns options for local with opts" do
+      opts = %{workspace: "/tmp/ws", extra_env: %{"TARGET" => "conversation"}}
+      assert SwarmConfig.backend_config({:local, opts}) == opts
     end
 
     test "extracts Apple container image and options" do
