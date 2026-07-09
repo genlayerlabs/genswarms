@@ -41,16 +41,20 @@ defmodule Genswarms.Backends.LocalBackend do
         maybe_add_compact_extra_env(config) ++
         maybe_add_endpoint_env(config)
 
-    env = builtin_env ++ maybe_add_extra_env(config, builtin_env)
+    env =
+      builtin_env ++
+        maybe_add_workspace_env(workspace, builtin_env) ++
+        maybe_add_extra_env(config, builtin_env)
 
-    port_opts = [
-      :binary,
-      :exit_status,
-      {:line, 16_384},
-      {:env, env},
-      :use_stdio,
-      :stderr_to_stdout
-    ] ++ maybe_add_cd(workspace)
+    port_opts =
+      [
+        :binary,
+        :exit_status,
+        {:line, 16_384},
+        {:env, env},
+        :use_stdio,
+        :stderr_to_stdout
+      ] ++ maybe_add_cd(workspace)
 
     args = build_args(name, subzeroclaw_path, skills_dir)
 
@@ -199,6 +203,19 @@ defmodule Genswarms.Backends.LocalBackend do
       _ ->
         nil
     end
+  end
+
+  # swarm-msg defaults its outbox/ask-reply paths to the bwrap mount
+  # (/workspace/…); on :local the workspace is a host dir — point the
+  # helper at it explicitly so agent sends don't die on a read-only /.
+  defp maybe_add_workspace_env(nil, _builtin), do: []
+
+  defp maybe_add_workspace_env(workspace, builtin_env) do
+    [
+      {~c"OUTBOX_DIR", String.to_charlist(Path.join(workspace, ".outbox"))},
+      {~c"ASK_REPLY_DIR", String.to_charlist(Path.join(workspace, ".inbox/replies"))}
+    ]
+    |> Enum.reject(fn {k, _} -> List.keymember?(builtin_env, k, 0) end)
   end
 
   defp maybe_add_cd(nil), do: []
