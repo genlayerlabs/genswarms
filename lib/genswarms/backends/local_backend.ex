@@ -29,8 +29,9 @@ defmodule Genswarms.Backends.LocalBackend do
     wrapper_path = get_wrapper_path(config)
     subzeroclaw_path = get_subzeroclaw_path(config)
     skills_dir = Map.get(config, :skills_dir)
+    workspace = prepare_workspace(config)
 
-    env =
+    builtin_env =
       [
         {~c"SUBZEROCLAW_AGENT_NAME", String.to_charlist(name)}
       ] ++
@@ -40,6 +41,8 @@ defmodule Genswarms.Backends.LocalBackend do
         maybe_add_compact_extra_env(config) ++
         maybe_add_endpoint_env(config)
 
+    env = builtin_env ++ maybe_add_extra_env(config, builtin_env)
+
     port_opts = [
       :binary,
       :exit_status,
@@ -47,7 +50,7 @@ defmodule Genswarms.Backends.LocalBackend do
       {:env, env},
       :use_stdio,
       :stderr_to_stdout
-    ]
+    ] ++ maybe_add_cd(workspace)
 
     args = build_args(name, subzeroclaw_path, skills_dir)
 
@@ -186,6 +189,21 @@ defmodule Genswarms.Backends.LocalBackend do
       Application.get_env(:genswarms, :subzeroclaw_path, "subzeroclaw")
   end
 
+  defp prepare_workspace(config) do
+    case Map.get(config, :workspace) do
+      workspace when is_binary(workspace) ->
+        workspace = Path.expand(workspace)
+        File.mkdir_p!(workspace)
+        workspace
+
+      _ ->
+        nil
+    end
+  end
+
+  defp maybe_add_cd(nil), do: []
+  defp maybe_add_cd(workspace), do: [{:cd, workspace}]
+
   # argv list passed to the wrapper: <agent_name> <subzeroclaw_path> [skills_dir].
   # Returned as a list (not a joined string) so Port spawn_executable hands them
   # to execvp directly and no shell metacharacter interpretation can occur.
@@ -254,6 +272,29 @@ defmodule Genswarms.Backends.LocalBackend do
     case Genswarms.Backends.EndpointPolicy.resolve(config) do
       {nil, _key} -> []
       {endpoint, _key} -> [{~c"SUBZEROCLAW_ENDPOINT", String.to_charlist(endpoint)}]
+    end
+  end
+
+  defp maybe_add_extra_env(config, builtin_env) do
+    reserved =
+      builtin_env
+      |> Enum.map(fn {key, _value} -> to_string(key) end)
+      |> MapSet.new()
+
+    case Map.get(config, :extra_env, %{}) do
+      extra_env when is_map(extra_env) ->
+        Enum.flat_map(extra_env, fn {key, value} ->
+          key = to_string(key)
+
+          if value && not MapSet.member?(reserved, key) do
+            [{String.to_charlist(key), String.to_charlist(to_string(value))}]
+          else
+            []
+          end
+        end)
+
+      _ ->
+        []
     end
   end
 

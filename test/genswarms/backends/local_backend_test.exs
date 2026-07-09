@@ -56,6 +56,53 @@ defmodule Genswarms.Backends.LocalBackendTest do
       # and the injection side-effect never happened
       refute File.exists?(marker), "command injection: marker file was created"
     end
+
+    test "passes extra_env and starts the wrapper from configured workspace", ctx do
+      env_out = Path.join(ctx.tmp, "env.txt")
+      workspace = Path.join(ctx.tmp, "session-workspace")
+
+      File.write!(ctx.stub, """
+      #!/usr/bin/env bash
+      {
+        printf 'agent=%s\\n' "$SUBZEROCLAW_AGENT_NAME"
+        printf 'target=%s\\n' "$TARGET_DESCRIPTION"
+        printf 'pwd=%s\\n' "$(pwd)"
+      } > "#{env_out}"
+      exit 0
+      """)
+
+      {:ok, ref} =
+        LocalBackend.start("env_agent", %{
+          wrapper_path: ctx.stub,
+          subzeroclaw_path: "subzeroclaw",
+          skills_dir: nil,
+          workspace: workspace,
+          extra_env: %{
+            "TARGET_DESCRIPTION" => "conversation-123",
+            "SUBZEROCLAW_AGENT_NAME" => "spoofed"
+          }
+        })
+
+      wait_until(fn -> File.exists?(env_out) end)
+      LocalBackend.stop(ref)
+
+      recorded =
+        env_out
+        |> File.read!()
+        |> String.split("\n", trim: true)
+        |> Map.new(fn line ->
+          [key, value] = String.split(line, "=", parts: 2)
+          {key, value}
+        end)
+
+      assert File.dir?(workspace)
+      assert recorded["agent"] == "env_agent"
+      assert recorded["target"] == "conversation-123"
+      # macOS: $TMPDIR rides the /var -> /private/var symlink; the spawned
+      # process reports the RESOLVED cwd — compare modulo the /private prefix.
+      assert String.trim_leading(Path.expand(recorded["pwd"]), "/private") ==
+               String.trim_leading(Path.expand(workspace), "/private")
+    end
   end
 
   describe "stop/1 terminates a busy agent's process tree (leak regression, #62)" do

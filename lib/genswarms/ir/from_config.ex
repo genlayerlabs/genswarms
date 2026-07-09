@@ -83,6 +83,7 @@ defmodule Genswarms.IR.FromConfig do
   defp backend_ref(:local), do: {:ok, %{"ref" => "local"}}
   defp backend_ref(:bwrap), do: {:ok, %{"ref" => "bwrap"}}
   defp backend_ref(:mock), do: {:ok, %{"ref" => "mock"}}
+  defp backend_ref({:local, _opts}), do: {:ok, %{"ref" => "local"}}
   defp backend_ref({:bwrap, _opts}), do: {:ok, %{"ref" => "bwrap"}}
   defp backend_ref({:mock, _opts}), do: {:ok, %{"ref" => "mock"}}
   defp backend_ref(:apple_container), do: {:ok, %{"ref" => "apple_container"}}

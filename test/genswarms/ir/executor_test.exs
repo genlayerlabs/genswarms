@@ -68,6 +68,21 @@ defmodule Genswarms.IR.ExecutorTest do
       assert ToConfig.agent_spec(b).backend == {:ssh, "pi@192.168.1.50"}
     end
 
+    test "local backend opts tuple round-trips like bwrap opts tuple" do
+      {:ok, state} =
+        FromConfig.from_config(%{
+          name: "s",
+          agents: [
+            %{name: :a, backend: {:bwrap, %{workspace: "/tmp/bwrap"}}},
+            %{name: :b, backend: {:local, %{workspace: "/tmp/local"}}}
+          ]
+        })
+
+      [a, b] = state.agents
+      assert ToConfig.agent_spec(a).backend == :bwrap
+      assert ToConfig.agent_spec(b).backend == :local
+    end
+
     test "Apple container backend image and opts round-trip" do
       {:ok, state} =
         FromConfig.from_config(%{
