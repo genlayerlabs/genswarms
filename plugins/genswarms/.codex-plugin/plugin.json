@@ -1,0 +1,45 @@
+{
+  "name": "genswarms",
+  "version": "0.1.0",
+  "description": "Operate and extend GenSwarms, the Elixir/OTP runtime for directed swarms of subzeroclaw agents.",
+  "author": {
+    "name": "GenLayer Labs",
+    "url": "https://github.com/genlayerlabs"
+  },
+  "homepage": "https://genswarms.com",
+  "repository": "https://github.com/genlayerlabs/genswarms",
+  "license": "MIT",
+  "keywords": [
+    "genswarms",
+    "agents",
+    "elixir",
+    "otp",
+    "swarm",
+    "subzeroclaw"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "GenSwarms",
+    "shortDescription": "Operate and extend Elixir/OTP agent swarms",
+    "longDescription": "Use GenSwarms to define, run, observe, and extend directed swarms of subzeroclaw agents with pluggable backends, topology routing, per-agent skills, objects, daemon coordination, and a Phoenix API.",
+    "developerName": "GenLayer Labs",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://genswarms.com",
+    "privacyPolicyURL": "https://github.com/genlayerlabs/genswarms",
+    "termsOfServiceURL": "https://github.com/genlayerlabs/genswarms/blob/main/LICENSE",
+    "defaultPrompt": [
+      "Use GenSwarms to set up a local agent swarm.",
+      "Help me design a GenSwarms topology.",
+      "Help me add a backend or object to GenSwarms."
+    ],
+    "brandColor": "#1B4DFF",
+    "composerIcon": "./assets/logo.svg",
+    "logo": "./assets/logo.svg",
+    "screenshots": []
+  }
+}

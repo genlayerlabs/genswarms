@@ -56,14 +56,28 @@ runtime.
 Here's the part we're most excited about. You don't have to read a getting-started
 guide to try this — you can hand it to an agent.
 
-GenSwarms ships a single canonical **skill**: a structured markdown file
-([the Agent Skills format][skills]) that teaches a coding agent how to operate the
-framework end to end. Point your agent at it and ask for a swarm — it builds the
-CLI, writes the config, launches the daemon, sends a task, and streams the events
-back.
+GenSwarms ships installable **skills** ([the Agent Skills format][skills]) that
+teach a coding agent how to operate the framework end to end. Point your agent at
+them and ask for a swarm — it builds the CLI, writes the config, launches the
+daemon, sends a task, and streams the events back.
 
-Paste this into Claude Code, Cursor, or any agent that can read a URL and run
-commands:
+Claude Code:
+
+```text
+/plugin marketplace add genlayerlabs/genswarms
+/plugin install genswarms@genswarms
+```
+
+Codex:
+
+```bash
+codex plugin marketplace add genlayerlabs/genswarms
+codex
+```
+
+Then install **GenSwarms** from `/plugins`.
+
+For agents without plugin support, paste this:
 
 ```text
 Read https://genswarms.com/skill.md and use it to set up a production-ready
@@ -100,6 +114,6 @@ a swarm that holds up.
 - [GenSwarms on GitHub][repo] — source, issues, and the [`SKILL.md`][skillmd] itself.
 
 [szc]: https://github.com/genlayerlabs/subzeroclaw
-[skills]: https://docs.claude.com/en/docs/agents-and-tools/agent-skills/overview
+[skills]: https://agentskills.io/specification
 [skillmd]: https://github.com/genlayerlabs/genswarms/blob/main/SKILL.md
 [repo]: https://github.com/genlayerlabs/genswarms
