@@ -70,6 +70,24 @@ Notes:
 - `GET .../agents` returns `{"agents": [ ... ]}`; `GET .../agents/:agent` returns the status map directly, or `404` with `{"error": "Agent not found"}`.
 - `POST .../agents/:agent/restart` returns `{"status": "restarted", "agent": "..."}`, `404` if the swarm is unknown, or `500` on failure.
 - `GET .../history` and `GET .../logs` return `{"history": [...]}` / `{"logs": [...]}`. `GET .../skills` returns `{"skills": ...}`. A missing agent returns `404`.
+- Current runtimes expose one framed `subzeroclaw.log.v2` JSONL source per session.
+  Historical unpaired text logs remain readable as ambiguous compatibility
+  evidence. Every entry includes immutable
+  `source_record_id` (`session_id` + source-local record index),
+  `source_record_index`, snapshot-order `display_index`, the compatibility alias
+  `record_index`, `content_complete`, `integrity`, `entry_type`, `sensitive` and
+  source metadata. A valid `compaction_event` is either the exact applied object
+  (`event`, non-increasing `before_messages`/`after_messages`, and strictly reduced
+  `before_bytes`/`after_bytes`) or the exact bounded non-applied object
+  (`event` = `skipped`, `rejected`, or `failed`, plus an allowlisted `reason`).
+  The mapping is exact: `skipped` accepts `not_enough_groups`, `router_declined`,
+  or `insufficient_reduction`; `rejected` accepts `invalid_layout`,
+  `invalid_response`, `invalid_contract`, or `unsafe_summary`;
+  and `failed` accepts `allocation_failed` or `http_failed`.
+  The exact applied memory is a separate sensitive `compaction_summary` entry and
+  is correlated only when it immediately follows applied evidence in the same
+  source file with adjacent source indices and JSONL sequences. Legacy text entries are always
+  `legacy_text_ambiguous` and never authoritative lifecycle evidence.
 - `PUT .../skills/:skill` requires `{"content": "..."}` and returns `{"status": "updated", "skill": "..."}`. A failure returns `500`.
 
 > Adding and removing agents at runtime uses `POST /api/swarms/:name/agents` and `DELETE /api/swarms/:name/agents/:agent` — see [Dynamic topology and scaling](#dynamic-topology-and-scaling) below.

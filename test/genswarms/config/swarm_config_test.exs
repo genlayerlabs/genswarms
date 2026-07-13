@@ -267,6 +267,7 @@ defmodule Genswarms.Config.SwarmConfigTest do
   describe "backend_module/1" do
     test "returns correct module for local backend" do
       assert SwarmConfig.backend_module(:local) == Genswarms.Backends.LocalBackend
+
       assert SwarmConfig.backend_module({:local, %{workspace: "/tmp/ws"}}) ==
                Genswarms.Backends.LocalBackend
     end
@@ -342,19 +343,17 @@ defmodule Genswarms.Config.SwarmConfigTest do
         SwarmConfig.atomize_known_backend_opts(%{
           "network" => "isolated",
           "request_extra" => %{"model" => "x/y"},
-          "compact_extra" => %{"mode" => "brief"},
           "endpoint" => "https://llm.example",
           "population_size" => 10
         })
 
       assert opts.network == "isolated"
       assert opts.request_extra == %{"model" => "x/y"}
-      assert opts.compact_extra == %{"mode" => "brief"}
       assert opts.endpoint == "https://llm.example"
       assert opts["population_size"] == 10
 
       assert :request_extra in SwarmConfig.backend_config_keys()
-      assert :compact_extra in SwarmConfig.backend_config_keys()
+      refute :compact_extra in SwarmConfig.backend_config_keys()
       assert :endpoint in SwarmConfig.backend_config_keys()
     end
   end

@@ -377,12 +377,10 @@ defmodule Genswarms.Backends.SSHBackend do
     # endpoint (SSRF key-exfil guard, #30).
     {endpoint, api_key} = Genswarms.Backends.EndpointPolicy.resolve(config)
     # Model + routing policy ride in SUBZEROCLAW_REQUEST_EXTRA (bare model wrapped
-    # for back-compat); the compaction policy in SUBZEROCLAW_COMPACT_EXTRA. No
-    # SUBZEROCLAW_MODEL env fallback: it is the dead var, and it would clobber an
+    # for back-compat). No SUBZEROCLAW_MODEL env fallback: it is the dead var, and
     # inherited SUBZEROCLAW_REQUEST_EXTRA routing policy with a bare {"model": ...}.
     model = Map.get(config, :model)
     request_extra = config_json(config, :request_extra) || (model && Jason.encode!(%{"model" => model}))
-    compact_extra = config_json(config, :compact_extra)
 
     env_vars =
       [
@@ -390,7 +388,6 @@ defmodule Genswarms.Backends.SSHBackend do
         {"SUBZEROCLAW_SKILLS", remote_skills_dir},
         {"SUBZEROCLAW_API_KEY", api_key},
         {"SUBZEROCLAW_REQUEST_EXTRA", request_extra},
-        {"SUBZEROCLAW_COMPACT_EXTRA", compact_extra},
         {"SUBZEROCLAW_ENDPOINT", endpoint}
       ]
       |> Enum.filter(fn {_k, v} -> v != nil end)
@@ -411,7 +408,7 @@ defmodule Genswarms.Backends.SSHBackend do
   # replace every embedded single quote with the '\'' sequence. The result is a
   # single shell word that reproduces the input verbatim, with no metacharacter
   # left active.
-  # Accept request_extra/compact_extra as a JSON string or an Elixir map.
+  # Accept request_extra as a JSON string or an Elixir map.
   defp config_json(config, key) do
     case Map.get(config, key) do
       nil -> nil

@@ -1,6 +1,6 @@
 # Minimal smoke swarm — 2 local agents, no `model:` so each inherits the
-# routing policy from SUBZEROCLAW_REQUEST_EXTRA (cache_hot affinity) and seals
-# via SUBZEROCLAW_COMPACT_EXTRA. Tests the genswarms → subzeroclaw → unhardcoded
+# routing policy from SUBZEROCLAW_REQUEST_EXTRA (cache_hot affinity); compaction
+# is router-signalled and server-configured. Tests the genswarms → subzeroclaw → unhardcoded
 # router path end to end.
 skill_path = Path.join(__DIR__, "skills/party.md")
 

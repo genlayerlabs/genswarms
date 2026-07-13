@@ -115,7 +115,7 @@ defmodule Genswarms.Backends.OciCli do
   def normalize_container_cmd(cmd, _agent_name, _config, _label) when is_binary(cmd),
     do: ["sh", "-c", cmd]
 
-  @doc "Accept a `:request_extra`/`:compact_extra`-style key as a JSON string or a map."
+  @doc "Accept a `:request_extra`-style key as a JSON string or a map."
   def config_json(config, key) do
     case Map.get(config, key) do
       nil -> nil
@@ -136,13 +136,10 @@ defmodule Genswarms.Backends.OciCli do
     request_extra =
       config_json(config, :request_extra) || (model && Jason.encode!(%{"model" => model}))
 
-    compact_extra = config_json(config, :compact_extra)
-
     pairs =
       [{"SUBZEROCLAW_AGENT_NAME", to_string(agent_name)}]
       |> maybe_pair(api_key, "SUBZEROCLAW_API_KEY")
       |> maybe_pair(request_extra, "SUBZEROCLAW_REQUEST_EXTRA")
-      |> maybe_pair(compact_extra, "SUBZEROCLAW_COMPACT_EXTRA")
       |> maybe_pair(endpoint, "SUBZEROCLAW_ENDPOINT")
       |> Kernel.++(extra_pairs)
       |> Kernel.++(additional_env_pairs(config))

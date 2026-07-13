@@ -38,7 +38,6 @@ defmodule Genswarms.Backends.LocalBackend do
         maybe_add_skills_env(skills_dir) ++
         maybe_add_api_key_env(config) ++
         maybe_add_request_extra_env(config) ++
-        maybe_add_compact_extra_env(config) ++
         maybe_add_endpoint_env(config)
 
     env =
@@ -253,15 +252,6 @@ defmodule Genswarms.Backends.LocalBackend do
     case config_json(config, :request_extra) || bare_model_extra(config) do
       nil -> []
       json -> [{~c"SUBZEROCLAW_REQUEST_EXTRA", String.to_charlist(json)}]
-    end
-  end
-
-  # The compaction JSON (keep_recent + cheap summariser policy_ir): subzeroclaw
-  # seals async via /v1/compact when set; absent → no compaction.
-  defp maybe_add_compact_extra_env(config) do
-    case config_json(config, :compact_extra) do
-      nil -> []
-      json -> [{~c"SUBZEROCLAW_COMPACT_EXTRA", String.to_charlist(json)}]
     end
   end
 

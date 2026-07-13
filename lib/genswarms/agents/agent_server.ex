@@ -247,10 +247,8 @@ defmodule Genswarms.Agents.AgentServer do
     skills = Keyword.get(opts, :skills, [])
     model = Keyword.get(opts, :model)
     endpoint = Keyword.get(opts, :endpoint)
-    # routing + compaction JSON for the unhardcoded substrate (subzeroclaw reads
-    # them as SUBZEROCLAW_REQUEST_EXTRA / _COMPACT_EXTRA); model is back-compat.
+    # Routing JSON for the unhardcoded substrate; model is back-compat.
     request_extra = Keyword.get(opts, :request_extra)
-    compact_extra = Keyword.get(opts, :compact_extra)
     presets = Keyword.get(opts, :presets, [])
     agent_config = Keyword.get(opts, :config, %{})
     connections = Keyword.get(opts, :connections, [])
@@ -268,7 +266,6 @@ defmodule Genswarms.Agents.AgentServer do
       |> Map.merge(backend_overrides)
       |> maybe_put(:model, model)
       |> maybe_put(:request_extra, request_extra)
-      |> maybe_put(:compact_extra, compact_extra)
       |> maybe_put(:endpoint, endpoint)
       |> maybe_put(:presets, presets)
       |> maybe_put(:connections, connections)
@@ -628,12 +625,35 @@ defmodule Genswarms.Agents.AgentServer do
         if File.dir?(logs_dir) do
           logs_dir
           |> File.ls!()
-          |> Enum.filter(&String.ends_with?(&1, ".txt"))
+          |> Genswarms.Agents.SubZeroClawLog.select_files()
           |> Enum.sort()
           |> Enum.flat_map(fn filename ->
             path = Path.join(logs_dir, filename)
             content = File.read!(path)
-            parse_subzeroclaw_log(content, filename)
+            Genswarms.Agents.SubZeroClawLog.parse(content, filename)
+          end)
+          # A slot can contain more than one runtime session after a restart.
+          # Order sessions by their earliest evidence, but never reorder records
+          # inside one append-only source file: source order and sequence are the
+          # correlation boundary, while wall-clock timestamps are only display
+          # metadata.
+          |> sort_log_entries()
+          |> Enum.with_index(1)
+          |> Enum.map(fn {entry, display_index} ->
+            source_record_index = entry.record_index
+
+            entry
+            |> Map.put(:source_record_index, source_record_index)
+            |> Map.put(:source_record_id, %{
+              session_id: entry.session_id,
+              record_index: source_record_index
+            })
+            |> maybe_put_compaction_applied_source_record_id()
+            |> Map.put(:display_index, display_index)
+            # Compatibility alias for clients of the initial structured-log
+            # API. This is snapshot order, not immutable record identity; new
+            # clients should key by source_record_id.
+            |> Map.put(:record_index, display_index)
           end)
         else
           []
@@ -1263,49 +1283,44 @@ defmodule Genswarms.Agents.AgentServer do
     skills_dir
   end
 
-  # Parse subzeroclaw log file format
-  # Format: [timestamp] ROLE: content
-  # Roles: USER, TOOL, RES, ASST, COMPACT, SYS
-  defp parse_subzeroclaw_log(content, session_id) do
-    lines = String.split(content, "\n")
-
-    # Skip header line (=== session_id timestamp)
-    lines = Enum.drop_while(lines, &String.starts_with?(&1, "==="))
-
-    # Parse entries - they can be multi-line
-    parse_log_entries(lines, session_id, [])
-  end
-
-  defp parse_log_entries([], _session_id, acc), do: Enum.reverse(acc)
-
-  defp parse_log_entries([line | rest], session_id, acc) do
-    # Try to match [timestamp] ROLE: content
-    case Regex.run(~r/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] (\w+): (.*)$/, line) do
-      [_, timestamp, role, content] ->
-        # Collect continuation lines (lines that don't start with [timestamp])
-        {continuation, remaining} =
-          Enum.split_while(rest, fn l ->
-            not Regex.match?(~r/^\[\d{4}-\d{2}-\d{2}/, l) and l != ""
-          end)
-
-        full_content = [content | continuation] |> Enum.join("\n")
-
-        entry = %{
-          session_id: session_id,
-          timestamp: timestamp,
-          role: String.downcase(role),
-          content: full_content
-        }
-
-        parse_log_entries(remaining, session_id, [entry | acc])
-
-      nil ->
-        # Skip non-matching lines (empty lines, etc.)
-        parse_log_entries(rest, session_id, acc)
-    end
-  end
-
   # Detect API errors in agent output
+  defp sort_log_entries(entries) do
+    session_keys =
+      entries
+      |> Enum.group_by(& &1.log_file)
+      |> Map.new(fn {log_file, file_entries} ->
+        first_evidence =
+          file_entries
+          |> Enum.map(&log_entry_time_key/1)
+          |> Enum.min(fn -> {2, 0, ""} end)
+
+        {log_file, {first_evidence, log_file}}
+      end)
+
+    Enum.sort_by(entries, fn entry ->
+      {Map.fetch!(session_keys, entry.log_file), entry.record_index}
+    end)
+  end
+
+  defp log_entry_time_key(%{observed_at_unix_ms: observed_at}) when is_integer(observed_at),
+    do: {0, observed_at, ""}
+
+  defp log_entry_time_key(%{timestamp: timestamp}) when is_binary(timestamp),
+    do: {1, 0, timestamp}
+
+  defp log_entry_time_key(_entry), do: {2, 0, ""}
+
+  defp maybe_put_compaction_applied_source_record_id(
+         %{compaction_applied_source_record_index: applied_index} = entry
+       ) do
+    Map.put(entry, :compaction_applied_source_record_id, %{
+      session_id: entry.session_id,
+      record_index: applied_index
+    })
+  end
+
+  defp maybe_put_compaction_applied_source_record_id(entry), do: entry
+
   defp detect_api_error(output) do
     cond do
       String.contains?(output, "401") and String.contains?(output, "Unauthorized") ->

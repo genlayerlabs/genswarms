@@ -40,7 +40,12 @@ A target name must match `[a-zA-Z_][a-zA-Z0-9_]*`. Content is trimmed of surroun
 Two code paths recognize these markers:
 
 - **`AgentProtocol.parse_output/1`** scans an agent's stdout when a turn completes. Its send pattern requires a newline immediately after `:START>>`.
-- **`LogWatcher`** polls each agent's `*.txt` log files (the `RES:` entries written by the backend) every **500 ms**, extracts the same blocks, and forwards them to the Router. Here the newline after `:START>>` is optional.
+- **`LogWatcher`** polls each agent log every **500 ms**. Current SubZeroClaw
+  runtimes emit a single framed `*.jsonl` v2 stream; the watcher reads only
+  complete newline-terminated records and extracts markers from actual `RES`
+  entries. Historical `*.txt` logs remain readable when no JSONL file with the
+  same basename exists, but their record boundaries are explicitly ambiguous.
+  Here the newline after `:START>>` is optional.
 
 Both paths emit `:send` messages (for `TO=<name>`) or `:broadcast` messages (for `BROADCAST`) to the Router.
 

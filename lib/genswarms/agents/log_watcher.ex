@@ -7,6 +7,7 @@ defmodule Genswarms.Agents.LogWatcher do
   require Logger
 
   alias Genswarms.Agents.Ask
+  alias Genswarms.Agents.SubZeroClawLog
   alias Genswarms.Routing.Router
   alias Genswarms.Observability.LogStore
 
@@ -61,7 +62,7 @@ defmodule Genswarms.Agents.LogWatcher do
       # accumulator would grow with no reader.
       track_sends: Keyword.get(opts, :track_sends, false),
       routed_since_sweep: [],
-      last_positions: %{}
+      log_files: %{}
     }
 
     Process.send_after(self(), :poll, @poll_interval)
@@ -82,10 +83,14 @@ defmodule Genswarms.Agents.LogWatcher do
   defp poll_logs(state) do
     case File.ls(state.log_dir) do
       {:ok, files} ->
-        files
-        |> Enum.filter(&String.ends_with?(&1, ".txt"))
-        |> Enum.map(&Path.join(state.log_dir, &1))
-        |> Enum.reduce(state, &process_log_file/2)
+        paths =
+          files
+          |> SubZeroClawLog.select_files()
+          |> Enum.sort()
+          |> Enum.map(&Path.join(state.log_dir, &1))
+
+        state = Enum.reduce(paths, state, &process_log_file/2)
+        %{state | log_files: Map.take(state.log_files, paths)}
 
       {:error, _} ->
         state
@@ -93,45 +98,140 @@ defmodule Genswarms.Agents.LogWatcher do
   end
 
   defp process_log_file(file_path, state) do
-    last_pos = Map.get(state.last_positions, file_path, 0)
+    with {:ok, stat} <- File.stat(file_path) do
+      identity = {stat.major_device, stat.inode}
 
-    case File.stat(file_path) do
-      {:ok, %{size: size}} when size > last_pos ->
-        case File.read(file_path) do
-          {:ok, content} ->
-            new_content = binary_part(content, last_pos, size - last_pos)
-
-            # Parse and log conversation entries
-            log_conversation_entries(new_content, state)
-
-            # Parse swarm messages for routing.
-            messages = parse_swarm_messages(new_content)
-
-            # Deduplication is already handled by position tracking — we only
-            # ever read content past last_pos, so each message is seen once. The
-            # old per-message hash set was redundant and grew without bound
-            # (keyed on file position + index, so entries never collided) — an
-            # unbounded per-agent memory leak (audit finding 32). Just route.
-            Enum.each(messages, fn msg -> route_message(msg, state) end)
-
-            %{state | last_positions: Map.put(state.last_positions, file_path, size)}
-
-          {:error, _} ->
-            state
-        end
-
-      _ ->
+      if unchanged_log?(state, file_path, identity, stat.size) do
         state
+      else
+        # The path-level stat is only a cheap unchanged hint. Rotation may occur
+        # after it, so offset selection and pread use one opened descriptor.
+        case File.open(file_path, [:read, :binary], fn file ->
+               process_open_log(file, file_path, state)
+             end) do
+          {:ok, new_state} -> new_state
+          {:error, _} -> state
+        end
+      end
+    else
+      _ -> state
     end
   end
 
-  defp parse_swarm_messages(content) do
-    # Match RES: entries containing SWARM_MSG
-    res_blocks =
-      ~r/\] RES: (.*?)(?=\n\[\d{4}-|\z)/s
-      |> Regex.scan(content)
+  defp unchanged_log?(state, file_path, identity, size) do
+    case Map.get(state.log_files, file_path) do
+      %{identity: ^identity, size: ^size} -> true
+      _ -> false
+    end
+  end
 
-    messages = Enum.flat_map(res_blocks, fn [_, res] -> parse_msg_block(res) end)
+  defp process_open_log(file, file_path, state) do
+    with {:ok, file_info} <- :file.read_file_info(file) do
+      stat = File.Stat.from_record(file_info)
+      identity = {stat.major_device, stat.inode}
+
+      if unchanged_log?(state, file_path, identity, stat.size) do
+        state
+      else
+        process_log_suffix(file, file_path, stat.size, identity, state)
+      end
+    else
+      _ -> state
+    end
+  end
+
+  defp process_log_suffix(file, file_path, size, identity, state) do
+    {last_pos, skip_existing?} = initial_log_position(file_path, size, identity, state)
+
+    with {:ok, suffix} <- read_suffix(file, last_pos, size) do
+      complete_bytes = complete_size(suffix)
+      state = remember_log_position(state, file_path, last_pos + complete_bytes, identity, size)
+
+      if not skip_existing? and complete_bytes > 0 do
+        entries =
+          suffix
+          |> binary_part(0, complete_bytes)
+          |> SubZeroClawLog.parse(Path.basename(file_path))
+
+        log_conversation_entries(entries, state)
+
+        entries
+        |> parse_swarm_messages()
+        |> Enum.each(fn msg -> route_message(msg, state) end)
+      end
+
+      state
+    else
+      _ -> state
+    end
+  end
+
+  defp read_suffix(_file, position, size) when position == size, do: {:ok, ""}
+
+  defp read_suffix(file, position, size) when position < size,
+    do: :file.pread(file, position, size - position)
+
+  defp read_suffix(_file, _position, _size), do: {:error, :invalid_position}
+
+  # A record is authoritative only after its newline has landed. JSONL has a
+  # strict framing requirement; retaining the legacy text tail also prevents a
+  # complete SWARM_MSG body observed just before its terminating newline from
+  # being discarded as incomplete while its bytes are marked consumed. The
+  # producer opens these logs append-only; same-inode, same-size rewrites are
+  # outside this contract because detecting them requires rereading old bytes.
+  defp complete_size(content) do
+    if not String.ends_with?(content, "\n") do
+      case :binary.matches(content, "\n") do
+        [] ->
+          0
+
+        matches ->
+          {offset, length} = List.last(matches)
+          offset + length
+      end
+    else
+      byte_size(content)
+    end
+  end
+
+  # During an in-process upgrade, a JSONL twin may appear after its legacy text
+  # stream was already consumed. Start at the current JSONL boundary to avoid
+  # replaying old SWARM_MSG results a second time. Normal startup sees JSONL
+  # from byte zero because no legacy position exists yet.
+  defp initial_log_position(file_path, size, identity, state) do
+    case Map.get(state.log_files, file_path) do
+      %{position: position, identity: previous_identity} ->
+        if previous_identity != identity or size < position do
+          {0, false}
+        else
+          {position, false}
+        end
+
+      nil ->
+        legacy_path = Path.rootname(file_path) <> ".txt"
+
+        if String.ends_with?(file_path, ".jsonl") and
+             Map.has_key?(state.log_files, legacy_path) and size > 0 do
+          {0, true}
+        else
+          # Remember a zero-length/partial JSONL twin immediately. If its first
+          # line completes on the next poll it is new work, not a historical
+          # twin that may be skipped to EOF.
+          {0, false}
+        end
+    end
+  end
+
+  defp remember_log_position(state, file_path, position, identity, size) do
+    file = %{position: position, identity: identity, size: size}
+    %{state | log_files: Map.put(state.log_files, file_path, file)}
+  end
+
+  defp parse_swarm_messages(entries) do
+    messages =
+      entries
+      |> Enum.filter(&(&1.role == "res" and &1.content_complete))
+      |> Enum.flat_map(&parse_msg_block(&1.content))
 
     # Debug: log if we found multiple messages
     if length(messages) > 1 do
@@ -204,18 +304,12 @@ defmodule Genswarms.Agents.LogWatcher do
     Router.broadcast(state.swarm_name, state.agent_name, content)
   end
 
-  # Parse and log conversation entries from subzeroclaw log format
-  # Format: [timestamp] ROLE: content
-  defp log_conversation_entries(content, state) do
-    # Match log entries: [YYYY-MM-DD HH:MM:SS] ROLE: content
-    ~r/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] (\w+): (.*?)(?=\n\[\d{4}-\d{2}-\d{2}|\z)/s
-    |> Regex.scan(content)
-    |> Enum.each(fn [_, timestamp, role, content] ->
-      role_lower = String.downcase(role)
-      content_trimmed = String.trim(content)
+  defp log_conversation_entries(entries, state) do
+    Enum.each(entries, fn entry ->
+      role_lower = entry.role
+      content_trimmed = String.trim(entry.content)
 
-      # Skip empty content
-      unless content_trimmed == "" do
+      if durable_observability_entry?(entry, content_trimmed) do
         event_type =
           case role_lower do
             "user" -> :user_message
@@ -254,12 +348,22 @@ defmodule Genswarms.Agents.LogWatcher do
           agent: state.agent_name,
           metadata: %{
             role: role_lower,
-            timestamp: timestamp,
+            timestamp: entry.timestamp,
             content: content_trimmed
           }
         )
       end
     end)
+  end
+
+  # The exact applied memory is intentionally available only through the
+  # sensitive current-slot file endpoint. Classify at the parsed-entry boundary
+  # instead of relying only on the wire role: legacy summaries use COMPACT, and
+  # an invalid outer JSONL envelope has no trustworthy role but may still carry
+  # the complete raw summary body. Lifecycle COMPACT records are sanitized by
+  # SubZeroClawLog before they reach this admission check.
+  defp durable_observability_entry?(entry, content_trimmed) do
+    content_trimmed != "" and entry.entry_type in ["message", "compaction_event"]
   end
 
   # ============================================================================

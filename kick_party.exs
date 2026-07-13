@@ -1,5 +1,5 @@
 # Run the full-mesh party in THIS BEAM and kick every agent, so the cascade
-# (and async compaction) runs without needing the HTTP API / a separate daemon.
+# (including router-signalled compaction) runs without the HTTP API / a separate daemon.
 {:ok, name} = Genswarms.SwarmManager.start_swarm("examples/party/party_local.exs")
 IO.puts("started swarm: #{name}")
 Process.sleep(4000)

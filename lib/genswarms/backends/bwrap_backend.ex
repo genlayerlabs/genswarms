@@ -534,16 +534,14 @@ defmodule Genswarms.Backends.BwrapBackend do
     # server-env API key from an untrusted/custom endpoint (SSRF guard, #28).
     {endpoint, api_key} = Genswarms.Backends.EndpointPolicy.resolve(config)
     # subzeroclaw no longer reads SUBZEROCLAW_MODEL — the model + routing policy
-    # ride in SUBZEROCLAW_REQUEST_EXTRA (a bare model is wrapped for back-compat);
-    # the compaction policy in SUBZEROCLAW_COMPACT_EXTRA. No SUBZEROCLAW_MODEL env
-    # fallback: it is the dead var, and it would clobber an inherited
+    # ride in SUBZEROCLAW_REQUEST_EXTRA (a bare model is wrapped for back-compat). No
+    # SUBZEROCLAW_MODEL env fallback: it is the dead var, and it would clobber an inherited
     # SUBZEROCLAW_REQUEST_EXTRA routing policy with a bare {"model": ...}.
     model = Map.get(config, :model)
 
     request_extra =
       config_json(config, :request_extra) || (model && Jason.encode!(%{"model" => model}))
 
-    compact_extra = config_json(config, :compact_extra)
     mock_script = Map.get(config, :mock_script) || System.get_env("SUBZEROCLAW_MOCK_SCRIPT")
     # If recording enabled, always write to workspace inside bwrap
     record_script =
@@ -744,11 +742,6 @@ defmodule Genswarms.Backends.BwrapBackend do
         request_extra && "SUBZEROCLAW_REQUEST_EXTRA",
         request_extra && request_extra,
 
-        # Compaction policy (optional): keep_recent + cheap-summariser policy_ir.
-        compact_extra && "--setenv",
-        compact_extra && "SUBZEROCLAW_COMPACT_EXTRA",
-        compact_extra && compact_extra,
-
         # Endpoint (optional)
         endpoint && "--setenv",
         endpoint && "SUBZEROCLAW_ENDPOINT",
@@ -815,19 +808,13 @@ defmodule Genswarms.Backends.BwrapBackend do
       end
 
     # Model + routing policy ride in SUBZEROCLAW_REQUEST_EXTRA (bare model wrapped
-    # for back-compat); compaction policy in SUBZEROCLAW_COMPACT_EXTRA. No dead
-    # SUBZEROCLAW_MODEL var — it would clobber an inherited REQUEST_EXTRA policy.
+    # for back-compat). No dead SUBZEROCLAW_MODEL var — it would clobber an
+    # inherited REQUEST_EXTRA policy.
     request_extra_env =
       case config_json(config, :request_extra) ||
              (Map.get(config, :model) && Jason.encode!(%{"model" => Map.get(config, :model)})) do
         nil -> []
         json -> [{~c"SUBZEROCLAW_REQUEST_EXTRA", String.to_charlist(json)}]
-      end
-
-    compact_extra_env =
-      case config_json(config, :compact_extra) do
-        nil -> []
-        json -> [{~c"SUBZEROCLAW_COMPACT_EXTRA", String.to_charlist(json)}]
       end
 
     endpoint_env =
@@ -847,10 +834,10 @@ defmodule Genswarms.Backends.BwrapBackend do
       end
 
     base_env ++
-      api_key_env ++ request_extra_env ++ compact_extra_env ++ endpoint_env ++ topology_env
+      api_key_env ++ request_extra_env ++ endpoint_env ++ topology_env
   end
 
-  # Accept request_extra/compact_extra as a JSON string or an Elixir map.
+  # Accept request_extra as a JSON string or an Elixir map.
   defp config_json(config, key) do
     case Map.get(config, key) do
       nil -> nil

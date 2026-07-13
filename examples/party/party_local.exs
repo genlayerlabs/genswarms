@@ -1,8 +1,8 @@
 # Full-mesh party on the LOCAL backend (no docker image needed): N agents all
 # talking to each other. With a lowered router compaction threshold this drives
-# context growth fast enough to trigger async /v1/compact. No `model:` — each
+# context growth fast enough to trigger synchronous /v1/compact between rounds. No `model:` — each
 # agent inherits the routing policy from SUBZEROCLAW_REQUEST_EXTRA (cache_hot
-# affinity) and seals via SUBZEROCLAW_COMPACT_EXTRA.
+# affinity); the router owns the compaction trigger and summarizer profile.
 skill_path = Path.join(__DIR__, "skills/party.md")
 names = for i <- 1..8, do: :"agent_#{i}"
 

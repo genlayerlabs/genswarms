@@ -62,7 +62,9 @@ It launches the `szc-wrapper` script, which in turn runs the `subzeroclaw` binar
 | `model` | Model identifier | config only → wrapped into `SUBZEROCLAW_REQUEST_EXTRA` as `{"model": …}` (no `SUBZEROCLAW_MODEL` env fallback — it is dead) |
 | `endpoint` | LLM endpoint | config → `SUBZEROCLAW_ENDPOINT` env |
 | `request_extra` | Router routing/body-override JSON (`policy_ir`) | config → `SUBZEROCLAW_REQUEST_EXTRA` env |
-| `compact_extra` | Async compaction JSON (`keep_recent` + summariser policy) | config → `SUBZEROCLAW_COMPACT_EXTRA` env |
+
+Compaction is automatic when the router signals context pressure. Its trigger and
+summarizer profile are server-owned; GenSwarms forwards no compaction policy.
 
 The wrapper is invoked as `<wrapper_path> <name> <subzeroclaw_path> <skills_dir>`. When a `skills_dir` is present, its expanded path is also exported to the subprocess as the `SUBZEROCLAW_SKILLS` environment variable; the agent name is exported as `SUBZEROCLAW_AGENT_NAME`.
 
@@ -272,7 +274,7 @@ Bwrap config separates backend keys (which control the sandbox) from domain keys
 | `store` | Nix-store bind mode: `:full` binds the whole `/nix/store`; `:closure` binds only the paths the sandbox base + `subzeroclaw` (+ `extra_store_paths`) need — tighter isolation | `:full` |
 | `extra_store_paths` | Extra `/nix/store` paths to bind when `store: :closure` (whitelist additional packages) | `[]` |
 | `max_turns` | Per-turn step budget passed to `subzeroclaw` (caps the tool-call loop per turn) | `subzeroclaw`'s own default |
-| `request_extra` / `compact_extra` | Routing / compaction JSON forwarded to `subzeroclaw` (see the LLM-settings note above) | — |
+| `request_extra` | Routing JSON forwarded to `subzeroclaw` (see the LLM-settings note above) | — |
 
 `sandbox_id` is `{swarm}-{agent}-{timestamp_ms}`. Resource limits are enforced by wrapping the bwrap command in a `systemd-run` cgroup scope (`:cgroup` mode, the default) or in a plain-POSIX rlimit/nice launcher (`:rootless` mode - see "Privilege modes" below). Inside the sandbox, the overlay's merged directory is bound as `/`, the skills directory is bind-mounted read-only at `/root/.subzeroclaw/skills`, a sibling `logs/` directory is bound writable at `/root/.subzeroclaw/logs`, the workspace is bound at `/workspace`, and the Nix store is mounted read-only so binaries resolve. `extra_ro_binds` entries are only mounted if the host path exists. The sandbox runs with `--unshare-{user,pid,uts,ipc}` as uid/gid 1000, with `PATH` defaulting to `/bin:/usr/local/bin` (your `extra_path` dirs are prepended).
 
