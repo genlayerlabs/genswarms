@@ -647,6 +647,20 @@ defmodule GenswarmsWeb.SwarmController do
   def format_error({:agent_limit_reached, max}), do: "Agent limit reached (max #{max})"
   def format_error({:scale_limit_exceeded, max}), do: "Scale limit exceeded (max #{max})"
 
+  def format_error({:object_start_failed, reason}),
+    do: "Object failed to start: #{inspect(reason)}"
+
+  def format_error({:object_init_failed, reason}),
+    do: "Object process started but rejected its config: #{inspect(reason)}"
+
+  def format_error({:config_rejected, reason}),
+    do: "Config rejected, object rolled back to its previous config: #{format_error(reason)}"
+
+  def format_error({:config_rejected_and_rollback_failed, reason, rollback_reason}) do
+    "Config rejected (#{format_error(reason)}) AND rollback failed " <>
+      "(#{format_error(rollback_reason)}) — object is down, restart the swarm or re-add it"
+  end
+
   def format_error({tag, message}) when tag in @client_safe_message_tags and is_binary(message),
     do: message
 
