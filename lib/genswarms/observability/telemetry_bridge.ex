@@ -152,10 +152,21 @@ defmodule Genswarms.Observability.TelemetryBridge do
         :agent_started,
         :agent_stopped,
         :agent_error,
+        :agent_ready,
+        :agent_blocked,
+        :agent_needs_attention,
+        :agent_interrupted,
+        :agent_send_failed,
         :agent_added,
         :agent_removed,
         :task_sent,
-        :message_delivered
+        :message_delivered,
+        :turn_timeout,
+        :inbox_dropped,
+        :auto_delivered,
+        :auto_deliver_skipped,
+        :auto_deliver_failed,
+        :no_final_text
       ],
       object: [
         :object_started,

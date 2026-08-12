@@ -153,6 +153,8 @@ defmodule GenswarmsWeb.ConfigController do
   defp format_backend({:docker, image, _}), do: "docker:#{image}"
   defp format_backend({:ssh, host}), do: "ssh:#{host}"
   defp format_backend({:ssh, host, _}), do: "ssh:#{host}"
+  defp format_backend({:tmux, client}), do: "tmux:#{client}"
+  defp format_backend({:tmux, client, _}), do: "tmux:#{client}"
   defp format_backend(other), do: inspect(other)
 
   defp format_validation_errors({:missing_field, field}) do

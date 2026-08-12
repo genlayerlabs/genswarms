@@ -3,7 +3,7 @@ defmodule Genswarms.Agents.AgentServer do
   GenServer wrapping a single agent process/container/connection.
 
   Responsibilities:
-  - Manages the backend (Port/Docker/SSH)
+  - Manages the backend (Port/container/SSH/persistent TUI)
   - Maintains an inbox queue for incoming messages
   - Decodes agent output and routes to Router
   - Handles Port/SSH messages
@@ -34,6 +34,7 @@ defmodule Genswarms.Agents.AgentServer do
     :swarm_name,
     :backend_module,
     :backend_ref,
+    :backend_id,
     :backend_config,
     :inbox,
     :skills,
@@ -46,6 +47,8 @@ defmodule Genswarms.Agents.AgentServer do
     history: [],
     started_at: nil,
     last_activity: nil,
+    backend_metadata: %{},
+    backend_turn_id: nil,
     # --- reply auto-delivery (genswarms#53 G2) ---
     # When `reply_to` (agent config) names an object, the turn's derived reply
     # text (AgentProtocol.reply_text/1) is delivered there once per turn — unless
@@ -90,12 +93,21 @@ defmodule Genswarms.Agents.AgentServer do
     awaiting_timer_ref: nil
   ]
 
-  @type state :: :initializing | :idle | :working | :error | :stopped
+  @type state ::
+          :initializing
+          | :starting
+          | :idle
+          | :working
+          | :blocked
+          | :needs_attention
+          | :error
+          | :stopped
   @type t :: %__MODULE__{
           name: atom(),
           swarm_name: String.t(),
           backend_module: module(),
           backend_ref: term(),
+          backend_id: reference() | nil,
           backend_config: map(),
           inbox: Inbox.t(),
           skills: [String.t()],
@@ -209,6 +221,20 @@ defmodule Genswarms.Agents.AgentServer do
     GenServer.stop(via_tuple(swarm_name, agent_name))
   end
 
+  @doc """
+  Interrupts the agent's current turn when its backend supports interruption.
+  """
+  def interrupt(swarm_name, agent_name) do
+    GenServer.call(via_tuple(swarm_name, agent_name), :interrupt)
+  end
+
+  @doc """
+  Returns non-secret session metadata exposed by the backend.
+  """
+  def get_session_info(swarm_name, agent_name) do
+    GenServer.call(via_tuple(swarm_name, agent_name), :get_session_info)
+  end
+
   @doc false
   def shutdown_backend(swarm_name, agent_name) do
     GenServer.call(via_tuple(swarm_name, agent_name), :shutdown_backend, 10_000)
@@ -299,16 +325,27 @@ defmodule Genswarms.Agents.AgentServer do
     Logger.info("[#{state.swarm_name}/#{state.name}] Starting backend...")
 
     skills_dir = prepare_skills(state)
+    backend_id = make_ref()
 
     config =
       state.backend_config
       |> Map.put(:skills_dir, skills_dir)
       |> Map.put(:swarm_name, state.swarm_name)
+      |> Map.put(:event_sink, self())
+      |> Map.put(:backend_id, backend_id)
 
     case state.backend_module.start(to_string(state.name), config) do
       {:ok, ref} ->
+        capabilities = backend_capabilities(state.backend_module)
+        event_driven? = MapSet.member?(capabilities, :readiness_events)
+        backend_metadata = backend_session_info(state.backend_module, ref)
+
         Logger.info("[#{state.swarm_name}/#{state.name}] Backend started")
-        emit_telemetry(:agent_started, state, %{backend: state.backend_module.backend_type()})
+
+        emit_telemetry(:agent_started, state, %{
+          backend: state.backend_module.backend_type(),
+          ready: not event_driven?
+        })
 
         # Start log watcher for message routing
         log_dir = skills_dir |> Path.dirname() |> Path.join("logs")
@@ -334,9 +371,11 @@ defmodule Genswarms.Agents.AgentServer do
          %{
            state
            | backend_ref: ref,
+             backend_id: backend_id,
              skills_dir: skills_dir,
-             state: :idle,
+             state: if(event_driven?, do: :starting, else: :idle),
              last_activity: DateTime.utc_now(),
+             backend_metadata: backend_metadata,
              log_watcher: watcher
          }}
 
@@ -396,13 +435,209 @@ defmodule Genswarms.Agents.AgentServer do
       emit_telemetry(:inbox_dropped, state, %{count: queued, exit_status: status})
     end
 
-    {:noreply, %{state | state: :stopped}}
+    # The process is already gone, but non-Port resources owned by the backend
+    # (isolated egress forwarders, FUSE overlays, cgroup scopes, containers)
+    # are still live until stop/1 runs. Clear them now instead of retaining a
+    # dead backend reference until some later supervisor teardown. Persistent
+    # tmux sessions use typed lifecycle events and never take this Port path.
+    cleaned_state = disconnect_backend(state)
+
+    {:noreply,
+     %{
+       cleaned_state
+       | state: :stopped,
+         turn_timer_ref: nil,
+         backend_turn_id: nil
+     }}
   end
 
   # Generic port message handling
   def handle_info({_port, {:data, data}}, state) when is_binary(data) do
     handle_agent_output(data, state)
   end
+
+  # Typed events from non-Port backends (for example persistent tmux TUIs).
+  # The per-start backend_id rejects delayed events from a worker that belonged
+  # to an earlier backend instance after a restart/reconnect.
+  def handle_info(
+        {:genswarms_backend_event, backend_id, {:lifecycle, :started, metadata}},
+        %{backend_id: backend_id} = state
+      ) do
+    {:noreply,
+     %{
+       state
+       | backend_metadata: merge_backend_metadata(state, metadata),
+         last_activity: DateTime.utc_now()
+     }}
+  end
+
+  def handle_info(
+        {:genswarms_backend_event, backend_id, {:lifecycle, :ready, metadata}},
+        %{backend_id: backend_id} = state
+      ) do
+    # A delayed readiness edge must never reset an active turn to idle.
+    if state.state == :working do
+      {:noreply,
+       %{
+         state
+         | backend_metadata: merge_backend_metadata(state, metadata),
+           last_activity: DateTime.utc_now()
+       }}
+    else
+      emit_telemetry(:agent_ready, state, metadata)
+
+      new_state = %{
+        state
+        | state: :idle,
+          backend_metadata: merge_backend_metadata(state, metadata),
+          last_activity: DateTime.utc_now()
+      }
+
+      {:noreply, maybe_process_inbox(new_state)}
+    end
+  end
+
+  def handle_info(
+        {:genswarms_backend_event, backend_id,
+         {:lifecycle, :running, %{turn_id: turn_id} = metadata}},
+        %{backend_id: backend_id} = state
+      ) do
+    {:noreply,
+     %{
+       state
+       | state: :working,
+         backend_turn_id: turn_id,
+         backend_metadata: merge_backend_metadata(state, metadata),
+         last_activity: DateTime.utc_now()
+     }}
+  end
+
+  def handle_info(
+        {:genswarms_backend_event, backend_id, {:lifecycle, :blocked, metadata}},
+        %{backend_id: backend_id} = state
+      ) do
+    emit_telemetry(:agent_blocked, state, metadata)
+
+    {:noreply,
+     %{
+       state
+       | state: :blocked,
+         backend_metadata: merge_backend_metadata(state, metadata),
+         last_activity: DateTime.utc_now()
+     }}
+  end
+
+  def handle_info(
+        {:genswarms_backend_event, backend_id, {:lifecycle, :needs_attention, metadata}},
+        %{backend_id: backend_id} = state
+      ) do
+    emit_telemetry(:agent_needs_attention, state, metadata)
+
+    {:noreply,
+     %{
+       state
+       | state: :needs_attention,
+         backend_metadata: merge_backend_metadata(state, metadata),
+         last_activity: DateTime.utc_now()
+     }}
+  end
+
+  def handle_info(
+        {:genswarms_backend_event, backend_id, {:lifecycle, :interrupted, metadata}},
+        %{backend_id: backend_id} = state
+      ) do
+    if state.turn_timer_ref, do: Process.cancel_timer(state.turn_timer_ref)
+    emit_telemetry(:agent_interrupted, state, metadata)
+
+    {:noreply,
+     %{
+       state
+       | state: :starting,
+         backend_turn_id: nil,
+         turn_timer_ref: nil,
+         backend_metadata: merge_backend_metadata(state, metadata),
+         last_activity: DateTime.utc_now()
+     }}
+  end
+
+  def handle_info(
+        {:genswarms_backend_event, backend_id, {:turn_completed, turn_id, reply, metadata}},
+        %{backend_id: backend_id} = state
+      )
+      when is_binary(reply) do
+    if state.backend_turn_id in [nil, turn_id] and
+         state.state in [:working, :blocked, :needs_attention] do
+      state = %{
+        state
+        | state: :working,
+          backend_turn_id: turn_id,
+          backend_metadata: merge_backend_metadata(state, metadata)
+      }
+
+      # Reuse the existing, well-tested turn-finalization path. Typed backends
+      # never put protocol sentinels on their terminal; this marker exists only
+      # inside AgentServer as a compatibility bridge while Port backends retain
+      # their current stdout grammar.
+      safe_reply = String.replace(reply, "<<TURN_COMPLETE>>", "<<TURN_COMPLETE_ESCAPED>>")
+
+      case handle_agent_output(safe_reply <> "\n<<TURN_COMPLETE>>", state, false) do
+        {:noreply, new_state} ->
+          case backend_acknowledge(state.backend_module, state.backend_ref, turn_id) do
+            :ok ->
+              # A durable receipt proves completion, but a full-screen client
+              # may still be rendering its final text. Wait for a fresh ready
+              # edge before sending the next queued turn.
+              {:noreply, %{new_state | state: :starting}}
+
+            {:error, reason} ->
+              Logger.warning(
+                "[#{state.swarm_name}/#{state.name}] Completion acknowledgement failed for turn #{turn_id}: #{inspect(reason)}"
+              )
+
+              emit_telemetry(:agent_needs_attention, new_state, %{
+                reason: inspect(reason),
+                turn_id: turn_id
+              })
+
+              {:noreply, %{new_state | state: :needs_attention}}
+          end
+      end
+    else
+      Logger.warning(
+        "[#{state.swarm_name}/#{state.name}] Ignoring stale completion for turn #{turn_id}"
+      )
+
+      {:noreply, state}
+    end
+  end
+
+  def handle_info(
+        {:genswarms_backend_event, backend_id, {:terminal, capture, metadata}},
+        %{backend_id: backend_id} = state
+      )
+      when is_binary(capture) do
+    Phoenix.PubSub.broadcast(
+      Genswarms.PubSub,
+      "swarm:#{state.swarm_name}:terminal",
+      {:agent_terminal, state.name, capture, metadata}
+    )
+
+    {:noreply,
+     %{
+       state
+       | backend_metadata: merge_backend_metadata(state, metadata),
+         last_activity: DateTime.utc_now()
+     }}
+  end
+
+  def handle_info(
+        {:genswarms_backend_event, backend_id, {:stopped, reason, metadata}},
+        %{backend_id: backend_id} = state
+      ) do
+    {:noreply, backend_stopped(state, reason, metadata)}
+  end
+
+  def handle_info({:genswarms_backend_event, _stale_id, _event}, state), do: {:noreply, state}
 
   # Safety timeout: the expected object reply never arrived (object crashed, message
   # dropped, etc.).  Release the Inbox so the agent can continue.
@@ -434,7 +669,7 @@ defmodule Genswarms.Agents.AgentServer do
   # started) is a no-op. The engine's job ends at making the timeout visible:
   # it does not kill the backend (that policy belongs to the application).
   def handle_info({:turn_timeout, seq}, state) do
-    if seq == state.turn_seq and state.state == :working do
+    if seq == state.turn_seq and state.state in [:working, :blocked, :needs_attention] do
       Logger.warning(
         "[#{state.swarm_name}/#{state.name}] Turn #{seq} exceeded #{state.turn_timeout_ms}ms wall clock — late output will not be auto-delivered"
       )
@@ -485,7 +720,7 @@ defmodule Genswarms.Agents.AgentServer do
   @impl true
   def handle_call({:send_task, task}, _from, state) do
     case state.state do
-      s when s in [:idle, :working] ->
+      s when s in [:idle, :working, :blocked, :needs_attention] ->
         # Queue the task in the Inbox instead of forwarding it to the backend
         # when the agent is (a) waiting for an async object reply, or (b) still
         # WORKING on a previous turn. (b) makes turns strictly serial: the old
@@ -496,7 +731,7 @@ defmodule Genswarms.Agents.AgentServer do
         # auto-delivered and no telemetry fired. Queued tasks are released (in
         # order) via maybe_process_inbox/1 on the next TURN_COMPLETE; the
         # backend sees the same serial order it always effectively processed.
-        if state.awaiting_reply or state.state == :working do
+        if state.awaiting_reply or state.state in [:working, :blocked, :needs_attention] do
           history_entry = %{
             type: :task,
             content: task,
@@ -526,21 +761,28 @@ defmodule Genswarms.Agents.AgentServer do
               {:reply, {:error, :inbox_full}, state}
           end
         else
-          state = begin_turn(state)
           message = AgentProtocol.encode_task(task)
-          send_to_backend(state, message)
-          emit_telemetry(:task_sent, state, %{task: task})
 
-          history_entry = %{
-            type: :task,
-            content: task,
-            timestamp: DateTime.utc_now()
-          }
+          case start_backend_turn(state, message) do
+            {:ok, started_state} ->
+              emit_telemetry(:task_sent, started_state, %{task: task})
 
-          new_history = [history_entry | state.history]
+              history_entry = %{
+                type: :task,
+                content: task,
+                timestamp: DateTime.utc_now()
+              }
 
-          {:reply, :ok,
-           %{state | state: :working, history: new_history, last_activity: DateTime.utc_now()}}
+              {:reply, :ok,
+               %{
+                 started_state
+                 | history: [history_entry | started_state.history],
+                   last_activity: DateTime.utc_now()
+               }}
+
+            {:error, reason, failed_state} ->
+              {:reply, {:error, {:send_failed, reason}}, failed_state}
+          end
         end
 
       :error ->
@@ -549,7 +791,7 @@ defmodule Genswarms.Agents.AgentServer do
       :stopped ->
         {:reply, {:error, :agent_stopped}, state}
 
-      :initializing ->
+      s when s in [:initializing, :starting] ->
         {:reply, {:error, :agent_initializing}, state}
     end
   end
@@ -559,6 +801,8 @@ defmodule Genswarms.Agents.AgentServer do
   end
 
   def handle_call(:get_status, _from, state) do
+    session = backend_session_info(state.backend_module, state.backend_ref)
+
     status = %{
       name: state.name,
       swarm_name: state.swarm_name,
@@ -568,10 +812,26 @@ defmodule Genswarms.Agents.AgentServer do
       message_count: state.message_count,
       skills: state.skills,
       started_at: state.started_at,
-      last_activity: state.last_activity
+      last_activity: state.last_activity,
+      turn_id: state.backend_turn_id,
+      attention_reason: attention_reason(state),
+      session: if(session == %{}, do: nil, else: session)
     }
 
     {:reply, status, state}
+  end
+
+  def handle_call(:get_session_info, _from, state) do
+    {:reply, backend_session_info(state.backend_module, state.backend_ref), state}
+  end
+
+  def handle_call(:interrupt, _from, %{backend_ref: nil} = state) do
+    {:reply, {:error, :backend_stopped}, state}
+  end
+
+  def handle_call(:interrupt, _from, state) do
+    result = backend_interrupt(state.backend_module, state.backend_ref)
+    {:reply, result, state}
   end
 
   def handle_call({:get_history, limit}, _from, state) do
@@ -646,7 +906,13 @@ defmodule Genswarms.Agents.AgentServer do
   end
 
   def handle_call(:shutdown_backend, _from, state) do
-    {:reply, :ok, state |> stop_backend() |> Map.put(:state, :stopped)}
+    case destroy_backend(state) do
+      {:ok, destroyed_state} ->
+        {:reply, :ok, %{destroyed_state | state: :stopped}}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
+    end
   end
 
   @impl true
@@ -700,20 +966,34 @@ defmodule Genswarms.Agents.AgentServer do
 
         # Send to agent immediately if idle
         if state.state == :idle do
-          state = begin_turn(state)
           message = AgentProtocol.encode_message(content, from)
-          send_to_backend(state, message)
-          emit_telemetry(:message_delivered, state, %{from: from})
 
-          {:noreply,
-           %{
-             state
-             | inbox: new_inbox,
-               history: new_history,
-               file_inbox_seq: seq,
-               state: :working,
-               last_activity: DateTime.utc_now()
-           }}
+          case start_backend_turn(state, message) do
+            {:ok, started_state} ->
+              emit_telemetry(:message_delivered, started_state, %{from: from})
+
+              {:noreply,
+               %{
+                 started_state
+                 | inbox: new_inbox,
+                   history: new_history,
+                   file_inbox_seq: seq,
+                   last_activity: DateTime.utc_now()
+               }}
+
+            {:error, reason, failed_state} ->
+              Logger.warning(
+                "[#{state.swarm_name}/#{state.name}] Failed to deliver message: #{inspect(reason)}"
+              )
+
+              {:noreply,
+               %{
+                 failed_state
+                 | inbox: new_inbox,
+                   history: new_history,
+                   file_inbox_seq: seq
+               }}
+          end
         else
           {:noreply, %{state | inbox: new_inbox, history: new_history, file_inbox_seq: seq}}
         end
@@ -789,7 +1069,7 @@ defmodule Genswarms.Agents.AgentServer do
     cancel_awaiting_timer(state.awaiting_timer_ref)
     if state.turn_timer_ref, do: Process.cancel_timer(state.turn_timer_ref)
 
-    stop_backend(state)
+    disconnect_backend(state)
 
     :ok
   end
@@ -810,7 +1090,9 @@ defmodule Genswarms.Agents.AgentServer do
 
   defp safe_skill_name?(_), do: false
 
-  defp handle_agent_output(data, state) do
+  defp handle_agent_output(data, state), do: handle_agent_output(data, state, true)
+
+  defp handle_agent_output(data, state, process_inbox?) do
     full_data = state.buffer <> data
 
     # Check for API errors in output
@@ -925,7 +1207,8 @@ defmodule Genswarms.Agents.AgentServer do
           history: history_entries ++ state.history,
           last_activity: DateTime.utc_now(),
           turn_sends: MapSet.union(state.turn_sends, new_marks),
-          turn_timer_ref: nil
+          turn_timer_ref: nil,
+          backend_turn_id: nil
       }
 
       # G2: schedule auto-delivery of this turn's reply text (only for a real
@@ -937,8 +1220,9 @@ defmodule Genswarms.Agents.AgentServer do
           new_state
         end
 
-      # Process next inbox message if any
-      new_state = maybe_process_inbox(new_state)
+      # Typed backends defer this until their durable completion receipt has
+      # been acknowledged. Port backends retain the original immediate path.
+      new_state = if process_inbox?, do: maybe_process_inbox(new_state), else: new_state
       {:noreply, new_state}
     else
       # Still receiving output - just accumulate in buffer
@@ -1123,44 +1407,202 @@ defmodule Genswarms.Agents.AgentServer do
   defp route_message(_msg, _state), do: :ok
 
   defp maybe_process_inbox(%{state: :idle, inbox: inbox} = state) do
-    case Inbox.pop(inbox) do
-      {:ok, %{content: content, task?: true}, new_inbox} ->
+    case Inbox.peek(inbox) do
+      {:ok, %{content: content, task?: true}} ->
         # Queued user task — encode as a task (not a message) so the agent
         # receives it byte-identical to a directly-delivered task.
-        state = begin_turn(state)
         message = AgentProtocol.encode_task(content)
-        send_to_backend(state, message)
-        emit_telemetry(:task_sent, state, %{task: content})
-        %{state | inbox: new_inbox, state: :working}
 
-      {:ok, %{from: from, content: content}, new_inbox} ->
-        state = begin_turn(state)
+        case start_backend_turn(state, message) do
+          {:ok, started_state} ->
+            {:ok, _entry, new_inbox} = Inbox.pop(inbox)
+            emit_telemetry(:task_sent, started_state, %{task: content})
+            %{started_state | inbox: new_inbox}
+
+          {:error, _reason, failed_state} ->
+            failed_state
+        end
+
+      {:ok, %{from: from, content: content}} ->
         message = AgentProtocol.encode_message(content, from)
-        send_to_backend(state, message)
-        %{state | inbox: new_inbox, state: :working}
 
-      {:empty, _} ->
+        case start_backend_turn(state, message) do
+          {:ok, started_state} ->
+            {:ok, _entry, new_inbox} = Inbox.pop(inbox)
+            %{started_state | inbox: new_inbox}
+
+          {:error, _reason, failed_state} ->
+            failed_state
+        end
+
+      :empty ->
         state
     end
   end
 
   defp maybe_process_inbox(state), do: state
 
-  defp send_to_backend(%{backend_ref: %{port: port}}, message) do
-    Port.command(port, message <> "\n")
-  end
-
   defp send_to_backend(%{backend_ref: nil}, _message), do: {:error, :backend_stopped}
 
   defp send_to_backend(%{backend_module: module, backend_ref: ref}, message) do
-    module.send_input(ref, message)
+    case module.send_input(ref, message) do
+      :ok -> {:ok, %{}}
+      {:ok, metadata} when is_map(metadata) -> {:ok, metadata}
+      {:error, _} = error -> error
+      other -> {:error, {:invalid_send_result, other}}
+    end
   end
 
-  defp stop_backend(%{backend_ref: nil} = state), do: state
+  defp start_backend_turn(state, message) do
+    started_state = begin_turn(state)
 
-  defp stop_backend(state) do
-    state.backend_module.stop(state.backend_ref)
-    %{state | backend_ref: nil}
+    case send_to_backend(started_state, message) do
+      {:ok, metadata} ->
+        {:ok,
+         %{
+           started_state
+           | state: :working,
+             backend_turn_id: Map.get(metadata, :turn_id),
+             backend_metadata: merge_backend_metadata(started_state, metadata)
+         }}
+
+      {:error, reason} ->
+        if started_state.turn_timer_ref, do: Process.cancel_timer(started_state.turn_timer_ref)
+        emit_telemetry(:agent_send_failed, state, %{reason: inspect(reason), level: :error})
+
+        {:error, reason,
+         %{
+           started_state
+           | state: :idle,
+             turn_timer_ref: nil,
+             backend_turn_id: nil,
+             turn_expired: false
+         }}
+    end
+  end
+
+  defp disconnect_backend(%{backend_ref: nil} = state), do: state
+
+  defp disconnect_backend(state) do
+    backend_call_or_stop(state.backend_module, :disconnect, state.backend_ref)
+    %{state | backend_ref: nil, backend_id: nil}
+  end
+
+  defp destroy_backend(%{backend_ref: nil} = state), do: {:ok, state}
+
+  defp destroy_backend(state) do
+    case backend_call_or_stop(state.backend_module, :destroy, state.backend_ref) do
+      {:error, reason} -> {:error, reason}
+      _success -> {:ok, %{state | backend_ref: nil, backend_id: nil}}
+    end
+  end
+
+  defp backend_capabilities(module) do
+    capabilities =
+      if function_exported?(module, :capabilities, 0) do
+        module.capabilities()
+      else
+        []
+      end
+
+    case capabilities do
+      %MapSet{} = set -> set
+      list when is_list(list) -> MapSet.new(list)
+      _ -> MapSet.new()
+    end
+  rescue
+    _ -> MapSet.new()
+  end
+
+  defp backend_session_info(_module, nil), do: %{}
+
+  defp backend_session_info(module, ref) do
+    if function_exported?(module, :session_info, 1) do
+      case module.session_info(ref) do
+        info when is_map(info) -> info
+        _ -> %{}
+      end
+    else
+      %{}
+    end
+  catch
+    _, _ -> %{}
+  end
+
+  defp attention_reason(%{state: :needs_attention, backend_metadata: metadata}) do
+    case Map.get(metadata || %{}, :reason) do
+      nil -> nil
+      reason when is_binary(reason) -> reason
+      reason when is_atom(reason) -> Atom.to_string(reason)
+      reason -> inspect(reason)
+    end
+  end
+
+  defp attention_reason(_state), do: nil
+
+  defp backend_interrupt(module, ref) do
+    if function_exported?(module, :interrupt, 1) do
+      module.interrupt(ref)
+    else
+      {:error, :unsupported}
+    end
+  catch
+    kind, reason -> {:error, {kind, reason}}
+  end
+
+  defp backend_acknowledge(module, ref, turn_id) do
+    if function_exported?(module, :acknowledge, 2) do
+      module.acknowledge(ref, turn_id)
+    else
+      :ok
+    end
+  catch
+    kind, reason -> {:error, {kind, reason}}
+  end
+
+  defp backend_call_or_stop(module, callback, ref) do
+    if function_exported?(module, callback, 1) do
+      apply(module, callback, [ref])
+    else
+      module.stop(ref)
+    end
+  catch
+    kind, reason -> {:error, {kind, reason}}
+  end
+
+  defp merge_backend_metadata(state, metadata) when is_map(metadata) do
+    Map.merge(state.backend_metadata || %{}, metadata)
+  end
+
+  defp merge_backend_metadata(state, _metadata), do: state.backend_metadata || %{}
+
+  defp backend_stopped(state, reason, metadata) do
+    if state.turn_timer_ref, do: Process.cancel_timer(state.turn_timer_ref)
+
+    Logger.warning("[#{state.swarm_name}/#{state.name}] Backend stopped: #{inspect(reason)}")
+
+    emit_telemetry(:agent_stopped, state, %{
+      reason: inspect(reason),
+      level: :warning
+    })
+
+    queued = Inbox.size(state.inbox)
+
+    if queued > 0 do
+      Logger.warning(
+        "[#{state.swarm_name}/#{state.name}] Backend stopped with #{queued} queued task(s) still in the inbox"
+      )
+
+      emit_telemetry(:inbox_dropped, state, %{count: queued, reason: inspect(reason)})
+    end
+
+    %{
+      state
+      | state: :stopped,
+        turn_timer_ref: nil,
+        backend_turn_id: nil,
+        backend_metadata: merge_backend_metadata(state, metadata)
+    }
   end
 
   # Write message to file-inbox at {workspace}/.inbox/{seq}_{from}.json

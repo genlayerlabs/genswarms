@@ -38,13 +38,14 @@ defmodule Genswarms.Agents.AgentSupervisor do
   @doc """
   Stops an agent.
   """
-  @spec stop_agent(String.t(), atom()) :: :ok | {:error, :not_found}
+  @spec stop_agent(String.t(), atom()) :: :ok | {:error, term()}
   def stop_agent(swarm_name, agent_name) do
     case find_agent_pid(swarm_name, agent_name) do
       {:ok, pid} ->
-        shutdown_backend(swarm_name, agent_name)
-        DynamicSupervisor.terminate_child(@supervisor, pid)
-        :ok
+        with :ok <- shutdown_backend(swarm_name, agent_name),
+             :ok <- DynamicSupervisor.terminate_child(@supervisor, pid) do
+          :ok
+        end
 
       :error ->
         {:error, :not_found}
@@ -56,14 +57,26 @@ defmodule Genswarms.Agents.AgentSupervisor do
   """
   @spec restart_agent(String.t(), atom(), map()) :: {:ok, pid()} | {:error, term()}
   def restart_agent(swarm_name, agent_name, config) do
-    _ = stop_agent(swarm_name, agent_name)
-    start_agent(Map.put(config, :swarm_name, swarm_name))
+    # Terminating the AgentServer invokes its disconnect callback. Persistent
+    # backends (tmux) keep the external session; ordinary backends fall back to
+    # stop/1. An explicit stop_agent still destroys persistent resources.
+    terminate_result =
+      case find_agent_pid(swarm_name, agent_name) do
+        {:ok, pid} -> DynamicSupervisor.terminate_child(@supervisor, pid)
+        :error -> :ok
+      end
+
+    case terminate_result do
+      :ok -> start_agent(Map.put(config, :swarm_name, swarm_name))
+      {:error, :not_found} -> start_agent(Map.put(config, :swarm_name, swarm_name))
+      {:error, _} = error -> error
+    end
   end
 
   @doc """
   Lists all agents for a swarm (excludes objects).
   """
-  @spec list_agents(String.t()) :: [%{name: atom(), pid: pid(), state: atom()}]
+  @spec list_agents(String.t()) :: [map()]
   def list_agents(swarm_name) do
     Registry.select(Genswarms.AgentRegistry, [
       {{{swarm_name, :"$1"}, :"$2", :_}, [], [{{:"$1", :"$2"}}]}
@@ -80,7 +93,22 @@ defmodule Genswarms.Agents.AgentSupervisor do
       if Map.get(status, :type) == :object do
         nil
       else
-        %{name: name, pid: inspect(pid), state: Map.get(status, :state, :unknown)}
+        status
+        |> Map.take([
+          :backend,
+          :inbox_size,
+          :message_count,
+          :started_at,
+          :last_activity,
+          :turn_id,
+          :attention_reason,
+          :session
+        ])
+        |> Map.merge(%{
+          name: name,
+          pid: inspect(pid),
+          state: Map.get(status, :state, :unknown)
+        })
       end
     end)
     |> Enum.reject(&is_nil/1)
@@ -122,6 +150,8 @@ defmodule Genswarms.Agents.AgentSupervisor do
       model: config[:model],
       endpoint: config[:endpoint],
       presets: config[:presets] || [],
+      request_extra: config[:request_extra],
+      compact_extra: config[:compact_extra],
       config: config[:config] || %{},
       connections: config[:connections] || []
     ]

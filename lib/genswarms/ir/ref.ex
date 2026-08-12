@@ -22,7 +22,7 @@ defmodule Genswarms.IR.Ref do
   """
 
   @enforce_keys [:ref, :scheme, :kind]
-  defstruct [:ref, :scheme, :digest, :kind, :attested, :host, :image, opts: %{}]
+  defstruct [:ref, :scheme, :digest, :kind, :attested, :host, :image, :client, opts: %{}]
 
   @type kind :: :data | :code | nil
   @type t :: %__MODULE__{
@@ -33,6 +33,7 @@ defmodule Genswarms.IR.Ref do
           attested: boolean(),
           host: String.t() | nil,
           image: String.t() | nil,
+          client: String.t() | nil,
           opts: map()
         }
 
@@ -44,7 +45,7 @@ defmodule Genswarms.IR.Ref do
   # §3.7) and the local execution backends a translated config produces
   # (`local`/`bwrap`/`mock`/`apple_container`) — non-package `<other>` schemes
   # per §2.1.
-  @bare_schemes ~w(ssh host local bwrap mock apple_container)
+  @bare_schemes ~w(ssh host local bwrap mock apple_container tmux)
 
   @doc """
   Parses a JSON-decoded ref map (string keys) into a validated `t`.
@@ -60,6 +61,7 @@ defmodule Genswarms.IR.Ref do
          {:ok, kind} <- fetch_kind(map, scheme),
          :ok <- validate_host(scheme, map),
          :ok <- validate_image(map),
+         :ok <- validate_client(scheme, map),
          :ok <- validate_opts(map),
          :ok <- validate_attested(map) do
       {:ok,
@@ -71,6 +73,7 @@ defmodule Genswarms.IR.Ref do
          attested: Map.get(map, "attested", false),
          host: Map.get(map, "host"),
          image: Map.get(map, "image"),
+         client: Map.get(map, "client"),
          opts: Map.get(map, "opts", %{})
        }}
     end
@@ -159,6 +162,15 @@ defmodule Genswarms.IR.Ref do
       other -> {:error, {:invalid_image, other}}
     end
   end
+
+  defp validate_client("tmux", map) do
+    case Map.get(map, "client") do
+      client when client in ~w(codex claude opencode) -> :ok
+      other -> {:error, {:invalid_tmux_client, other}}
+    end
+  end
+
+  defp validate_client(_scheme, _map), do: :ok
 
   defp validate_opts(map) do
     case Map.get(map, "opts") do

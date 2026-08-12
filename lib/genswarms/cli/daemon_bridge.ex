@@ -9,6 +9,7 @@ defmodule Genswarms.CLI.DaemonBridge do
   """
 
   alias Genswarms.SwarmManager
+  alias Genswarms.Agents.AgentServer
   alias Genswarms.CLI.SwarmRegistry
 
   @default_timeout 10_000
@@ -64,6 +65,25 @@ defmodule Genswarms.CLI.DaemonBridge do
     SwarmManager.remove_agent(swarm_name, name, persist: true)
   end
 
+  defp local_call(swarm_name, :restart_agent, %{name: name}) do
+    case SwarmManager.restart_agent(swarm_name, name) do
+      {:ok, _pid} -> :ok
+      other -> other
+    end
+  end
+
+  defp local_call(swarm_name, :interrupt_agent, %{name: name}) do
+    AgentServer.interrupt(swarm_name, normalize_name(name))
+  catch
+    :exit, _ -> {:error, :agent_not_found}
+  end
+
+  defp local_call(swarm_name, :agent_session, %{name: name}) do
+    {:ok, AgentServer.get_session_info(swarm_name, normalize_name(name))}
+  catch
+    :exit, _ -> {:error, :agent_not_found}
+  end
+
   defp local_call(swarm_name, :add_object, payload) do
     {connections, payload} = Map.pop(payload, :_connections, [])
     {incoming, spec} = Map.pop(payload, :_incoming, [])
@@ -117,4 +137,12 @@ defmodule Genswarms.CLI.DaemonBridge do
   defp decode_daemon_result(%{status: "ok"}), do: :ok
   defp decode_daemon_result(%{status: "error", reason: reason}), do: {:error, reason}
   defp decode_daemon_result(other), do: {:ok, other}
+
+  defp normalize_name(name) when is_atom(name), do: name
+
+  defp normalize_name(name) when is_binary(name) do
+    String.to_existing_atom(name)
+  rescue
+    ArgumentError -> name
+  end
 end

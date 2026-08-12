@@ -237,6 +237,12 @@ defmodule Genswarms.SwarmManager do
     GenServer.call(__MODULE__, {:get_full_config, swarm_name})
   end
 
+  @doc "Restarts one agent from its complete effective configuration."
+  @spec restart_agent(String.t(), atom() | String.t()) :: {:ok, pid()} | {:error, term()}
+  def restart_agent(swarm_name, agent_name) do
+    GenServer.call(__MODULE__, {:restart_agent, swarm_name, agent_name}, 30_000)
+  end
+
   # Server callbacks
 
   @impl true
@@ -550,6 +556,29 @@ defmodule Genswarms.SwarmManager do
     case Map.get(state.swarms, swarm_name) do
       nil -> {:reply, {:error, :swarm_not_found}, state}
       swarm_info -> {:reply, {:ok, swarm_info.config}, state}
+    end
+  end
+
+  def handle_call({:restart_agent, swarm_name, agent_name}, _from, state) do
+    case Map.get(state.swarms, swarm_name) do
+      nil ->
+        {:reply, {:error, :swarm_not_found}, state}
+
+      swarm_info ->
+        case Enum.find(swarm_info.config.agents, &(to_string(&1.name) == to_string(agent_name))) do
+          nil ->
+            {:reply, {:error, :agent_not_found}, state}
+
+          agent ->
+            agent_name = agent.name
+
+            connections =
+              for {from, to} <- swarm_info.config.topology, from == agent_name, do: to
+
+            config = Map.put(agent, :connections, connections)
+            result = AgentSupervisor.restart_agent(swarm_name, agent_name, config)
+            {:reply, result, state}
+        end
     end
   end
 

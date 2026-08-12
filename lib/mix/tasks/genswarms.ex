@@ -249,6 +249,7 @@ defmodule Mix.Tasks.Genswarms.Start.Daemon do
   use Mix.Task
 
   alias Genswarms.CLI.{SwarmRegistry, EnvManager}
+  alias Genswarms.Agents.AgentServer
   alias Genswarms.SwarmManager
 
   # Poll for tasks every 500ms
@@ -333,6 +334,25 @@ defmodule Mix.Tasks.Genswarms.Start.Daemon do
     SwarmManager.remove_agent(swarm_name, name, persist: true)
   end
 
+  defp apply_command(swarm_name, :restart_agent, %{name: name}) do
+    case SwarmManager.restart_agent(swarm_name, name) do
+      {:ok, _pid} -> :ok
+      other -> other
+    end
+  end
+
+  defp apply_command(swarm_name, :interrupt_agent, %{name: name}) do
+    AgentServer.interrupt(swarm_name, existing_agent_name(name))
+  catch
+    :exit, _ -> {:error, :agent_not_found}
+  end
+
+  defp apply_command(swarm_name, :agent_session, %{name: name}) do
+    {:ok, AgentServer.get_session_info(swarm_name, existing_agent_name(name))}
+  catch
+    :exit, _ -> {:error, :agent_not_found}
+  end
+
   defp apply_command(swarm_name, :add_object, payload) do
     {connections, payload} = Map.pop(payload, :_connections, [])
     {incoming, spec} = Map.pop(payload, :_incoming, [])
@@ -380,6 +400,14 @@ defmodule Mix.Tasks.Genswarms.Start.Daemon do
       [f, t] -> {f, t}
       {f, t} -> {f, t}
     end)
+  end
+
+  defp existing_agent_name(name) when is_atom(name), do: name
+
+  defp existing_agent_name(name) when is_binary(name) do
+    String.to_existing_atom(name)
+  rescue
+    ArgumentError -> name
   end
 
   defp normalize_result(:ok), do: %{status: "ok"}
@@ -805,6 +833,8 @@ defmodule Mix.Tasks.Genswarms.Status do
   defp format_backend({:docker, image, _opts}), do: "docker (#{image})"
   defp format_backend({:ssh, host}), do: "ssh (#{host})"
   defp format_backend({:ssh, host, _opts}), do: "ssh (#{host})"
+  defp format_backend({:tmux, client}), do: "tmux (#{client})"
+  defp format_backend({:tmux, client, _opts}), do: "tmux (#{client})"
   defp format_backend(other), do: inspect(other)
 
   defp find_handler_path(handler, config_dir) do

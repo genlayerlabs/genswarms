@@ -70,6 +70,8 @@ defmodule GenswarmsWeb.Router do
     get "/swarms/:swarm_name/agents/:agent_name", SwarmController, :show_agent
     post "/swarms/:swarm_name/agents/:agent_name/task", SwarmController, :send_task
     post "/swarms/:swarm_name/agents/:agent_name/restart", SwarmController, :restart_agent
+    post "/swarms/:swarm_name/agents/:agent_name/interrupt", SwarmController, :interrupt_agent
+    get "/swarms/:swarm_name/agents/:agent_name/session", SwarmController, :agent_session
     get "/swarms/:swarm_name/agents/:agent_name/history", SwarmController, :agent_history
     get "/swarms/:swarm_name/agents/:agent_name/logs", SwarmController, :agent_logs
     get "/swarms/:swarm_name/agents/:agent_name/skills", SwarmController, :agent_skills

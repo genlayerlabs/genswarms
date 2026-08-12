@@ -115,7 +115,7 @@ defmodule Genswarms.Config.Loader do
 
   defp normalize_config(config), do: {:ok, config}
 
-  # Convert string backend values to atoms (e.g., "local" -> :local, "bwrap" -> :bwrap)
+  # Convert serialized backend values to runtime forms.
   defp normalize_agent_backends(%{agents: agents} = config) when is_list(agents) do
     normalized_agents = Enum.map(agents, &normalize_agent_backend/1)
     %{config | agents: normalized_agents}
@@ -124,7 +124,19 @@ defmodule Genswarms.Config.Loader do
   defp normalize_agent_backends(config), do: config
 
   defp normalize_agent_backend(%{backend: backend} = agent) when is_binary(backend) do
-    %{agent | backend: String.to_atom(backend)}
+    normalized =
+      case String.split(backend, ":", parts: 2) do
+        ["tmux", client] when client in ~w(codex claude opencode) -> {:tmux, client}
+        [bare] -> String.to_atom(bare)
+        _ -> backend
+      end
+
+    %{agent | backend: normalized}
+  end
+
+  defp normalize_agent_backend(%{backend: %{type: "tmux", client: client} = backend} = agent) do
+    opts = Map.get(backend, :opts, %{})
+    %{agent | backend: {:tmux, client, opts}}
   end
 
   defp normalize_agent_backend(agent), do: agent

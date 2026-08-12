@@ -9,6 +9,7 @@ defmodule Genswarms.IR.ToConfig do
       backend {ref: "bwrap"|"local"|"mock"}                  -> :bwrap/:local/:mock
       backend {ref: "oci:n"}                                  -> {:docker, "n"}
       backend {ref: "apple_container", image?: i, opts?: o}   -> :apple_container / tuple
+      backend {ref: "tmux", client: c, opts?: o}              -> {:tmux, c, opts?}
       backend {ref: "ssh", host: h}                           -> {:ssh, h}
       handler {ref: "module:<Mod>"}                           -> the module atom
   """
@@ -49,6 +50,13 @@ defmodule Genswarms.IR.ToConfig do
 
   defp backend(%{scheme: "apple_container", image: image, opts: opts}),
     do: {:apple_container, image, SwarmConfig.atomize_known_backend_opts(opts)}
+
+  defp backend(%{scheme: "tmux", client: client, opts: opts})
+       when opts == %{} or is_nil(opts),
+       do: {:tmux, client}
+
+  defp backend(%{scheme: "tmux", client: client, opts: opts}),
+    do: {:tmux, client, SwarmConfig.atomize_known_backend_opts(opts)}
 
   defp backend(%{scheme: "ssh", host: host}), do: {:ssh, host}
 

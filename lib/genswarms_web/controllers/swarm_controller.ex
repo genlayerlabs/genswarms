@@ -6,12 +6,12 @@ defmodule GenswarmsWeb.SwarmController do
   use GenswarmsWeb, :controller
 
   alias Genswarms.SwarmManager
-  alias Genswarms.Agents.{AgentSupervisor, AgentServer}
+  alias Genswarms.Agents.{AgentServer, AgentSupervisor}
   alias Genswarms.Config.SwarmConfig
   alias Genswarms.Backends.OciCli
   alias Genswarms.Objects.{ObjectSupervisor, ObjectServer}
   alias Genswarms.Routing.Router
-  alias Genswarms.CLI.SwarmRegistry
+  alias Genswarms.CLI.{DaemonBridge, SwarmRegistry}
 
   @doc """
   Lists all swarms.
@@ -436,28 +436,58 @@ defmodule GenswarmsWeb.SwarmController do
   POST /api/swarms/:swarm_name/agents/:agent_name/restart
   """
   def restart_agent(conn, %{"swarm_name" => swarm_name, "agent_name" => agent_name}) do
-    agent_name_atom = String.to_atom(agent_name)
+    case DaemonBridge.dispatch(swarm_name, :restart_agent, %{name: agent_name}, timeout: 30_000) do
+      :ok ->
+        json(conn, %{status: "restarted", agent: agent_name})
 
-    # Get current status to retrieve config
-    case SwarmManager.status(swarm_name) do
-      {:ok, %{config: _config}} ->
-        # Find agent config (simplified - would need full config in real impl)
-        case AgentSupervisor.restart_agent(swarm_name, agent_name_atom, %{name: agent_name_atom}) do
-          {:ok, _pid} ->
-            json(conn, %{status: "restarted", agent: agent_name})
+      {:ok, _value} ->
+        json(conn, %{status: "restarted", agent: agent_name})
 
-          {:error, reason} ->
-            conn
-            |> put_status(:internal_server_error)
-            |> json(%{error: format_error(reason)})
-        end
-
-      {:error, :not_found} ->
-        conn
-        |> put_status(:not_found)
-        |> json(%{error: "Swarm not found"})
+      {:error, reason} ->
+        status = if not_found_reason?(reason), do: :not_found, else: :internal_server_error
+        conn |> put_status(status) |> json(%{error: format_error(reason)})
     end
   end
+
+  @doc "Interrupts a backend turn without destroying a persistent session."
+  def interrupt_agent(conn, %{"swarm_name" => swarm_name, "agent_name" => agent_name}) do
+    result = DaemonBridge.dispatch(swarm_name, :interrupt_agent, %{name: agent_name})
+
+    case result do
+      :ok ->
+        json(conn, %{status: "interrupted", agent: agent_name})
+
+      {:error, reason} ->
+        status = if not_found_reason?(reason), do: :not_found, else: :conflict
+
+        conn
+        |> put_status(status)
+        |> json(%{error: format_error(reason)})
+    end
+  end
+
+  @doc "Returns attachable session metadata for persistent backends."
+  def agent_session(conn, %{"swarm_name" => swarm_name, "agent_name" => agent_name}) do
+    case DaemonBridge.dispatch(swarm_name, :agent_session, %{name: agent_name}) do
+      {:ok, info} when is_map(info) and map_size(info) > 0 ->
+        json(conn, info)
+
+      {:error, reason} ->
+        status = if not_found_reason?(reason), do: :not_found, else: :unprocessable_entity
+
+        conn
+        |> put_status(status)
+        |> json(%{error: format_error(reason)})
+
+      _ ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "Backend does not expose an attachable session"})
+    end
+  end
+
+  defp not_found_reason?(reason),
+    do: reason in [:swarm_not_found, :agent_not_found, ":swarm_not_found", ":agent_not_found"]
 
   @doc """
   Gets the topology of a swarm.
@@ -878,6 +908,8 @@ defmodule GenswarmsWeb.SwarmController do
   defp format_backend_type({:docker, _, _}), do: "docker"
   defp format_backend_type({:ssh, _}), do: "ssh"
   defp format_backend_type({:ssh, _, _}), do: "ssh"
+  defp format_backend_type({:tmux, _}), do: "tmux"
+  defp format_backend_type({:tmux, _, _}), do: "tmux"
   defp format_backend_type(_), do: "unknown"
 
   defp get_agent_skills_paths(swarm_name, agent_name) do
@@ -919,7 +951,7 @@ defmodule GenswarmsWeb.SwarmController do
     get_apple_container_status("szc-#{swarm_name}-#{agent_name}")
   end
 
-  defp get_container_status(swarm_name, agent_name, _backend) do
+  defp get_container_status(swarm_name, agent_name, {:docker, _image}) do
     container_name = "szc-#{swarm_name}-#{agent_name}"
 
     case System.cmd("docker", ["inspect", "-f", "{{.State.Status}}", container_name],
@@ -929,6 +961,12 @@ defmodule GenswarmsWeb.SwarmController do
       _ -> "not_found"
     end
   end
+
+  defp get_container_status(swarm_name, agent_name, {:docker, _image, _opts}) do
+    get_container_status(swarm_name, agent_name, {:docker, nil})
+  end
+
+  defp get_container_status(_swarm_name, _agent_name, _backend), do: "not_applicable"
 
   defp get_apple_container_status(container_name) do
     case apple_container_cmd(["inspect", container_name]) do
@@ -1230,6 +1268,15 @@ defmodule GenswarmsWeb.SwarmController do
 
   defp parse_backend(%{"type" => "docker", "image" => img}), do: {:docker, img}
   defp parse_backend(%{"type" => "ssh", "host" => host}), do: {:ssh, host}
+
+  defp parse_backend(%{"type" => "tmux", "client" => client, "opts" => opts})
+       when client in ~w(codex claude opencode) and is_map(opts),
+       do: {:tmux, client, SwarmConfig.atomize_known_backend_opts(opts)}
+
+  defp parse_backend(%{"type" => "tmux", "client" => client})
+       when client in ~w(codex claude opencode),
+       do: {:tmux, client}
+
   defp parse_backend(%{"type" => "mock"}), do: :mock
   defp parse_backend(%{"type" => "bwrap", "opts" => opts}), do: {:bwrap, opts}
   defp parse_backend(%{"type" => t}), do: safe_atom(t)

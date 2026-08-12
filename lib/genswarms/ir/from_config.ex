@@ -18,6 +18,7 @@ defmodule Genswarms.IR.FromConfig do
       backend {:docker, n}   -> {ref: "oci:<n>", kind: data}
       backend :apple_container / {:apple_container, image}
                            -> {ref: "apple_container", image?: image}
+      backend {:tmux, client} -> {ref: "tmux", client: client}
       backend {:ssh, "u@h"}  -> {ref: "ssh", host: "u@h"}
       object.handler Mod     -> handler {ref: "module:<Mod>", kind: code}
 
@@ -96,12 +97,19 @@ defmodule Genswarms.IR.FromConfig do
   defp backend_ref({:docker, name, _opts}), do: {:ok, oci(name)}
   defp backend_ref({:ssh, host}), do: {:ok, %{"ref" => "ssh", "host" => to_string(host)}}
   defp backend_ref({:ssh, host, _opts}), do: {:ok, %{"ref" => "ssh", "host" => to_string(host)}}
+  defp backend_ref({:tmux, client}), do: {:ok, tmux(client)}
+
+  defp backend_ref({:tmux, client, opts}),
+    do: {:ok, Map.put(tmux(client), "opts", stringify_keys(opts))}
+
   defp backend_ref(other), do: {:error, {:unsupported_backend, other}}
 
   defp oci(name), do: %{"ref" => "oci:" <> to_string(name), "kind" => "data"}
 
   defp apple_container(image),
     do: %{"ref" => "apple_container", "image" => to_string(image)}
+
+  defp tmux(client), do: %{"ref" => "tmux", "client" => to_string(client)}
 
   # ── objects ─────────────────────────────────────────────────────────────────
 

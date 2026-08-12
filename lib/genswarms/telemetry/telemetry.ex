@@ -73,6 +73,21 @@ defmodule Genswarms.Telemetry do
       counter("genswarms.agent.agent_error.count",
         tags: [:swarm, :agent]
       ),
+      counter("genswarms.agent.agent_ready.count",
+        tags: [:swarm, :agent]
+      ),
+      counter("genswarms.agent.agent_blocked.count",
+        tags: [:swarm, :agent]
+      ),
+      counter("genswarms.agent.agent_needs_attention.count",
+        tags: [:swarm, :agent]
+      ),
+      counter("genswarms.agent.agent_interrupted.count",
+        tags: [:swarm, :agent]
+      ),
+      counter("genswarms.agent.agent_send_failed.count",
+        tags: [:swarm, :agent]
+      ),
       counter("genswarms.agent.task_sent.count",
         tags: [:swarm, :agent]
       ),

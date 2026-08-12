@@ -60,6 +60,49 @@ defmodule Genswarms.Config.LoaderTest do
       assert [%{backend: :apple_container}] = config.agents
     end
 
+    test "loads a tmux client and options from JSON data" do
+      content = """
+      {
+        "name": "test-swarm",
+        "agents": [
+          {
+            "name": "agent1",
+            "backend": {
+              "type": "tmux",
+              "client": "codex",
+              "opts": {
+                "workspace": "/tmp/project",
+                "resume": true,
+                "runner": "docker",
+                "image": "coding-tuis:latest",
+                "client_source": "runtime",
+                "network": "none"
+              }
+            }
+          }
+        ],
+        "topology": []
+      }
+      """
+
+      assert {:ok, config} = Loader.load_string(content, :json)
+
+      assert [
+               %{
+                 backend:
+                   {:tmux, "codex",
+                    %{
+                      workspace: "/tmp/project",
+                      resume: true,
+                      runner: "docker",
+                      image: "coding-tuis:latest",
+                      client_source: "runtime",
+                      network: "none"
+                    }}
+               }
+             ] = config.agents
+    end
+
     test "loads configuration from YAML string" do
       content = """
       name: test-swarm

@@ -45,6 +45,23 @@ defmodule Genswarms.Observability.TelemetryBridgeTest do
     assert event.metadata.from == :researcher
   end
 
+  test "persistent-backend lifecycle events reach the structured event stream" do
+    :telemetry.execute(
+      [:genswarms, :agent, :agent_needs_attention],
+      %{},
+      %{agent: :coder, swarm: "s_tmux", turn_id: "turn-1", reason: :recovered}
+    )
+
+    assert_receive {:log_event,
+                    %{
+                      swarm: "s_tmux",
+                      agent: :coder,
+                      event_type: :agent_needs_attention,
+                      metadata: %{turn_id: "turn-1", reason: :recovered}
+                    }},
+                   1_000
+  end
+
   test "error-named events are mapped to :error level" do
     :telemetry.execute([:genswarms, :agent, :agent_error], %{}, %{agent: :a, swarm: "s2"})
 

@@ -267,6 +267,7 @@ defmodule Genswarms.Config.SwarmConfigTest do
   describe "backend_module/1" do
     test "returns correct module for local backend" do
       assert SwarmConfig.backend_module(:local) == Genswarms.Backends.LocalBackend
+
       assert SwarmConfig.backend_module({:local, %{workspace: "/tmp/ws"}}) ==
                Genswarms.Backends.LocalBackend
     end
@@ -356,6 +357,7 @@ defmodule Genswarms.Config.SwarmConfigTest do
       assert :request_extra in SwarmConfig.backend_config_keys()
       assert :compact_extra in SwarmConfig.backend_config_keys()
       assert :endpoint in SwarmConfig.backend_config_keys()
+      assert :xargs_executable in SwarmConfig.backend_config_keys()
     end
   end
 

@@ -72,6 +72,8 @@ defmodule Genswarms.Config.SwarmConfig do
   - `{:apple_container, image, opts}` - Apple `container` with options
   - `{:ssh, "user@host"}` - SSH connection
   - `{:ssh, "user@host", opts}` - SSH with options (key_path, etc.)
+  - `{:tmux, :codex | :claude | :opencode}` - Persistent interactive TUI
+  - `{:tmux, client, opts}` - Persistent TUI with client/tmux options
 
   ## Tool Presets (from nix/tool-presets.nix)
 
@@ -118,6 +120,8 @@ defmodule Genswarms.Config.SwarmConfig do
           | {:docker, String.t(), map()}
           | {:ssh, String.t()}
           | {:ssh, String.t(), map()}
+          | {:tmux, atom() | String.t()}
+          | {:tmux, atom() | String.t(), map()}
 
   @type agent_config :: %{
           required(:name) => String.t() | atom(),
@@ -152,7 +156,15 @@ defmodule Genswarms.Config.SwarmConfig do
                           memory_limit cpu_shares tasks_max subzeroclaw_path presets network
                           max_turns store extra_store_paths seccomp env volumes cmd container_name
                           subzeroclaw_src cpu_limit memory_swap pids_limit request_extra
-                          compact_extra endpoint api_key model privilege_mode nice proc_mount)a
+                          compact_extra endpoint api_key model privilege_mode nice proc_mount
+                          client tmux_socket tmux_executable executable args approval_policy sandbox
+                          permission_mode effort dangerously_bypass auto_approve poll_interval_ms
+                          ready_quiet_ms history_lines history_limit cols rows max_reply_bytes
+                          resume quiet_ready_fallback state_lines runner image docker_executable
+                          bwrap_executable xargs_executable state_dir client_source pass_env runner_env
+                          keepalive_command client_store_paths nix_store_executable submit_delay_ms
+                          submission_context_lines submit_retry_after_ms submit_max_attempts
+                          submit_check_max_errors)a
 
   @type topology_edge :: {atom(), atom()}
 
@@ -229,6 +241,8 @@ defmodule Genswarms.Config.SwarmConfig do
   def backend_module({:docker, _, _}), do: Genswarms.Backends.DockerBackend
   def backend_module({:ssh, _}), do: Genswarms.Backends.SSHBackend
   def backend_module({:ssh, _, _}), do: Genswarms.Backends.SSHBackend
+  def backend_module({:tmux, _}), do: Genswarms.Backends.TmuxBackend
+  def backend_module({:tmux, _, _}), do: Genswarms.Backends.TmuxBackend
   def backend_module(:mock), do: Genswarms.Backends.MockBackend
   def backend_module({:mock, _}), do: Genswarms.Backends.MockBackend
 
@@ -249,6 +263,8 @@ defmodule Genswarms.Config.SwarmConfig do
   def backend_config({:mock, opts}), do: opts
   def backend_config({:ssh, host}), do: %{host: host}
   def backend_config({:ssh, host, opts}), do: Map.merge(%{host: host}, opts)
+  def backend_config({:tmux, client}), do: %{client: client}
+  def backend_config({:tmux, client, opts}), do: Map.put(opts, :client, client)
 
   @doc """
   Backend-specific keys that should be split out of an agent's domain config.
@@ -396,9 +412,46 @@ defmodule Genswarms.Config.SwarmConfig do
 
   defp validate_backend({:ssh, host}) when is_binary(host), do: :ok
   defp validate_backend({:ssh, host, opts}) when is_binary(host) and is_map(opts), do: :ok
+  defp validate_backend({:tmux, client}), do: validate_tmux(client, %{})
+
+  defp validate_backend({:tmux, client, opts}) when is_map(opts),
+    do: validate_tmux(client, opts)
+
   defp validate_backend(:mock), do: :ok
   defp validate_backend({:mock, opts}) when is_map(opts), do: :ok
   defp validate_backend(backend), do: {:error, {:invalid_backend, backend}}
+
+  defp validate_tmux_client(client) do
+    if Genswarms.Backends.Tmux.Adapters.known_client?(client),
+      do: :ok,
+      else: {:error, {:unsupported_tmux_client, client}}
+  end
+
+  defp validate_tmux(client, opts) do
+    with :ok <- validate_tmux_client(client),
+         :ok <- validate_tmux_runner(Map.get(opts, :runner, Map.get(opts, "runner"))),
+         :ok <-
+           validate_tmux_client_source(
+             Map.get(opts, :client_source, Map.get(opts, "client_source"))
+           ) do
+      :ok
+    end
+  end
+
+  defp validate_tmux_runner(nil), do: :ok
+
+  defp validate_tmux_runner(runner) do
+    if Genswarms.Backends.Tmux.Runners.known?(runner),
+      do: :ok,
+      else: {:error, {:unsupported_tmux_runner, runner}}
+  end
+
+  defp validate_tmux_client_source(value)
+       when value in [nil, :runtime, "runtime", :host_nix, "host_nix", "host-nix"],
+       do: :ok
+
+  defp validate_tmux_client_source(value),
+    do: {:error, {:unsupported_client_source, value}}
 
   defp validate_skills(%{skills: skills}) when is_list(skills) do
     if Enum.all?(skills, &is_binary/1) do
@@ -516,7 +569,6 @@ defmodule Genswarms.Config.SwarmConfig do
     end
   end
 
-
   # Notarized package handler (gsp design §14.3): a ref map the Packages.Loader
   # resolves fail-closed at object start. Validated structurally here; the
   # digest/entry verification is the Loader's job (engine #68).
@@ -534,6 +586,7 @@ defmodule Genswarms.Config.SwarmConfig do
       {:error, {:invalid_handler_ref, handler}}
     end
   end
+
   # Docker/SSH object with backend (no handler required)
   defp validate_object(%{name: name, backend: backend} = object)
        when (is_binary(name) or is_atom(name)) and name != "" do
