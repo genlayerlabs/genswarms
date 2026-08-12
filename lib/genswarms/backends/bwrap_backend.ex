@@ -51,9 +51,9 @@ defmodule Genswarms.Backends.BwrapBackend do
     (`kernel.unprivileged_userns_clone = 1`, or a seccomp profile / `hostUsers:
     false` that permits `clone(CLONE_NEWUSER)`)
   - Pre-built sandbox base layers (via `nix build .#sandboxBase-*`)
-  - `:cgroup` mode additionally needs systemd + `SYS_ADMIN`; `:rootless` needs
-    neither. fuse-overlayfs (the overlay layer) still wants `/dev/fuse` — a
-    device mount, allowed in a restricted pod, NOT a capability.
+  - `:cgroup` mode additionally needs systemd + `SYS_ADMIN` and fuse-overlayfs
+    with `/dev/fuse`; `:rootless` needs neither. Its per-agent writable root is
+    materialized from the Nix base's symlink forest without a kernel mount.
   """
 
   @behaviour Genswarms.Backends.BackendBehaviour
@@ -122,15 +122,14 @@ defmodule Genswarms.Backends.BwrapBackend do
 
     rootless? = Map.get(config, :privilege_mode, :cgroup) == :rootless
 
-    # Setup overlay filesystem. :cgroup mounts fuse-overlayfs and binds the
-    # merged dir as /; :rootless creates the SAME upper/work layout but lets
-    # bwrap mount the overlay itself inside the sandbox's user namespace
-    # (kernel overlayfs-in-userns) — no fuse process, no /dev/fuse.
+    # Setup the per-agent root. :cgroup mounts fuse-overlayfs and binds the
+    # merged dir as /; :rootless materializes the Nix base's directory/symlink
+    # skeleton into merged/ — no nested overlay, fuse process, or /dev/fuse.
     # Seed files (DNS + harness config) go into upper/ BEFORE any mount:
     # in :cgroup mode the seed callback runs pre-fuse-overlayfs (writing
     # upper/ under a live mount is undefined and broke the sandbox's
     # /root/.subzeroclaw bind targets — bwrap exit 1 at launch); in
-    # :rootless nothing mounts on the host, so seeding right after is safe.
+    # :rootless stages the same upper/ seed and merges it while materializing.
     seed = fn agent_dir ->
       setup_dns_config(agent_dir)
       setup_harness_config(agent_dir, config)
@@ -139,14 +138,7 @@ defmodule Genswarms.Backends.BwrapBackend do
 
     overlay_result =
       if rootless? do
-        case OverlayManager.setup_overlay(sandbox_id, presets, :rootless) do
-          {:ok, dir, base} ->
-            :ok = seed.(dir)
-            {:ok, dir, base}
-
-          error ->
-            error
-        end
+        OverlayManager.setup_overlay(sandbox_id, presets, mode: :rootless, seed: seed)
       else
         case OverlayManager.setup_overlay(sandbox_id, presets, seed: seed) do
           {:ok, dir} -> {:ok, dir, nil}
@@ -155,10 +147,7 @@ defmodule Genswarms.Backends.BwrapBackend do
       end
 
     case overlay_result do
-      {:ok, overlay_dir, rootless_base} ->
-        config =
-          if rootless_base, do: Map.put(config, :rootless_base, rootless_base), else: config
-
+      {:ok, overlay_dir, _base_layer} ->
         # Compute the /nix/store bind set. `:full` (default) = the legacy single
         # /nix/store bind; `:closure` = the minimal per-path closure. Fail closed:
         # a closure failure tears down the overlay and aborts rather than running
@@ -598,32 +587,14 @@ defmodule Genswarms.Backends.BwrapBackend do
     # Core bwrap arguments
     # ORDER MATTERS: overlay as root first, then other mounts on top
     # User namespace isolation
-    # Root filesystem (MUST be first):
-    #   :cgroup   — the fuse-overlayfs merged dir, pre-mounted host-side.
-    #   :rootless — bwrap mounts the overlay ITSELF inside the userns
-    #               (--overlay-src base --overlay upper work /): kernel
-    #               overlayfs-in-userns, no fuse, no /dev/fuse. Same upper/
-    #               layout, so DNS/harness files written to upper/ appear in /
-    #               identically in both modes.
+    # Root filesystem (MUST be first): merged/ is either the host-side FUSE
+    # union (:cgroup) or a per-agent materialized Nix symlink forest
+    # (:rootless). Both use the same bind argv and remain writable per agent.
     # Nix store binds — `:full` = the single /nix/store bind; `:closure` =
     # per-path closure binds. Spliced at the SAME position the legacy bind
     # held (right after the root, before all other binds), so the existing
     # arg ordering is preserved.
-    root_args =
-      case Map.get(config, :rootless_base) do
-        nil ->
-          ["--bind", Path.join(overlay_dir, "merged"), "/"]
-
-        base ->
-          [
-            "--overlay-src",
-            base,
-            "--overlay",
-            Path.join(overlay_dir, "upper"),
-            Path.join(overlay_dir, "work"),
-            "/"
-          ]
-      end
+    root_args = ["--bind", Path.join(overlay_dir, "merged"), "/"]
 
     args =
       ([

@@ -1,9 +1,13 @@
 defmodule Genswarms.Backends.Bwrap.OverlayManager do
   @moduledoc """
-  Manages overlay filesystems for bwrap sandboxes.
+  Manages per-agent root filesystems for bwrap sandboxes.
 
-  Uses fuse-overlayfs (userspace overlay filesystem) to create per-agent
-  writable layers on top of shared read-only Nix base layers.
+  In `:cgroup` mode, uses fuse-overlayfs (userspace overlay filesystem) to
+  create per-agent writable layers on top of shared read-only Nix base layers.
+  In `:rootless` mode, materializes the Nix base's symlink forest into the
+  per-agent `merged/` directory and binds that directory as `/`. This avoids
+  nested overlayfs mounts, which managed container filesystems commonly reject
+  even when unprivileged user namespaces themselves are enabled.
 
   ## Directory Structure
 
@@ -13,13 +17,13 @@ defmodule Genswarms.Backends.Bwrap.OverlayManager do
       │   ├── web -> /nix/store/...
       │   └── code -> /nix/store/...
       └── agents/{sandbox_id}/   # Per-agent (on tmpfs)
-          ├── upper/             # Copy-on-write writes
-          ├── work/              # Kernel workdir
-          └── merged/            # Union mount point
+          ├── upper/             # Seed/COW writes
+          ├── work/              # Overlay workdir (:cgroup only)
+          └── merged/            # Mounted union or materialized root
 
   ## Requirements
 
-  - fuse-overlayfs installed
+  - fuse-overlayfs installed (`:cgroup` mode only)
   - /run/swarm mounted as tmpfs (configured via NixOS module)
   - Pre-built sandbox bases via `nix build .#sandboxBase-*`
   """
@@ -29,6 +33,24 @@ defmodule Genswarms.Backends.Bwrap.OverlayManager do
   @swarm_base_dir "/run/swarm"
   @sandbox_bases_dir "/run/swarm/sandbox-base"
   @agents_dir "/run/swarm/agents"
+
+  # bwrap can create bind destinations only when all of their parents are
+  # writable. Rootless roots start as the tiny Nix buildEnv symlink forest, so
+  # create the standard mount destinations up front. Arbitrary extra binds are
+  # still created by bwrap under this writable per-agent root.
+  @rootless_mount_dirs [
+    "nix/store",
+    "root/.subzeroclaw/skills",
+    "root/.subzeroclaw/logs",
+    "workspace",
+    "usr/local/bin",
+    "usr/bin",
+    "run/secrets",
+    "skills",
+    "proc",
+    "dev",
+    "tmp"
+  ]
 
   @doc """
   Sets up an overlay filesystem for an agent sandbox.
@@ -43,18 +65,33 @@ defmodule Genswarms.Backends.Bwrap.OverlayManager do
   @doc """
   As `setup_overlay/2`, with options:
 
+    * `:mode` — `:cgroup` (default) mounts fuse-overlayfs; `:rootless`
+      materializes a writable per-agent root and returns its resolved base as
+      `{:ok, agent_dir, base_layer}`.
     * `:seed` — `fn agent_dir -> :ok end`, invoked AFTER the upper/work/merged
-      dirs exist and BEFORE fuse-overlayfs mounts. The only safe moment to
-      write seed files (DNS, harness config) into `upper/`: mutating it behind
-      a live FUSE daemon is undefined (its cache never sees the entries — a
-      `/root/.subzeroclaw` seeded that way broke the sandbox's skills/logs
-      bind targets, bwrap exit 1 at launch), and writing through `merged/` is
-      blocked by base-layer permissions (`/etc`, `/root` are root-owned).
-      A raising or non-`:ok` seed aborts the setup — fail closed.
+      dirs exist and BEFORE the root is mounted/materialized. This is the only
+      safe moment to write seed files (DNS, harness config) into `upper/`:
+      mutating it behind a live FUSE daemon is undefined, and rootless mode
+      merges it into `merged/` during materialization. A raising or non-`:ok`
+      seed aborts the setup — fail closed.
   """
   @spec setup_overlay(String.t(), [atom()], keyword() | :rootless) ::
           {:ok, String.t()} | {:ok, String.t(), String.t()} | {:error, term()}
   def setup_overlay(sandbox_id, presets, opts) when is_list(opts) do
+    case Keyword.get(opts, :mode, :cgroup) do
+      :rootless -> setup_rootless(sandbox_id, presets, opts)
+      :cgroup -> setup_cgroup(sandbox_id, presets, opts)
+      mode -> {:error, {:unsupported_root_mode, mode}}
+    end
+  end
+
+  # Kept for callers using the original rootless API. New callers should pass
+  # `mode: :rootless` so a seed callback can be staged before materialization.
+  def setup_overlay(sandbox_id, presets, :rootless) do
+    setup_overlay(sandbox_id, presets, mode: :rootless)
+  end
+
+  defp setup_cgroup(sandbox_id, presets, opts) do
     agent_dir = Path.join(agents_dir(), sandbox_id)
     upper_dir = Path.join(agent_dir, "upper")
     work_dir = Path.join(agent_dir, "work")
@@ -69,22 +106,21 @@ defmodule Genswarms.Backends.Bwrap.OverlayManager do
     end
   end
 
-  # The rootless variant: creates the SAME upper/work layout but mounts
-  # NOTHING — bwrap itself mounts the overlay inside the sandbox's user
-  # namespace (`--overlay-src <base> --overlay <upper> <work> /`, kernel
-  # overlayfs-in-userns, kernel ≥ 5.11). No fuse-overlayfs process, no
-  # `/dev/fuse`, no host mount. Returns `{:ok, agent_dir, base_layer}` —
-  # the caller needs the base path to build the bwrap argv (there is no
-  # pre-mounted `merged/` in this mode). Seeding upper/ is safe at any
-  # point in this mode; no :seed option needed.
-  def setup_overlay(sandbox_id, presets, :rootless) do
+  # Rootless deliberately avoids both host-side FUSE and bwrap's nested kernel
+  # overlay. The latter fails with EINVAL on common Kubernetes/containerd
+  # backing filesystems even though a basic bwrap user namespace works. Nix
+  # buildEnv roots are mostly symlinks into /nix/store, so materializing their
+  # directory/symlink skeleton is cheap while retaining per-agent writes.
+  defp setup_rootless(sandbox_id, presets, opts) do
     agent_dir = Path.join(agents_dir(), sandbox_id)
     upper_dir = Path.join(agent_dir, "upper")
     work_dir = Path.join(agent_dir, "work")
     merged_dir = Path.join(agent_dir, "merged")
 
     with {:ok, base_layer} <- resolve_base_layer(presets),
-         :ok <- create_agent_dirs(agent_dir, upper_dir, work_dir, merged_dir) do
+         :ok <- create_agent_dirs(agent_dir, upper_dir, work_dir, merged_dir),
+         :ok <- run_seed(Keyword.get(opts, :seed), agent_dir),
+         :ok <- materialize_root(base_layer, upper_dir, merged_dir) do
       {:ok, agent_dir, base_layer}
     else
       {:error, {:mkdir_failed, reason}} -> {:error, {:mkdir_failed, reason}}
@@ -101,6 +137,150 @@ defmodule Genswarms.Backends.Bwrap.OverlayManager do
     end
   rescue
     e -> {:error, {:seed_failed, Exception.message(e)}}
+  end
+
+  defp materialize_root(base_layer, upper_dir, merged_dir) do
+    with {:ok, []} <- File.ls(merged_dir),
+         :ok <- merge_tree(base_layer, merged_dir),
+         :ok <- merge_tree(upper_dir, merged_dir),
+         :ok <- ensure_mount_dirs(merged_dir),
+         :ok <- sync_modes(upper_dir, merged_dir) do
+      :ok
+    else
+      {:ok, _entries} -> {:error, {:materialize_failed, :merged_not_empty}}
+      {:error, reason} -> {:error, {:materialize_failed, reason}}
+    end
+  end
+
+  # Merge without ever following a destination symlink. File.cp_r/2 follows a
+  # destination symlink on conflicts, which could otherwise attempt to write
+  # through the Nix base into /nix/store when applying the seed layer.
+  defp merge_tree(source, destination) do
+    with {:ok, entries} <- File.ls(source) do
+      Enum.reduce_while(entries, :ok, fn entry, :ok ->
+        case merge_entry(Path.join(source, entry), Path.join(destination, entry)) do
+          :ok -> {:cont, :ok}
+          {:error, _} = error -> {:halt, error}
+        end
+      end)
+    end
+  end
+
+  defp merge_entry(source, destination) do
+    case File.lstat(source) do
+      {:ok, %{type: :directory}} ->
+        case File.lstat(destination) do
+          {:ok, %{type: :directory}} ->
+            merge_tree(source, destination)
+
+          {:error, :enoent} ->
+            copy_path(source, destination)
+
+          {:ok, _other} ->
+            with :ok <- remove_path(destination), do: copy_path(source, destination)
+
+          {:error, reason} ->
+            {:error, {:stat_failed, destination, reason}}
+        end
+
+      {:ok, _other} ->
+        with :ok <- remove_path(destination), do: copy_path(source, destination)
+
+      {:error, reason} ->
+        {:error, {:stat_failed, source, reason}}
+    end
+  end
+
+  defp copy_path(source, destination) do
+    case File.cp_r(source, destination) do
+      {:ok, _paths} -> :ok
+      {:error, reason, path} -> {:error, {:copy_failed, path, reason}}
+    end
+  end
+
+  # File.cp_r/2 preserves regular-file modes but creates directories using the
+  # process umask. Re-apply seed-layer permissions after all mountpoints exist,
+  # most importantly 0700 on /run/secrets and 0600 on provider credentials.
+  # Children are handled first so a restrictive parent mode cannot block the
+  # remainder of the traversal.
+  defp sync_modes(source, destination) do
+    case File.lstat(source) do
+      {:ok, %{type: :directory, mode: mode}} ->
+        with {:ok, entries} <- File.ls(source),
+             :ok <- sync_child_modes(entries, source, destination),
+             :ok <- File.chmod(destination, Bitwise.band(mode, 0o777)) do
+          :ok
+        end
+
+      {:ok, %{type: :regular, mode: mode}} ->
+        File.chmod(destination, Bitwise.band(mode, 0o777))
+
+      {:ok, %{type: :symlink}} ->
+        :ok
+
+      {:ok, _other} ->
+        :ok
+
+      {:error, reason} ->
+        {:error, {:stat_failed, source, reason}}
+    end
+  end
+
+  defp sync_child_modes(entries, source, destination) do
+    Enum.reduce_while(entries, :ok, fn entry, :ok ->
+      case sync_modes(Path.join(source, entry), Path.join(destination, entry)) do
+        :ok -> {:cont, :ok}
+        {:error, _} = error -> {:halt, error}
+      end
+    end)
+  end
+
+  defp remove_path(path) do
+    case File.lstat(path) do
+      {:error, :enoent} ->
+        :ok
+
+      {:ok, _} ->
+        case File.rm_rf(path) do
+          {:ok, _paths} -> :ok
+          {:error, reason, failed_path} -> {:error, {:remove_failed, failed_path, reason}}
+        end
+
+      {:error, reason} ->
+        {:error, {:stat_failed, path, reason}}
+    end
+  end
+
+  defp ensure_mount_dirs(root) do
+    Enum.reduce_while(@rootless_mount_dirs, :ok, fn relative, :ok ->
+      case ensure_relative_dir(root, Path.split(relative)) do
+        :ok -> {:cont, :ok}
+        {:error, _} = error -> {:halt, error}
+      end
+    end)
+  end
+
+  defp ensure_relative_dir(_current, []), do: :ok
+
+  defp ensure_relative_dir(current, [segment | rest]) do
+    path = Path.join(current, segment)
+
+    result =
+      case File.lstat(path) do
+        {:ok, %{type: :directory}} ->
+          :ok
+
+        {:error, :enoent} ->
+          File.mkdir(path)
+
+        {:ok, _other} ->
+          with :ok <- remove_path(path), do: File.mkdir(path)
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+
+    with :ok <- result, do: ensure_relative_dir(path, rest)
   end
 
   @doc """
@@ -200,7 +380,7 @@ defmodule Genswarms.Backends.Bwrap.OverlayManager do
   end
 
   @doc """
-  Gets memory usage of an overlay (size of upper directory).
+  Gets memory usage of an overlay seed/COW directory.
   """
   @spec get_overlay_size(String.t()) :: {:ok, non_neg_integer()} | {:error, term()}
   def get_overlay_size(sandbox_id) do

@@ -227,23 +227,25 @@ name for a multi-preset agent is the sorted, `-`-joined preset list (see below).
 
 ### Overlay assembly
 
-Per-agent isolation comes from an overlay filesystem. In `:cgroup` mode it is
-`fuse-overlayfs` (userspace overlay, no root
-required). For each agent, `lib/genswarms/backends/bwrap/overlay_manager.ex`
-creates a directory tree and mounts the union. In `:rootless` mode the SAME
-directory tree is created but nothing is mounted host-side: bwrap mounts the
-overlay itself inside the sandbox user namespace (`--overlay-src base
---overlay upper work /`, kernel overlayfs-in-userns) — no fuse process, no
-`/dev/fuse`, no elevated capabilities. See "Privilege modes" in
-[backends.md](backends.md). The `:cgroup` union:
+Per-agent isolation comes from a private writable root. In `:cgroup` mode it is
+`fuse-overlayfs` (userspace overlay, no root required). For each agent,
+`lib/genswarms/backends/bwrap/overlay_manager.ex` creates a directory tree and
+mounts the union. In `:rootless` mode nothing is mounted: the small Nix base
+directory/symlink forest is materialized into the per-agent `merged/`
+directory, then bwrap binds that directory as `/`. This avoids both
+fuse-overlayfs and nested kernel overlayfs, which managed container backing
+filesystems may reject. See "Privilege modes" in [backends.md](backends.md).
+Named Nix bases are cheap to materialize because their tools remain symlinks
+into the read-only `/nix/store`; regular files in a custom base are copied per
+agent. The directory layout is:
 
 ```
 /run/swarm/
   sandbox-base/<preset>   # symlink to the pre-built Nix environment (lowerdir)
   agents/<sandbox-id>/
-    upper/                # per-agent writable layer (copy-on-write)
-    work/                 # overlayfs workdir
-    merged/               # union mount the agent actually runs in
+    upper/                # COW layer (:cgroup) or seed staging (:rootless)
+    work/                 # overlayfs workdir (:cgroup only)
+    merged/               # FUSE union or materialized root the agent runs in
 ```
 
 ```bash

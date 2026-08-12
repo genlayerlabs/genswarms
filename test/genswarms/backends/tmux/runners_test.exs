@@ -214,6 +214,14 @@ defmodule Genswarms.Backends.Tmux.RunnersTest do
     assert "--cap-drop" in args
     assert "ALL" in args
     assert "/nix/store/client" in args
+
+    merged_root = Path.join([ctx.root, "overlay", "merged"])
+
+    assert ["--bind", ^merged_root, "/"] =
+             Enum.slice(args, Enum.find_index(args, &(&1 == "--bind")), 3)
+
+    refute "--overlay-src" in args
+    refute "--overlay" in args
     refute "--setenv" in args
     refute "not-in-argv" in args
 

@@ -125,24 +125,12 @@ defmodule Genswarms.Backends.Tmux.Runners.Bwrap do
         bwrap,
         sandbox_id,
         overlay_dir,
-        rootless_base,
+        _base_layer,
         store_paths,
         launch,
         _env_pairs
       ) do
-    root_args =
-      if rootless_base do
-        [
-          "--overlay-src",
-          rootless_base,
-          "--overlay",
-          Path.join(overlay_dir, "upper"),
-          Path.join(overlay_dir, "work"),
-          "/"
-        ]
-      else
-        ["--bind", Path.join(overlay_dir, "merged"), "/"]
-      end
+    root_args = ["--bind", Path.join(overlay_dir, "merged"), "/"]
 
     with {:ok, ro, rw} <- RunnerHelpers.extra_binds(config) do
       store_args = StoreClosure.paths_to_binds(store_paths)
@@ -259,9 +247,12 @@ defmodule Genswarms.Backends.Tmux.Runners.Bwrap do
     result =
       case Map.get(config, :privilege_mode, :cgroup) do
         value when value in [:rootless, "rootless"] ->
-          with {:ok, dir, base} <- OverlayManager.setup_overlay(sandbox_id, presets, :rootless),
-               :ok <- seed_overlay(dir) do
-            {:ok, dir, base, true}
+          case OverlayManager.setup_overlay(sandbox_id, presets,
+                 mode: :rootless,
+                 seed: &seed_overlay/1
+               ) do
+            {:ok, dir, base} -> {:ok, dir, base, true}
+            {:error, _} = error -> error
           end
 
         _ ->
