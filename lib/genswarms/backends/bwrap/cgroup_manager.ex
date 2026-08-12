@@ -32,6 +32,7 @@ defmodule Genswarms.Backends.Bwrap.CgroupManager do
 
   @systemd_slice "subzeroclaw"
   @cgroup_base_path "/sys/fs/cgroup/user.slice"
+  @live_unit_states ["active", "activating", "reloading"]
 
   @doc """
   Creates a systemd scope command wrapper for the given command.
@@ -103,22 +104,25 @@ defmodule Genswarms.Backends.Bwrap.CgroupManager do
   """
   @spec scope_active?(String.t()) :: boolean()
   def scope_active?(scope_name) do
-    # Check both service and scope (we use transient services with --pipe)
-    case System.cmd("systemctl", ["--user", "is-active", "#{scope_name}.service"],
-           stderr_to_stdout: true
-         ) do
-      {"active\n", 0} ->
-        true
+    # Check both service and scope (we use transient services with --pipe).
+    # `systemctl is-active` can report `activating` while systemd is still
+    # registering a freshly-created transient unit. That is a live state, not
+    # a dead sandbox.
+    unit_live?("#{scope_name}.service") or unit_live?("#{scope_name}.scope")
+  end
 
-      _ ->
-        # Fall back to scope check for backwards compatibility
-        case System.cmd("systemctl", ["--user", "is-active", "#{scope_name}.scope"],
-               stderr_to_stdout: true
-             ) do
-          {"active\n", 0} -> true
-          _ -> false
-        end
-    end
+  @doc """
+  Waits briefly for a freshly-created transient unit to become visible.
+
+  `systemd-run --pipe` returns a connected process before the user manager is
+  guaranteed to answer a separate `systemctl` query for that unit. Waiting at
+  the start boundary keeps callers from receiving a backend reference whose
+  first health check races unit registration.
+  """
+  @spec await_scope_active(String.t(), non_neg_integer()) :: boolean()
+  def await_scope_active(scope_name, timeout_ms \\ 1_000) do
+    deadline = System.monotonic_time(:millisecond) + timeout_ms
+    await_scope_active_until(scope_name, deadline)
   end
 
   @doc """
@@ -229,6 +233,32 @@ defmodule Genswarms.Backends.Bwrap.CgroupManager do
 
       _ ->
         []
+    end
+  end
+
+  defp await_scope_active_until(scope_name, deadline) do
+    if scope_active?(scope_name) do
+      true
+    else
+      remaining = deadline - System.monotonic_time(:millisecond)
+
+      if remaining > 0 do
+        Process.sleep(min(20, remaining))
+        await_scope_active_until(scope_name, deadline)
+      else
+        false
+      end
+    end
+  end
+
+  defp unit_live?(unit) do
+    case System.cmd(
+           "systemctl",
+           ["--user", "show", unit, "--property=ActiveState", "--value"],
+           stderr_to_stdout: true
+         ) do
+      {state, 0} -> String.trim(state) in @live_unit_states
+      _ -> false
     end
   end
 

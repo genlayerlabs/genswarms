@@ -71,11 +71,12 @@ defmodule Genswarms.Backends.EgressGuard do
   #                     a docker volume with the agent. Required on Docker Desktop,
   #                     where a host-side (macOS-kernel) socket cannot be connect()ed
   #                     from a sibling VM container — the socket must be VM-side.
-  defstruct [:kind, :port, :socket_path, :sidecar, :volume]
+  defstruct [:kind, :port, :os_pid, :socket_path, :sidecar, :volume]
 
   @type t :: %__MODULE__{
           kind: :host_socat | :docker_sidecar | nil,
           port: port() | nil,
+          os_pid: pos_integer() | nil,
           socket_path: String.t() | nil,
           sidecar: String.t() | nil,
           volume: String.t() | nil
@@ -278,7 +279,19 @@ defmodule Genswarms.Backends.EgressGuard do
             {:args, args}
           ])
 
-        {:ok, %__MODULE__{kind: :host_socat, port: port_ref, socket_path: socket_path}}
+        os_pid =
+          case Port.info(port_ref, :os_pid) do
+            {:os_pid, pid} when is_integer(pid) and pid > 0 -> pid
+            _ -> nil
+          end
+
+        {:ok,
+         %__MODULE__{
+           kind: :host_socat,
+           port: port_ref,
+           os_pid: os_pid,
+           socket_path: socket_path
+         }}
       end
     end
   end
@@ -330,17 +343,56 @@ defmodule Genswarms.Backends.EgressGuard do
     :ok
   end
 
-  def stop_forwarder(%__MODULE__{port: port, socket_path: socket_path}) do
-    if port do
-      try do
-        Port.close(port)
-      rescue
-        _ -> :ok
-      end
-    end
+  def stop_forwarder(%__MODULE__{port: port, os_pid: os_pid, socket_path: socket_path}) do
+    # Port.close/1 closes the BEAM's descriptor but does not reliably terminate
+    # a detached socat listener. Stop the exact child PID first, wait briefly,
+    # and only escalate that same PID if it ignores TERM. Without this, every
+    # completed isolated turn can leave a live host-side network forwarder.
+    terminate_host_process(os_pid)
+    close_port(port)
 
     if socket_path, do: File.rm(socket_path)
     :ok
+  end
+
+  defp terminate_host_process(nil), do: :ok
+
+  defp terminate_host_process(pid) when is_integer(pid) and pid > 0 do
+    case find_executable("kill") do
+      nil ->
+        :ok
+
+      kill ->
+        System.cmd(kill, ["-TERM", Integer.to_string(pid)], stderr_to_stdout: true)
+
+        unless await_process_exit(kill, pid, 10) do
+          System.cmd(kill, ["-KILL", Integer.to_string(pid)], stderr_to_stdout: true)
+          await_process_exit(kill, pid, 10)
+        end
+
+        :ok
+    end
+  end
+
+  defp await_process_exit(_kill, _pid, 0), do: false
+
+  defp await_process_exit(kill, pid, attempts) do
+    case System.cmd(kill, ["-0", Integer.to_string(pid)], stderr_to_stdout: true) do
+      {_, 0} ->
+        Process.sleep(20)
+        await_process_exit(kill, pid, attempts - 1)
+
+      _ ->
+        true
+    end
+  end
+
+  defp close_port(nil), do: :ok
+
+  defp close_port(port) do
+    Port.close(port)
+  rescue
+    _ -> :ok
   end
 
   defp find_executable(name) do

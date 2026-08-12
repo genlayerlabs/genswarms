@@ -103,7 +103,6 @@ defmodule Genswarms.Backends.Bwrap.OverlayManager do
     e -> {:error, {:seed_failed, Exception.message(e)}}
   end
 
-
   @doc """
   Cleans up an overlay filesystem.
 
@@ -140,9 +139,11 @@ defmodule Genswarms.Backends.Bwrap.OverlayManager do
     base_path = Path.join(@sandbox_bases_dir, preset_name)
 
     if File.exists?(base_path) do
-      # Follow symlink to actual Nix store path
-      case File.read_link(base_path) do
-        {:ok, target} -> target
+      # Follow the complete symlink chain. Deployments commonly use
+      # /run/swarm/... -> checkout/result -> /nix/store/...; resolving only
+      # the first hop makes a valid Nix base fail `store: :closure`.
+      case :file.read_link_all(String.to_charlist(base_path)) do
+        {:ok, target} -> List.to_string(target)
         {:error, _} -> base_path
       end
     else
@@ -166,6 +167,14 @@ defmodule Genswarms.Backends.Bwrap.OverlayManager do
   @doc false
   @spec ensure_store_path(String.t()) :: {:ok, String.t()} | {:error, term()}
   def ensure_store_path("/nix/store/" <> _ = path), do: {:ok, path}
+
+  def ensure_store_path(path) when is_binary(path) do
+    case :file.read_link_all(String.to_charlist(path)) do
+      {:ok, resolved} -> resolved |> List.to_string() |> ensure_store_path()
+      {:error, _} -> {:error, {:base_not_store_path, path}}
+    end
+  end
+
   def ensure_store_path(other), do: {:error, {:base_not_store_path, other}}
 
   @doc """

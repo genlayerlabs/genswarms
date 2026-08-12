@@ -134,6 +134,7 @@ defmodule Genswarms.Backends.BwrapBackend do
     seed = fn agent_dir ->
       setup_dns_config(agent_dir)
       setup_harness_config(agent_dir, config)
+      setup_api_key_secret(agent_dir, config)
     end
 
     overlay_result =
@@ -155,7 +156,8 @@ defmodule Genswarms.Backends.BwrapBackend do
 
     case overlay_result do
       {:ok, overlay_dir, rootless_base} ->
-        config = if rootless_base, do: Map.put(config, :rootless_base, rootless_base), else: config
+        config =
+          if rootless_base, do: Map.put(config, :rootless_base, rootless_base), else: config
 
         # Compute the /nix/store bind set. `:full` (default) = the legacy single
         # /nix/store bind; `:closure` = the minimal per-path closure. Fail closed:
@@ -223,6 +225,10 @@ defmodule Genswarms.Backends.BwrapBackend do
                 # so no command injection via any argument value.
                 port =
                   Port.open({:spawn_executable, executable}, [{:args, full_args} | port_opts])
+
+                if scope_name && not CgroupManager.await_scope_active(scope_name) do
+                  raise "cgroup unit #{scope_name} did not become active"
+                end
 
                 ref = %__MODULE__{
                   port: port,
@@ -481,6 +487,33 @@ defmodule Genswarms.Backends.BwrapBackend do
   end
 
   @doc false
+  # Keep the provider credential out of both the bwrap/systemd argv and the
+  # launcher environment. The wrapper reads this fixed, private path inside the
+  # sandbox and exports the value only for subzeroclaw. EndpointPolicy is still
+  # the authority here: a server-env key is never materialized for an
+  # untrusted/custom endpoint.
+  #
+  # MUST run before the overlay is mounted (see the seed callback in start/2).
+  # Public for focused tests.
+  def setup_api_key_secret(overlay_dir, config) do
+    case Genswarms.Backends.EndpointPolicy.resolve(config) do
+      {_endpoint, nil} ->
+        :ok
+
+      {_endpoint, api_key} ->
+        dir = Path.join([overlay_dir, "upper", "run", "secrets"])
+        path = Path.join(dir, "subzeroclaw-api-key")
+        File.mkdir_p!(dir)
+        # Protect the creation window too: File.write/3 follows the process
+        # umask, so the final chmod alone could briefly leave a new file 0644.
+        File.chmod!(dir, 0o700)
+        File.write!(path, api_key, [:binary])
+        File.chmod!(path, 0o600)
+        :ok
+    end
+  end
+
+  @doc false
   # Chooses the resource-isolation wrapper for a sandbox and returns the
   # `{executable, argv, scope_name}` triple spawned via execvp. Two paths:
   #
@@ -532,7 +565,7 @@ defmodule Genswarms.Backends.BwrapBackend do
 
     # Get environment variables to pass to sandbox. EndpointPolicy withholds the
     # server-env API key from an untrusted/custom endpoint (SSRF guard, #28).
-    {endpoint, api_key} = Genswarms.Backends.EndpointPolicy.resolve(config)
+    {endpoint, _api_key} = Genswarms.Backends.EndpointPolicy.resolve(config)
     # subzeroclaw no longer reads SUBZEROCLAW_MODEL — the model + routing policy
     # ride in SUBZEROCLAW_REQUEST_EXTRA (a bare model is wrapped for back-compat);
     # the compaction policy in SUBZEROCLAW_COMPACT_EXTRA. No SUBZEROCLAW_MODEL env
@@ -675,85 +708,85 @@ defmodule Genswarms.Backends.BwrapBackend do
       end
 
     rest_args =
-      proc_args ++
-      [
-        # Essential virtual filesystems
-        "--tmpfs",
-        "/tmp",
-        "--dev",
-        "/dev",
+      (proc_args ++
+         [
+           # Essential virtual filesystems
+           "--tmpfs",
+           "/tmp",
+           "--dev",
+           "/dev",
 
-        # Provide /usr/bin/env so shebangs like `#!/usr/bin/env bash` work.
-        # The base layer ships env at /bin/env; this symlink makes the standard
-        # POSIX path resolve to it.
-        "--symlink",
-        "/bin/env",
-        "/usr/bin/env",
+           # Provide /usr/bin/env so shebangs like `#!/usr/bin/env bash` work.
+           # The base layer ships env at /bin/env; this symlink makes the standard
+           # POSIX path resolve to it.
+           "--symlink",
+           "/bin/env",
+           "/usr/bin/env",
 
-        # Hostname
-        "--hostname",
-        sandbox_id,
+           # Hostname
+           "--hostname",
+           sandbox_id,
 
-        # Die when parent dies (prevents orphan processes)
-        "--die-with-parent",
+           # Die when parent dies (prevents orphan processes)
+           "--die-with-parent",
 
-        # Set working directory
-        "--chdir",
-        "/workspace",
+           # Never inherit the orchestrator/service environment into the
+           # sandbox. Only the explicit --setenv entries below cross the
+           # boundary (provider credentials arrive via /run/secrets).
+           "--clearenv",
 
-        # Set environment inside sandbox
-        "--setenv",
-        "PATH",
-        path_value,
-        "--setenv",
-        "HOME",
-        "/root",
-        "--setenv",
-        "TERM",
-        "xterm-256color",
-        "--setenv",
-        "SSL_CERT_FILE",
-        "/etc/ssl/certs/ca-bundle.crt",
-        "--setenv",
-        "SUBZEROCLAW_AGENT_NAME",
-        to_string(name),
+           # Set working directory
+           "--chdir",
+           "/workspace",
 
-        # Logs directory env var for subzeroclaw
-        logs_dir && "--setenv",
-        logs_dir && "SUBZEROCLAW_LOGS",
-        logs_dir && "/logs",
+           # Set environment inside sandbox
+           "--setenv",
+           "PATH",
+           path_value,
+           "--setenv",
+           "HOME",
+           "/root",
+           "--setenv",
+           "TERM",
+           "xterm-256color",
+           "--setenv",
+           "SSL_CERT_FILE",
+           "/etc/ssl/certs/ca-bundle.crt",
+           "--setenv",
+           "SUBZEROCLAW_AGENT_NAME",
+           to_string(name),
 
-        # Mock script (if set, subzeroclaw skips API calls)
-        mock_script && "--setenv",
-        mock_script && "SUBZEROCLAW_MOCK_SCRIPT",
-        mock_script && mock_script,
+           # Logs directory env var for subzeroclaw
+           logs_dir && "--setenv",
+           logs_dir && "SUBZEROCLAW_LOGS",
+           logs_dir && "/logs",
 
-        # Record script (if set, subzeroclaw saves API responses for later replay)
-        record_script && "--setenv",
-        record_script && "SUBZEROCLAW_RECORD_SCRIPT",
-        record_script && "/workspace/.recorded_responses.json",
+           # Mock script (if set, subzeroclaw skips API calls)
+           mock_script && "--setenv",
+           mock_script && "SUBZEROCLAW_MOCK_SCRIPT",
+           mock_script && mock_script,
 
-        # API key (required for subzeroclaw unless mock mode)
-        api_key && "--setenv",
-        api_key && "SUBZEROCLAW_API_KEY",
-        api_key && api_key,
+           # Record script (if set, subzeroclaw saves API responses for later replay)
+           record_script && "--setenv",
+           record_script && "SUBZEROCLAW_RECORD_SCRIPT",
+           record_script && "/workspace/.recorded_responses.json",
 
-        # Routing policy + model: subzeroclaw reads SUBZEROCLAW_REQUEST_EXTRA (a
-        # bare {"model": ...} for back-compat, or the full routing policy_ir).
-        request_extra && "--setenv",
-        request_extra && "SUBZEROCLAW_REQUEST_EXTRA",
-        request_extra && request_extra,
+           # Routing policy + model: subzeroclaw reads SUBZEROCLAW_REQUEST_EXTRA (a
+           # bare {"model": ...} for back-compat, or the full routing policy_ir).
+           request_extra && "--setenv",
+           request_extra && "SUBZEROCLAW_REQUEST_EXTRA",
+           request_extra && request_extra,
 
-        # Compaction policy (optional): keep_recent + cheap-summariser policy_ir.
-        compact_extra && "--setenv",
-        compact_extra && "SUBZEROCLAW_COMPACT_EXTRA",
-        compact_extra && compact_extra,
+           # Compaction policy (optional): keep_recent + cheap-summariser policy_ir.
+           compact_extra && "--setenv",
+           compact_extra && "SUBZEROCLAW_COMPACT_EXTRA",
+           compact_extra && compact_extra,
 
-        # Endpoint (optional)
-        endpoint && "--setenv",
-        endpoint && "SUBZEROCLAW_ENDPOINT",
-        endpoint && endpoint
-      ]
+           # Endpoint (optional)
+           endpoint && "--setenv",
+           endpoint && "SUBZEROCLAW_ENDPOINT",
+           endpoint && endpoint
+         ])
       |> Enum.filter(&(&1 != nil))
 
     # Extra environment variables from config (e.g., TARGET_DESCRIPTION)
@@ -800,19 +833,17 @@ defmodule Genswarms.Backends.BwrapBackend do
 
   defp build_env(name, config) do
     base_env = [
+      # Port environments extend the parent environment by default. Explicitly
+      # remove the standard provider variable from the host-side launcher;
+      # the sandbox wrapper receives it from the private overlay file instead.
+      {~c"SUBZEROCLAW_API_KEY", false},
       {~c"SUBZEROCLAW_AGENT_NAME", String.to_charlist(name)},
       {~c"HOME", ~c"/root"},
       {~c"PATH", ~c"/nix/base/bin:/usr/bin:/bin"},
       {~c"SSL_CERT_FILE", ~c"/nix/store/cacert/etc/ssl/certs/ca-bundle.crt"}
     ]
 
-    {policy_endpoint, policy_api_key} = Genswarms.Backends.EndpointPolicy.resolve(config)
-
-    api_key_env =
-      case policy_api_key do
-        nil -> []
-        key -> [{~c"SUBZEROCLAW_API_KEY", String.to_charlist(key)}]
-      end
+    {policy_endpoint, _policy_api_key} = Genswarms.Backends.EndpointPolicy.resolve(config)
 
     # Model + routing policy ride in SUBZEROCLAW_REQUEST_EXTRA (bare model wrapped
     # for back-compat); compaction policy in SUBZEROCLAW_COMPACT_EXTRA. No dead
@@ -846,8 +877,7 @@ defmodule Genswarms.Backends.BwrapBackend do
           [{~c"SWARM_TOPOLOGY", String.to_charlist(topology_str)}]
       end
 
-    base_env ++
-      api_key_env ++ request_extra_env ++ compact_extra_env ++ endpoint_env ++ topology_env
+    base_env ++ request_extra_env ++ compact_extra_env ++ endpoint_env ++ topology_env
   end
 
   # Accept request_extra/compact_extra as a JSON string or an Elixir map.

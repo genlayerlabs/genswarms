@@ -13,6 +13,26 @@ defmodule Genswarms.Backends.Bwrap.OverlayManagerTest do
       assert {:error, {:base_not_store_path, "/home/me/base"}} =
                OverlayManager.ensure_store_path("/home/me/base")
     end
+
+    test "resolves a multi-hop deployment symlink to its Nix store target" do
+      root =
+        Path.join(
+          System.tmp_dir!(),
+          "genswarms-base-links-#{System.unique_integer([:positive])}"
+        )
+
+      checkout_link = Path.join(root, "result-fleet-base")
+      runtime_link = Path.join(root, "base")
+      store_target = "/nix/store/abc-sandbox-base"
+
+      File.mkdir_p!(root)
+      File.ln_s!(store_target, checkout_link)
+      File.ln_s!(checkout_link, runtime_link)
+
+      on_exit(fn -> File.rm_rf(root) end)
+
+      assert {:ok, ^store_target} = OverlayManager.ensure_store_path(runtime_link)
+    end
   end
 
   @moduletag :bwrap

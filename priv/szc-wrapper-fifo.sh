@@ -16,6 +16,15 @@ fi
 export SUBZEROCLAW_AGENT_NAME="$AGENT_NAME"
 [ -n "$SKILLS_DIR" ] && export SUBZEROCLAW_SKILLS="$SKILLS_DIR"
 
+# The bwrap backend materializes provider credentials at this fixed private
+# path. Reading it here keeps the value out of bwrap/systemd argv and the host
+# launcher environment while preserving the subzeroclaw runtime contract.
+API_KEY_FILE=/run/secrets/subzeroclaw-api-key
+if [ -r "$API_KEY_FILE" ]; then
+    IFS= read -r SUBZEROCLAW_API_KEY < "$API_KEY_FILE"
+    export SUBZEROCLAW_API_KEY
+fi
+
 # Create temp FIFOs
 FIFO_DIR=$(mktemp -d)
 INPUT_FIFO="$FIFO_DIR/input"

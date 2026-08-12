@@ -236,6 +236,9 @@ defmodule Genswarms.Backends.BwrapBackendTest do
              "expected #{inspect(value)} to be preceded by #{inspect(flag)}"
     end
 
+    defp restore_env(name, nil), do: System.delete_env(name)
+    defp restore_env(name, value), do: System.put_env(name, value)
+
     test "returns a flat list of binaries" do
       args = args_for([])
       assert is_list(args)
@@ -245,6 +248,16 @@ defmodule Genswarms.Backends.BwrapBackendTest do
     test "first element is the bwrap executable" do
       args = args_for([])
       assert List.first(args) |> String.ends_with?("bwrap")
+    end
+
+    test "clears the inherited host environment before setting sandbox variables" do
+      args = args_for([])
+      clear_idx = Enum.find_index(args, &(&1 == "--clearenv"))
+      first_setenv_idx = Enum.find_index(args, &(&1 == "--setenv"))
+
+      assert is_integer(clear_idx)
+      assert is_integer(first_setenv_idx)
+      assert clear_idx < first_setenv_idx
     end
 
     test "malicious workspace stays a single literal argv element" do
@@ -269,12 +282,12 @@ defmodule Genswarms.Backends.BwrapBackendTest do
       assert_flag_value(args, "SUBZEROCLAW_REQUEST_EXTRA", json)
     end
 
-    test "malicious api_key stays a single literal argv element" do
+    test "api_key never appears in the bwrap argv" do
       payload = "sk-secret$(whoami)`id`"
       args = args_for(config: %{api_key: payload})
 
-      assert payload in args
-      assert_flag_value(args, "SUBZEROCLAW_API_KEY", payload)
+      refute payload in args
+      refute "SUBZEROCLAW_API_KEY" in args
     end
 
     test "malicious endpoint stays a single literal argv element" do
@@ -351,6 +364,51 @@ defmodule Genswarms.Backends.BwrapBackendTest do
       args = args_for([])
       refute "--unshare-net" in args
       refute "CURL_HOME" in args
+    end
+  end
+
+  describe "setup_api_key_secret/2" do
+    setup do
+      overlay = Path.join(System.tmp_dir!(), "bwrap-secret-#{System.unique_integer([:positive])}")
+      on_exit(fn -> File.rm_rf!(overlay) end)
+      {:ok, overlay: overlay}
+    end
+
+    test "writes the resolved key to a private overlay file", %{overlay: overlay} do
+      key = "sk-private-not-in-argv"
+
+      assert :ok = BwrapBackend.setup_api_key_secret(overlay, %{api_key: key})
+
+      path = Path.join([overlay, "upper", "run", "secrets", "subzeroclaw-api-key"])
+      assert File.read!(path) == key
+      assert {:ok, stat} = File.stat(path)
+      assert Bitwise.band(stat.mode, 0o777) == 0o600
+      assert {:ok, dir_stat} = File.stat(Path.dirname(path))
+      assert Bitwise.band(dir_stat.mode, 0o777) == 0o700
+    end
+
+    test "does not create a secret when endpoint policy withholds the key", %{overlay: overlay} do
+      original_api_key = System.get_env("SUBZEROCLAW_API_KEY")
+      original_endpoint = System.get_env("SUBZEROCLAW_ENDPOINT")
+      original_allowed = System.get_env("GENSWARMS_ALLOWED_ENDPOINTS")
+
+      on_exit(fn ->
+        restore_env("SUBZEROCLAW_API_KEY", original_api_key)
+        restore_env("SUBZEROCLAW_ENDPOINT", original_endpoint)
+        restore_env("GENSWARMS_ALLOWED_ENDPOINTS", original_allowed)
+      end)
+
+      System.put_env("SUBZEROCLAW_API_KEY", "server-env-key")
+      System.put_env("SUBZEROCLAW_ENDPOINT", "https://trusted.example/v1")
+      System.delete_env("GENSWARMS_ALLOWED_ENDPOINTS")
+
+      assert :ok =
+               BwrapBackend.setup_api_key_secret(overlay, %{
+                 endpoint: "https://untrusted.example/v1"
+               })
+
+      path = Path.join([overlay, "upper", "run", "secrets", "subzeroclaw-api-key"])
+      refute File.exists?(path)
     end
   end
 

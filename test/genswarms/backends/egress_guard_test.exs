@@ -203,7 +203,12 @@ defmodule Genswarms.Backends.EgressGuardTest do
   describe "start_forwarder/2 + stop_forwarder/1" do
     setup do
       # A clean, comma-free workspace path (like the real /tmp/szc-workspace/<id>).
-      ws = Path.join(System.tmp_dir!(), "szc_egress_guard_test")
+      ws =
+        Path.join(
+          System.tmp_dir!(),
+          "szc_egress_guard_test_#{System.unique_integer([:positive])}"
+        )
+
       File.rm_rf!(ws)
       File.mkdir_p!(ws)
 
@@ -224,16 +229,24 @@ defmodule Genswarms.Backends.EgressGuardTest do
 
       case result do
         {:ok, guard} ->
-          # .curlrc was injected so the agent's curl uses the socket
-          assert File.read!(Path.join(ws, ".curlrc")) =~ "unix-socket"
-          assert guard.socket_path == Path.join(ws, ".llm.sock")
+          os_pid = guard.os_pid
 
-          # the forwarder actually came up and created the listener socket
-          wait_for_socket(guard.socket_path)
-          assert File.exists?(guard.socket_path)
+          try do
+            # .curlrc was injected so the agent's curl uses the socket
+            assert File.read!(Path.join(ws, ".curlrc")) =~ "unix-socket"
+            assert guard.socket_path == Path.join(ws, ".llm.sock")
+            assert is_integer(os_pid) and os_pid > 0
 
-          EgressGuard.stop_forwarder(guard)
+            # the forwarder actually came up and created the listener socket
+            wait_for_socket(guard.socket_path)
+            assert File.exists?(guard.socket_path)
+            assert os_process_alive?(os_pid)
+          after
+            EgressGuard.stop_forwarder(guard)
+          end
+
           refute File.exists?(guard.socket_path)
+          refute os_process_alive?(os_pid)
 
         {:error, :socat_not_found} ->
           # environment without socat — the pure invariants above still cover it
@@ -259,6 +272,19 @@ defmodule Genswarms.Backends.EgressGuardTest do
     else
       Process.sleep(20)
       wait_for_socket(path, attempts - 1)
+    end
+  end
+
+  defp os_process_alive?(pid) do
+    case System.find_executable("kill") do
+      nil ->
+        false
+
+      kill ->
+        match?(
+          {_, 0},
+          System.cmd(kill, ["-0", Integer.to_string(pid)], stderr_to_stdout: true)
+        )
     end
   end
 end
