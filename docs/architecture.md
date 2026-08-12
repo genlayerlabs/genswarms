@@ -63,7 +63,7 @@ SwarmManager (single GenServer, tracks swarms: %{name => info})
    ▼
 Genswarms.AgentSupervisor (DynamicSupervisor)
    ├── AgentServer  (per agent, registered as {swarm_name, agent_name})
-   │      ├── Backend     (Local Port | Docker | SSH | Bwrap | Mock)
+   │      ├── Backend     (Local Port | tmux TUI | Docker | SSH | Bwrap | Mock)
    │      └── LogWatcher  (polls logs + .outbox/ for message routing)
    └── ObjectServer (per object, registered as {swarm_name, object_name})
 ```
@@ -147,7 +147,10 @@ The database runs in WAL mode (`PRAGMA journal_mode=WAL`) with a 5 s busy timeou
 The daemon's `daemon_loop/2` monitors `Genswarms.Supervisor`; if it goes `:DOWN`, the swarm is marked `crashed`. Otherwise, every 500 ms (the `@task_poll_interval`) it:
 
 1. `process_pending_tasks/1` — drains `SwarmRegistry.get_pending_tasks/1` and delivers each via `SwarmManager.send_task/3`, marking processed on success or leaving the task pending for retry (and logging) on failure.
-2. `process_pending_commands/1` — applies queued mutation commands (add/remove agent or object, add/remove topology edges, scale an agent group, fetch full config) and writes results back via `SwarmRegistry.mark_command_done/2`.
+2. `process_pending_commands/1` — applies queued mutation/control commands
+   (add/remove/restart agents, interrupt or inspect persistent sessions,
+   add/remove objects or topology edges, scale an agent group, fetch full
+   config) and writes results back via `SwarmRegistry.mark_command_done/2`.
 
 ### Task delivery paths
 
@@ -169,11 +172,39 @@ The daemon's `daemon_loop/2` monitors `Genswarms.Supervisor`; if it goes `:DOWN`
 | Apple container | OCI containers through Apple's `container` CLI on macOS / Apple silicon | `backend: {:apple_container, "<image>"}`; `container system start` first |
 | Bare metal (Colmena + NixOS) | Dedicated NixOS machines provisioned ahead of time, reached over SSH | `colmena apply` to provision, then `backend: {:ssh, "user@host"}` |
 | Bwrap | Bubblewrap sandboxes on a single NixOS host (10k+ scale) | `backend: :bwrap` |
-| Hybrid | Any mix of `:local`, `{:docker, …}`, `{:apple_container, …}`, `{:ssh, …}`, `:bwrap`, `:mock` in one swarm | per-agent `backend:` |
+| Tmux TUI | Persistent, human-attachable Codex/Claude/OpenCode panes; client may run on host or in a per-agent Docker/bwrap boundary | `backend: {:tmux, :codex, %{runner: :bwrap}}` |
+| Hybrid | Any mix of `:local`, `{:tmux, …}`, `{:docker, …}`, `{:apple_container, …}`, `{:ssh, …}`, `:bwrap`, `:mock` in one swarm | per-agent `backend:` |
 
 ### Docker (NixOS containers)
 
 Run many isolated agents on one machine using minimal NixOS containers that include only the tools declared via presets/tools. Containers are namespaced by swarm name (`szc-<swarm>-<agent>`), so multiple swarms run simultaneously without interference and pause/resume affects only the targeted swarm's containers.
+
+### Persistent TUI workers
+
+The tmux backend splits the terminal transport from execution. A trusted
+host-side tmux server owns the PTY, pane ID, scrollback, attach surface, and
+keystroke transport. The pane command is supplied by a runner:
+
+```text
+AgentServer / TmuxBackend
+          │ durable turn files + lifecycle events
+          ▼
+ host tmux pane (attachable)
+          │
+          ├── client process on host
+          ├── docker exec -it ──► per-agent persistent container
+          └── bwrap ────────────► per-agent copy-on-write sandbox
+                                  ├── CodexAdapter
+                                  ├── ClaudeAdapter
+                                  └── OpenCodeAdapter
+```
+
+The runner owns process/filesystem lifecycle and reports normalized metadata;
+the adapter owns client argv, resume semantics, readiness/blocked recognition,
+and the short path-based task nudge. Raw terminal capture remains diagnostic.
+Turn completion is durable filesystem state, not an inference from screen text.
+An orchestrator disconnect keeps the pane and runner alive, while explicit
+destroy removes both.
 
 ### Apple container
 

@@ -1,15 +1,17 @@
 # Genswarms
 
-An Elixir/OTP orchestrator for managing swarms of subzeroclaw agents with
-pluggable backends, arbitrary directed-graph topologies, per-agent skills, and
-fault tolerance via OTP supervision trees.
+An Elixir/OTP orchestrator for managing swarms of agents—including subzeroclaw
+workers and persistent interactive coding clients—with pluggable backends,
+arbitrary directed-graph topologies, per-agent skills, and fault tolerance via
+OTP supervision trees.
 
 > 📚 **Full documentation lives in [`docs/`](docs/README.md).** This page is an
 > overview and quick start; each topic has its own guide.
 
 ## Features
 
-- **Pluggable backends** — Local (Port), Docker (NixOS containers), Apple `container`, SSH, Bwrap (bubblewrap), Mock.
+- **Pluggable backends** — Local (Port), persistent tmux coding TUIs, Docker (NixOS containers), Apple `container`, SSH, Bwrap (bubblewrap), Mock.
+- **Attachable isolated coding agents** — keep Codex, Claude Code, or OpenCode warm in host tmux while each pane runs on the host or inside its own Docker/bwrap boundary.
 - **Arbitrary topologies** — define directed graphs for inter-agent communication.
 - **Per-agent skills** — markdown skill files deployed per agent, with `{{agent_name}}` / `{{swarm_name}}` / `{{workspace}}` templating.
 - **Objects** — non-agentic Elixir components that participate in the topology and run deterministic code.
@@ -181,6 +183,7 @@ separation — is documented in [docs/configuration.md](docs/configuration.md).
 | Backend | Config value | Use for |
 |---------|--------------|---------|
 | Local | `:local` | Development, single-host agents |
+| Tmux TUI | `{:tmux, :codex, %{runner: :docker}}` | Warm, human-attachable Codex/Claude/OpenCode sessions, optionally isolated per agent |
 | Docker | `{:docker, "name"}` | Isolated NixOS-based containers |
 | Apple container | `{:apple_container, "image"}` | OCI containers through Apple's `container` CLI |
 | SSH | `{:ssh, "user@host"}` | Remote / bare-metal agents |
@@ -202,6 +205,10 @@ network. Before exposing it:
   prompt-injected agent can neither reach the orchestrator nor exfiltrate data.
   Apple `container` agents fail closed for `:isolated` instead of silently using
   open network.
+- For interactive tmux clients, select `runner: :docker` or `:bwrap` for a
+  per-agent process/filesystem boundary. Their `network: :none` is a complete
+  cutoff (including cloud model APIs); the subzeroclaw-only `:isolated`
+  LLM-forwarder mode fails closed for TUIs.
 
 Full reference (CORS, endpoint allowlist, config-path restriction, SSH host-key
 verification): **[docs/security.md](docs/security.md)**.

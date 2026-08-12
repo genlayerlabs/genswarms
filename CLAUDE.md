@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Genswarms is an Elixir/OTP orchestrator for managing swarms of AI agents with pluggable backends (Local/Docker/Apple container/SSH/Bwrap/Mock), arbitrary directed graph topologies, per-agent skills with template variable resolution, file-based messaging (inbox/outbox), and fault tolerance via OTP supervision trees.
+Genswarms is an Elixir/OTP orchestrator for managing swarms of AI agents with pluggable backends (Local/Tmux TUI/Docker/Apple container/SSH/Bwrap/Mock), arbitrary directed graph topologies, per-agent skills with template variable resolution, file-based messaging (inbox/outbox), and fault tolerance via OTP supervision trees.
 
 Full user/developer documentation lives in [`docs/`](docs/README.md) (configuration DSL, CLI, REST/WebSocket APIs, backends, observability, etc.). This file is the quick-reference for working in the codebase.
 
@@ -106,7 +106,7 @@ Application
     │       └── AgentDynamicSupervisor
     │               │
     │               └── AgentServer (per agent)
-    │                       ├── Backend (Local Port / Docker / Apple container / SSH / Bwrap / Mock)
+    │                       ├── Backend (Local / Tmux TUI / Docker / Apple container / SSH / Bwrap / Mock)
     │                       └── LogWatcher (polls logs + .outbox/ for routing)
     │
     ├── ObjectSupervisor ─── manages non-agentic Elixir objects
@@ -175,6 +175,7 @@ API Server (Phoenix)                 Daemon Process (genswarms start)
 | `ObjectServer` | `lib/genswarms/objects/object_server.ex` | GenServer wrapper for object handlers (supports :send_many) |
 | `LogWatcher` | `lib/genswarms/agents/log_watcher.ex` | Polls agent logs + .outbox/ for message routing |
 | `BwrapBackend` | `lib/genswarms/backends/bwrap_backend.ex` | Bubblewrap sandbox backend |
+| `TmuxBackend` | `lib/genswarms/backends/tmux_backend.ex` | Persistent Codex/Claude/OpenCode TUI panes with host, per-agent Docker, or per-agent bwrap runners |
 | `Loader` | `lib/genswarms/config/loader.ex` | Loads .exs/.json/.yaml configs |
 | `CLI` | `lib/genswarms/cli/cli.ex` | Main escript entry point |
 | `SwarmRegistry` | `lib/genswarms/cli/swarm_registry.ex` | SQLite-backed cross-process state & task queue |
@@ -276,7 +277,14 @@ Swarm configs define agents, objects, and topology. Supports `.exs`, `.json`, `.
 }
 ```
 
-Backend types: `:local`, `{:docker, "name"}`, `{:docker, "name", %{opts}}`, `:apple_container`, `{:apple_container, "image"}`, `{:apple_container, "image", %{opts}}`, `{:ssh, "user@host"}`, `{:ssh, "user@host", %{opts}}`, `:bwrap`, `{:bwrap, %{opts}}`, `:mock`, `{:mock, %{script: [...]}}`
+Backend types: `:local`, `{:tmux, :codex | :claude | :opencode}`, `{:tmux, client, %{opts}}`, `{:docker, "name"}`, `{:docker, "name", %{opts}}`, `:apple_container`, `{:apple_container, "image"}`, `{:apple_container, "image", %{opts}}`, `{:ssh, "user@host"}`, `{:ssh, "user@host", %{opts}}`, `:bwrap`, `{:bwrap, %{opts}}`, `:mock`, `{:mock, %{script: [...]}}`
+
+Tmux options may select `runner: :host | :docker | :bwrap`. tmux stays on the
+trusted host; Docker/bwrap isolate the pane command per agent. Docker defaults
+to `client_source: :runtime` (the image contains the client); bwrap defaults to
+`:host_nix` (the selected host client's Nix closure is mounted read-only).
+Interactive runners support `network: :none`, but reject the
+subzeroclaw-specific `network: :isolated` LLM-forwarding mode.
 
 ### Backend Config Separation
 
@@ -299,7 +307,7 @@ For agents, recognized backend keys are separated from domain keys in agent conf
 }
 ```
 
-Backend keys include: `workspace`, `container_name`, `env`, `volumes`, `cmd`, `extra_path`, `extra_ro_binds`, `extra_rw_binds`, `extra_env`, `memory_limit`, `memory_swap`, `cpu_limit`, `cpu_shares`, `pids_limit`, `tasks_max`, `subzeroclaw_path`, `subzeroclaw_src`, `presets`, `network`
+Backend keys include: `workspace`, `container_name`, `env`, `volumes`, `cmd`, `extra_path`, `extra_ro_binds`, `extra_rw_binds`, `extra_env`, `memory_limit`, `memory_swap`, `cpu_limit`, `cpu_shares`, `pids_limit`, `tasks_max`, `subzeroclaw_path`, `subzeroclaw_src`, `presets`, `network`, and the tmux/client keys documented in `docs/backends.md`.
 
 ### Network Isolation (`network: :isolated`)
 

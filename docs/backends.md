@@ -1,10 +1,15 @@
 ---
-description: GenSwarms execution backends — Local, Docker, Apple container, SSH, Bubblewrap, and Mock — and how to choose one per agent.
+description: GenSwarms execution backends — Local, persistent tmux TUIs, Docker, Apple container, SSH, Bubblewrap, and Mock — and how to choose one per agent.
 ---
 
 # Backends
 
-A backend is how GenSwarms actually runs a subzeroclaw agent. Every agent in a swarm config declares a `backend:`, and GenSwarms uses the matching backend module to start the process, send it input, deploy skills, and health-check it. All backends implement the same `Genswarms.Backends.BackendBehaviour` contract, so they are interchangeable from the swarm's point of view — you can move an agent from `:local` to `{:docker, "researcher"}` to `{:apple_container, "researcher"}` to `:bwrap` without changing anything else in your topology.
+A backend is how GenSwarms runs an agent runtime. Most backends launch
+`subzeroclaw`; the tmux backend launches an existing interactive coding client.
+Every agent declares a `backend:`, and GenSwarms uses the matching module to
+start it, deliver input, expose health/session state, and stop it. All backends
+implement `Genswarms.Backends.BackendBehaviour`, so the topology and router do
+not depend on the selected runtime.
 
 This guide covers each backend: how it runs, the config it accepts, and what you need on the host.
 
@@ -16,21 +21,30 @@ Every backend implements `Genswarms.Backends.BackendBehaviour` (`lib/genswarms/b
 |----------|-----------|---------|
 | `start/2` | yes | Start the agent process; returns `{:ok, ref}` or `{:error, term}` |
 | `stop/1` | yes | Stop the running agent |
-| `send_input/2` | yes | Write a message to the agent's stdin |
+| `send_input/2` | yes | Deliver a message; may return backend metadata such as a turn ID |
 | `deploy_skills/2` | yes | Make skills available to the agent |
 | `health_check/1` | yes | Report whether the agent is alive (`:ok` or `{:error, reason}`) |
 | `backend_type/0` | yes | Return the backend's atom (e.g. `:local`) |
 | `handle_output/2` | optional | Parse raw output into messages |
+| `capabilities/0` | optional | Advertise readiness events, interrupt, persistence, and raw terminal support |
+| `interrupt/1` | optional | Interrupt the current turn without destroying the worker |
+| `session_info/1` | optional | Return non-secret attach/session metadata |
+| `disconnect/1` / `destroy/1` | optional | Separate orchestrator disconnect from intentional resource destruction |
+| `acknowledge/2` | optional | Confirm that a durable turn completion was handled |
 
-`handle_output/2` is the only `@optional_callbacks` entry. The behaviour declares its return as `{:ok, [map()]}`, but the backends that implement it (local and bwrap) actually return `{:ok, messages, remaining}` — the leftover `remaining` binary is the partial line carried into the next chunk.
+Backends without the optional lifecycle callbacks retain the original Port-style behavior. Event-driven backends receive an `event_sink` and a per-start `backend_id`; the ID prevents delayed events from an older backend generation from mutating a restarted agent.
 
-All backends share the same wire protocol: subzeroclaw is run through the `szc-wrapper` script, which translates between JSON lines and subzeroclaw's plain-text interface. Output is parsed line-by-line into JSON messages; any line that is not valid JSON falls back to `%{"type" => "output", "content" => line}`.
+The subzeroclaw backends share the `szc-wrapper` wire protocol, which translates
+between JSON lines and subzeroclaw's plain-text interface. Tmux uses typed
+lifecycle events and durable per-turn files instead; its terminal stream remains
+diagnostic and human-facing.
 
 ## Choosing a backend
 
 | Backend | When to use | Isolation level |
 |---------|-------------|-----------------|
 | `:local` | Development, debugging, single-host runs | None (plain subprocess) |
+| `{:tmux, client}` | Warm, human-attachable Codex/Claude/OpenCode sessions | Selectable: host, per-agent Docker, or per-agent bwrap |
 | `{:docker, "name"}` | Reproducible tool environments, per-agent images | Container (namespaces + image) |
 | `{:apple_container, "name"}` | OCI containers on macOS / Apple silicon without Docker Desktop | Apple container VM |
 | `{:ssh, "user@host"}` | Bare-metal / remote NixOS machines | Remote host |
@@ -67,6 +81,209 @@ It launches the `szc-wrapper` script, which in turn runs the `subzeroclaw` binar
 The wrapper is invoked as `<wrapper_path> <name> <subzeroclaw_path> <skills_dir>`. When a `skills_dir` is present, its expanded path is also exported to the subprocess as the `SUBZEROCLAW_SKILLS` environment variable; the agent name is exported as `SUBZEROCLAW_AGENT_NAME`.
 
 Requirements: a `subzeroclaw` binary on the host (on `PATH` or via `subzeroclaw_path`).
+
+## Tmux persistent TUI
+
+The tmux backend (`lib/genswarms/backends/tmux_backend.ex`) runs an existing
+interactive coding client in a persistent pane instead of flattening it into a
+one-shot command. Supported clients are Codex, Claude Code, and OpenCode:
+
+```elixir
+%{
+  name: :coder,
+  backend: {:tmux, :codex, %{
+    workspace: "/home/me/project",
+    runner: :docker,
+    image: "coding-tuis:latest",
+    client_source: :runtime,
+    approval_policy: :on_request,
+    sandbox: :workspace_write
+  }}
+}
+```
+
+Use `:claude` or `:opencode` as the second tuple element for those clients.
+String client names (`"codex"`, `"claude"`, `"opencode"`) are also accepted.
+There is intentionally no bare `:tmux` form: the client must be explicit.
+
+tmux itself always runs on the host and remains the observation/control plane.
+The pane command can run the client directly (`runner: :host`), enter one
+dedicated container with `docker exec -it` (`runner: :docker`), or enter one
+dedicated bubblewrap sandbox (`runner: :bwrap`). The latter two give every agent
+its own process/filesystem boundary while preserving the same host-side attach
+command.
+
+### Lifecycle and durable turns
+
+One tmux socket contains one named session per swarm and one window per agent.
+GenSwarms stores the stable pane ID and emits normalized lifecycle states:
+`starting`, `ready`, `running`, `blocked`, `needs_attention`, `interrupted`, and
+`stopped`. Screen capture is used for human visibility and conservative prompt
+detection; it is **not** treated as a delivery acknowledgement.
+
+Each turn gets a directory under:
+
+```text
+<workspace>/.genswarms/turns/<swarm>/<agent>/<turn-id>/
+├── task.md
+├── reply.md
+├── done.json
+├── ack.json
+└── interrupted.json
+```
+
+The backend writes `task.md` atomically and sends only a short path-based nudge
+with `tmux send-keys`. It briefly separates the literal paste from `Enter`. If
+the exact nudge is still present at the active cursor after the grace period,
+the backend retries only `Enter` once; it never pastes the task text twice. A
+nudge that remains staged moves the turn to `needs_attention`. This is bounded
+TUI recovery, not an acceptance acknowledgement. The client completes the
+contract by writing `reply.md`
+and atomically renaming a `done.json.tmp` receipt to `done.json`. GenSwarms
+processes the reply and then writes `ack.json`. The dispatcher still waits for
+a fresh recognized prompt before sending queued work. A task without `ack.json` is
+recovered as `needs_attention` after an orchestrator restart; a completed but
+unacknowledged turn may therefore be delivered again. The stable turn ID makes
+that replay visible in the artifacts and session metadata; output delivery is
+still at-least-once, not exactly-once.
+
+There are no lock files or automatic retry engine. A follow-up task remains in
+the existing GenSwarms inbox until the current turn completes. If the pane is
+alive, an AgentServer restart disconnects and reattaches without killing the
+conversation. If the pane process is dead, it is respawned; set `resume: true`
+or a client session ID to ask the CLI to restore its own conversation. An
+explicit agent/swarm stop destroys the tmux window.
+
+### Attaching and interrupting
+
+`GET /api/swarms/<swarm>/agents/<agent>/session` returns the socket, session,
+window, pane ID, and argv for read-only or read-write attachment. The equivalent
+command is normally:
+
+```bash
+tmux -L genswarms attach-session -r -t genswarms-<swarm>:<agent>  # observe only
+tmux -L genswarms attach-session -t genswarms-<swarm>:<agent>     # interactive
+```
+
+Use `POST /api/swarms/<swarm>/agents/<agent>/interrupt` to send `C-c` to the
+current pane without deleting it. The raw captured terminal is also published
+on the in-process swarm terminal PubSub topic for BEAM-side UI consumers; it is
+not currently forwarded through the public WebSocket channel.
+
+### Options
+
+| Config key | Purpose | Default |
+|------------|---------|---------|
+| `workspace` | Client working directory and durable turn root | `/tmp/genswarms-tmux/<swarm>/<agent>` |
+| `runner` | Execution boundary: `:host`, `:docker`, or `:bwrap` | `:host` |
+| `client_source` | `:runtime` (binary already in image/base) or `:host_nix` (read-only host Nix closure) | Docker: `:runtime`; bwrap: `:host_nix` |
+| `image` | Persistent per-agent Docker container image | preset/default image |
+| `state_dir` | Private host directory mounted as `/root` for client auth/config/session state | per-swarm/agent/client temp path |
+| `network` | Host/open, Docker network name, or `:none`; see below | `:open` |
+| `pass_env` | Names of existing host variables to pass to the isolated runtime | `[]` |
+| `runner_env` | Explicit isolated-runtime environment map | `%{}` |
+| `extra_ro_binds` / `extra_rw_binds` | Additional `{host, runtime}` mounts | `[]` |
+| `memory_limit` | Per-agent memory limit | bwrap rootless: unset; bwrap cgroup: `"2G"` |
+| `privilege_mode` | bwrap launcher: `:rootless` (keeps the pane's PTY) or explicit `:cgroup` | `:rootless` |
+| `docker_executable` / `bwrap_executable` | Override isolation CLI executable | resolved from `PATH` |
+| `xargs_executable` | Override the NUL-safe bwrap host-argv launcher | resolved from `PATH` |
+| `model` | Native client model flag | client default |
+| `resume` | `true` for the most recent session, or a client session ID | `false` |
+| `tmux_socket` | Dedicated tmux socket name | `genswarms` |
+| `tmux_executable` / `executable` | Override tmux/client executable | resolved from `PATH` |
+| `args` | Extra client argv strings (never host-shell interpolated) | `[]` |
+| `approval_policy` / `sandbox` | Codex approval and sandbox modes | client config/default |
+| `permission_mode` / `effort` | Claude permission and effort modes | client config/default |
+| `auto_approve` | OpenCode `--auto` | `false` |
+| `dangerously_bypass` | Explicit Codex/Claude permission bypass | `false` |
+| `poll_interval_ms` | Pane/receipt poll interval | `250` |
+| `submit_delay_ms` / `submit_retry_after_ms` | Delay before initial `Enter` / cursor-check grace | `100` / `1000` |
+| `submit_max_attempts` / `submit_check_max_errors` | Total Enter attempts / cursor-query errors before attention | `2` / `3` |
+| `history_lines` / `state_lines` | Captured history / visible tail used for state recognition | `200` / `24` |
+| `quiet_ready_fallback` | Allow a stable non-empty screen to count as ready | `false` |
+| `max_reply_bytes` | Maximum accepted `reply.md` size | 1 MiB |
+
+Dangerous bypass flags are never enabled implicitly. A blocked trust or
+permission prompt moves the agent to `blocked` so a human can attach and decide.
+Because a TUI is not a machine protocol, prompt recognition is deliberately
+conservative; `quiet_ready_fallback` is opt-in.
+
+### Per-agent Docker and bwrap runners
+
+The isolated runners use this runtime contract:
+
+| Runtime path | Source | Access |
+|--------------|--------|--------|
+| `/workspace` | the agent's host workspace | read/write |
+| `/root` | the agent's private `state_dir` | read/write |
+| `/skills` | deployed skills, when present | read-only |
+| `/nix/store/...` | selected client closure with `client_source: :host_nix` | read-only |
+
+Environment selected by `pass_env`/`runner_env` is not placed in the bwrap or
+tmux argv. The runner writes a shell-quoted mode-0600 file under the private
+`state_dir` and invokes a constant bootstrap path inside `/root`; the agent can
+read those values because they are part of its granted authority, while host
+process listings and systemd metadata cannot.
+
+A minimal Nix closure can require hundreds of read-only bind arguments, more
+than tmux accepts in one control command. The bwrap runner writes those
+arguments as a private, NUL-delimited `host-launch.argv0` manifest and invokes
+them once with `xargs --null --exit --max-args=<exact count>`. No host shell
+parses the manifest, argument boundaries are preserved, and the short tmux
+command contains only the manifest path and launcher metadata. GNU `xargs` is
+therefore a host requirement for the bwrap TUI runner.
+
+Docker creates one persistent container named `gstui-<swarm>-<agent>` and
+refuses to reuse a same-named container whose ownership, mounts, image, network,
+resource limits, or configured environment differ. bwrap creates one
+copy-on-write root under `/run/swarm/agents/gstui-<swarm>-<agent>` and stores a
+private contract fingerprint so a live pane cannot be reattached under changed
+mounts, network, limits, executable, or environment. Explicit destroy removes
+the container/overlay; an orchestrator disconnect leaves both the pane and its
+boundary alive for reattachment.
+
+There are two ways to supply a client:
+
+- `client_source: :runtime` expects `codex`, `claude`, or `opencode` to be in the
+  image/base runtime's `PATH`. This is the Docker default and is the most
+  portable production setup.
+- `client_source: :host_nix` resolves the selected host executable to
+  `/nix/store`, queries its minimal closure, and mounts that closure read-only.
+  It rejects arbitrary non-Nix host binaries. This is the bwrap default and is
+  also useful with a minimal Docker image on NixOS.
+
+Example using the locally installed Nix client in bwrap:
+
+```elixir
+%{
+  name: :reviewer,
+  backend: {:tmux, :claude, %{
+    runner: :bwrap,
+    client_source: :host_nix,
+    privilege_mode: :rootless,
+    network: :open
+  }}
+}
+```
+
+`network: :none` gives Docker or bwrap a real no-network namespace. That also
+blocks cloud LLM APIs, so it is primarily useful for local providers or
+offline/testing work. Docker additionally accepts a named Docker network;
+bwrap accepts only `:open` and `:none`. The subzeroclaw-specific
+`network: :isolated` mode (LLM-only forwarding) is not yet valid for an
+interactive TUI and fails closed with `:tui_egress_isolation_unsupported`.
+
+tmux itself is not the security boundary: it stays on the trusted host. Do not
+mount its socket into the agent. Extra read/write binds enlarge the agent's
+authority, and the private state directory may contain client credentials.
+Dangerous client bypass flags remain explicit. In particular, only set
+`dangerously_bypass: true` for Codex/Claude when the outer Docker/bwrap policy is
+strong enough for the workload; it is never inferred merely because a runner
+was selected.
+
+Requirements: host-side tmux; Docker or bwrap for the selected runner; and
+either a runtime image/base containing the selected client or a Nix-installed
+host client plus `nix-store`.
 
 ## Docker
 

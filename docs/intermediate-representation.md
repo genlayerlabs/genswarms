@@ -44,7 +44,7 @@ Each agent has three orthogonal slots, each answering a different question:
 |------|----------|---------|
 | `body` | **who is the agent / what does it do** (its persona, today the skills) | `{"ref": "inline:researcher", "kind": "data"}` |
 | `model` | **which LLM** | `{"ref": "openrouter:anthropic/claude-sonnet-4", "attested": true}` |
-| `backend` | **where it runs** | `{"ref": "bwrap"}` / `{"ref": "oci:web", "kind": "data"}` / `{"ref": "apple_container", "image": "szc-agent-code:latest"}` / `{"ref": "ssh", "host": "pi@h"}` |
+| `backend` | **where it runs** | `{"ref": "bwrap"}` / `{"ref": "oci:web", "kind": "data"}` / `{"ref": "apple_container", "image": "szc-agent-code:latest"}` / `{"ref": "ssh", "host": "pi@h"}` / `{"ref": "tmux", "client": "codex"}` |
 
 Objects have a `handler` slot (`kind: code`). References (`Genswarms.IR.Ref`) carry
 a content `digest` when they are content-addressable (`swarmidx:`/`oci:`), or are
@@ -108,6 +108,8 @@ alias Genswarms.IR
 | `backend: {:apple_container, n}` | `{ref: "apple_container", image: n}` |
 | `backend: {:apple_container, n, opts}` | `{ref: "apple_container", image: n, opts: opts}` |
 | `backend: {:ssh, "u@h"}` | `{ref: "ssh", host: "u@h"}` |
+| `backend: {:tmux, client}` | `{ref: "tmux", client: client}` |
+| `backend: {:tmux, client, opts}` | `{ref: "tmux", client: client, opts: opts}`; runner options such as `{runner: "docker", image: "coding-tuis:latest", client_source: "runtime"}` round-trip unchanged |
 | `object.handler Mod` | `{ref: "module:<Mod>", kind: code}` |
 
 The Apple container ref is intentionally not content-addressable in the current
@@ -116,6 +118,8 @@ does not claim an OCI digest. Docker keeps the existing `oci:<image>` mapping.
 `Genswarms.IR.ToConfig` round-trips these Apple forms back to
 `:apple_container`, `{:apple_container, image}`, or
 `{:apple_container, image, opts}`.
+Tmux refs likewise preserve the declared client and known option keys across
+the config → IR → config round trip.
 
 ## The default control-plane gate
 

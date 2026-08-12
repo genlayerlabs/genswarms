@@ -90,6 +90,8 @@ The `backend` key accepts any of the following forms. See [backends.md](backends
 | `{:apple_container, "image", %{opts}}` | Apple container | Options map merged over `%{image: "image"}`. |
 | `{:ssh, "user@host"}` | SSH | Resolves to `%{host: "user@host"}`. |
 | `{:ssh, "user@host", %{opts}}` | SSH | Options map merged over `%{host: ...}`. |
+| `{:tmux, :codex}` | Tmux TUI | Persistent interactive Codex pane; `:claude` and `:opencode` are also supported. Runs on the host unless a runner is selected. |
+| `{:tmux, client, %{opts}}` | Tmux TUI | Persistent pane with host, per-agent Docker, or per-agent bwrap execution. |
 | `:bwrap` | Bwrap | Bubblewrap sandbox; default when `backend` is omitted. |
 | `{:bwrap, %{opts}}` | Bwrap | Options map (see below). |
 | `:mock` | Mock | No process; a stub for testing. |
@@ -97,7 +99,7 @@ The `backend` key accepts any of the following forms. See [backends.md](backends
 
 Any other value fails validation with `{:invalid_backend, backend}`.
 
-> JSON/YAML limitation: the loader only converts a **scalar string** backend to an atom (`"local"` → `:local`, `"bwrap"` → `:bwrap`, `"apple_container"` → `:apple_container`, `"mock"` → `:mock`, etc.). It does **not** turn an array like `["docker", "coder"]` into a `{:docker, "coder"}` tuple, so array-form backends reach the validator unchanged and fail. Tuple-form backends (Docker/SSH/Apple container, or any form with an options map) can therefore only be expressed in `.exs` configs. JSON/YAML configs are limited to scalar string backends.
+> JSON/YAML limitation: the loader normally converts only a **scalar string** backend to an atom (`"local"` → `:local`, `"bwrap"` → `:bwrap`, etc.). It does **not** turn an array like `["docker", "coder"]` into a tuple, so Docker/SSH/Apple tuple forms still require `.exs`. Tmux is the explicit exception and accepts a data-only object: `{"type":"tmux","client":"codex","opts":{...}}` (the same shape works in YAML).
 
 ## Backend config separation
 
@@ -114,9 +116,9 @@ The shared/backend-specific keys are:
 | `cmd` | string or argv list | backend default | Override the Docker/Apple in-container command. |
 | `extra_path` | list of strings | `[]` | Additional directories prepended to `PATH`. |
 | `extra_ro_binds` | list of `{host, container}` | `[]` | Extra read-only bind mounts. |
-| `extra_rw_binds` | list of `{host, container}` | `[]` | Split out of `config`, but **not currently applied** by the backend (only `extra_ro_binds` is mounted). Use `workspace` for writable space. |
+| `extra_rw_binds` | list of `{host, container}` | `[]` | Additional writable mounts for tmux Docker/bwrap runners. The subzeroclaw bwrap backend does not currently apply this key; use `workspace` there. |
 | `extra_env` | map | `%{}` | Extra environment variables passed into the sandbox. |
-| `memory_limit` | string | `"256M"` | Memory ceiling (e.g. `"512M"`). |
+| `memory_limit` | string | subzeroclaw bwrap: `"256M"`; tmux bwrap rootless: unset; tmux bwrap cgroup: `"2G"` | Memory ceiling (e.g. `"2G"`). Rootless uses `RLIMIT_AS`; JS runtimes can reserve large virtual heaps, so set it deliberately. |
 | `memory_swap` | string | Docker default | Docker-only RAM+swap cap. |
 | `cpu_limit` | number/string | backend default | Docker/Apple CPU cap. |
 | `cpu_shares` | integer | `100` | Relative CPU weight. |
@@ -127,7 +129,44 @@ The shared/backend-specific keys are:
 | `api_key` / `model` / `endpoint` | string | env/provider defaults | LLM settings passed through to real backends. Prefer top-level `model` / `endpoint` for normal configs. |
 | `request_extra` / `compact_extra` | JSON string or map | none | Advanced subzeroclaw request/compaction routing payloads. |
 | `presets` | list of atoms | `[:base]` | The same agent-level `presets` key (above), forwarded to the sandbox. The bwrap backend falls back to `[:base]` when none are given. |
-| `network` | `:open` \| `:isolated` \| string | `:open` | `:isolated` cuts Docker/bwrap network to a single forwarder pinned to the LLM endpoint. Apple container rejects `:isolated` / `"isolated"` and fails closed. See [Security › network isolation](security.md#agent-network-isolation). |
+| `network` | `:open` \| `:none` \| `:isolated` \| string | `:open` | Subzeroclaw Docker/bwrap use `:isolated` for LLM-only egress. An isolated tmux TUI runner supports `:none` (no network); Docker also accepts a named network. Tmux TUI runners reject `:isolated` until their clients have a safe LLM-forwarding contract. Apple container also rejects `:isolated`. See [Security › network isolation](security.md#agent-network-isolation). |
+| `client` / `resume` | tmux client / boolean or string | required / `false` | Select a coding TUI and optionally resume its latest/named conversation. |
+| `runner` | `:host` \| `:docker` \| `:bwrap` | `:host` | Where a tmux pane executes its coding client. tmux itself remains host-side and attachable. |
+| `client_source` | `:runtime` \| `:host_nix` | Docker: `:runtime`; bwrap: `:host_nix` | Use a client already in the isolated runtime, or mount the selected host Nix closure read-only. |
+| `privilege_mode` | `:rootless` \| `:cgroup` | Tmux bwrap: `:rootless`; subzeroclaw bwrap: `:cgroup` | TUI bwrap defaults rootless so the client keeps a direct PTY; select cgroup explicitly for systemd-enforced limits on a compatible host. |
+| `image` / `state_dir` | string / string | preset image / private per-agent path | Docker TUI image and persistent client home mounted as `/root`. |
+| `pass_env` / `runner_env` | list of names / map | `[]` / `%{}` | Environment passed into an isolated TUI runner. Docker and bwrap use private mode-0600 env files so values are not placed in host-visible CLI argv. |
+| `keepalive_command` | argv list | `["sleep", "infinity"]` | Command that keeps a per-agent Docker TUI container alive between client restarts. |
+| `docker_executable` / `bwrap_executable` | string | resolved from `PATH` | Isolation CLI overrides for a tmux runner. |
+| `tmux_socket` / `tmux_executable` | string | `genswarms` / `tmux` | Persistent tmux transport selection. |
+| `executable` / `args` | string / list of strings | client default / `[]` | Tmux client executable and extra argv; values are never interpolated into a host shell. |
+| `approval_policy` / `sandbox` | string/atom | client default | Codex permissions. |
+| `permission_mode` / `effort` | string/atom | client default | Claude permissions and effort. |
+| `dangerously_bypass` / `auto_approve` | boolean | `false` | Explicit unsafe client modes; never enabled by default. |
+| `poll_interval_ms` / `ready_quiet_ms` | positive integer | `250` / `1000` | Tmux observation timing. Quiet readiness is ignored unless `quiet_ready_fallback: true`. |
+| `submit_delay_ms` / `submit_retry_after_ms` | non-negative / positive integer | `100` / `1000` | Separates literal input from the first Enter, then bounds the active-cursor verification grace. |
+| `submit_max_attempts` / `submit_check_max_errors` | positive integer | `2` / `3` | Bounded Enter-only recovery and cursor-query failures before `needs_attention`. |
+
+For example, this JSON shape creates an attachable OpenCode pane backed by its
+own Docker container; the image must contain `opencode`:
+
+```json
+{
+  "type": "tmux",
+  "client": "opencode",
+  "opts": {
+    "runner": "docker",
+    "image": "coding-tuis:latest",
+    "client_source": "runtime",
+    "network": "open"
+  }
+}
+```
+
+On NixOS, use `"client_source": "host_nix"` to mount the installed client's
+minimal Nix closure instead. `network: "none"` is a complete network cutoff and
+therefore also blocks cloud model APIs; it is not equivalent to the
+subzeroclaw-only `network: "isolated"` LLM forwarder.
 
 Any key in `config` not listed above (for example `population_size` or `max_iterations`) is preserved as domain config and is not interpreted by the backend.
 
@@ -214,9 +253,9 @@ The file must evaluate to a configuration map. This is the only format that supp
 
 ### JSON
 
-Topology edges are two-element arrays. Backends must be scalar strings
-(`"local"`, `"bwrap"`, `"apple_container"`, `"mock"`) — see the JSON/YAML limitation above; use `.exs`
-for Docker/SSH/Apple image tuples or option-map backends.
+Topology edges are two-element arrays. Backends are normally scalar strings;
+see the JSON/YAML limitation above. Tmux additionally accepts an object such as
+`{"type":"tmux","client":"codex","opts":{"workspace":"/work"}}`.
 
 ```json
 {
@@ -234,7 +273,7 @@ for Docker/SSH/Apple image tuples or option-map backends.
 
 ### YAML
 
-Same rule as JSON: backends are scalar strings.
+Same rule as JSON, including the data-only tmux backend object exception.
 
 ```yaml
 name: example-swarm

@@ -59,6 +59,8 @@ Notes:
 | GET | /api/swarms/:name/agents/:agent | Get a single agent's status |
 | POST | /api/swarms/:name/agents/:agent/task | Send a task to an agent |
 | POST | /api/swarms/:name/agents/:agent/restart | Restart an agent |
+| POST | /api/swarms/:name/agents/:agent/interrupt | Interrupt the active backend turn without deleting its session |
+| GET | /api/swarms/:name/agents/:agent/session | Get attachable persistent-session metadata |
 | GET | /api/swarms/:name/agents/:agent/history | Get the agent's message history (`?limit=`, default 100) |
 | GET | /api/swarms/:name/agents/:agent/logs | Get the agent's conversation logs |
 | GET | /api/swarms/:name/agents/:agent/skills | Get the agent's skill contents |
@@ -68,7 +70,9 @@ Notes:
 
 - `POST .../task` requires `{"task": "..."}` and returns `{"status": "sent", "agent", "task"}`. For daemon swarms the task is queued in SQLite for the daemon to pick up. Missing `task` returns `400` with `{"error": "Missing 'task' parameter"}`.
 - `GET .../agents` returns `{"agents": [ ... ]}`; `GET .../agents/:agent` returns the status map directly, or `404` with `{"error": "Agent not found"}`.
-- `POST .../agents/:agent/restart` returns `{"status": "restarted", "agent": "..."}`, `404` if the swarm is unknown, or `500` on failure.
+- `POST .../agents/:agent/restart` reuses the complete effective agent config and preserves a persistent tmux pane. It returns `{"status": "restarted", "agent": "..."}`, `404` if the swarm/agent is unknown, or `500` on failure.
+- `POST .../agents/:agent/interrupt` returns `{"status":"interrupted","agent":"..."}` or `409` when the backend cannot interrupt the current state.
+- `GET .../agents/:agent/session` returns non-secret tmux metadata, read-only/read-write attach argv, and a nested `runner` object (`kind`, isolation booleans, network, and non-secret container/sandbox identity). A non-persistent backend returns `422`; an unknown agent returns `404`.
 - `GET .../history` and `GET .../logs` return `{"history": [...]}` / `{"logs": [...]}`. `GET .../skills` returns `{"skills": ...}`. A missing agent returns `404`.
 - `PUT .../skills/:skill` requires `{"content": "..."}` and returns `{"status": "updated", "skill": "..."}`. A failure returns `500`.
 
@@ -100,7 +104,7 @@ Notes:
 
 - `GET .../topology` returns `{"topology": [{"from": ..., "targets": [...]}, ...]}` or `404` for an unknown swarm.
 - `PATCH .../topology` accepts `{"add": [...], "remove": [...]}`. Each edge may be `["from", "to"]` or `{"from": "...", "to": "..."}`; both endpoints of an edge must be strings, and any edge that doesn't parse is silently ignored. Returns `{"status": "ok", "added": N, "removed": M}` (the counts reflect the parsed edges actually applied). A mutation error returns `400`.
-- `POST .../agents` accepts an agent spec (`name`, `backend`, `skills`, `model`, `endpoint`, `presets`, `config`) plus optional `connections` (outgoing targets) and `incoming` (sources). `backend` may be a string (e.g. `"local"`, `"apple_container"`, `"mock"`) or an object: `{"type": "docker", "image": "coder"}`, `{"type": "apple_container", "image": "szc-agent-code:latest"}`, `{"type": "apple_container", "image": "szc-agent-code:latest", "opts": { "memory_limit": "2g" }}`, `{"type": "ssh", "host": "user@host"}`, `{"type": "bwrap", "opts": { ... }}`, or `{"type": "mock"}`. Known backend keys in `config` (`workspace`, `network`, `env`, `volumes`, `cmd`, resource limits, etc.) are normalized before start; unknown config keys remain domain data. Apple container rejects `"network": "isolated"` and fails closed instead of running with open network. Returns `201 Created` with `{"status": "added", "name": "..."}`, or `400` with `{"error": "..."}` on failure.
+- `POST .../agents` accepts an agent spec (`name`, `backend`, `skills`, `model`, `endpoint`, `presets`, `config`) plus optional `connections` (outgoing targets) and `incoming` (sources). `backend` may be a string (e.g. `"local"`, `"apple_container"`, `"mock"`) or an object: `{"type": "docker", "image": "coder"}`, `{"type": "apple_container", "image": "szc-agent-code:latest"}`, `{"type": "apple_container", "image": "szc-agent-code:latest", "opts": { "memory_limit": "2g" }}`, `{"type": "ssh", "host": "user@host"}`, `{"type": "bwrap", "opts": { ... }}`, `{"type":"tmux","client":"codex","opts":{"runner":"docker","image":"coding-tuis:latest","client_source":"runtime"}}`, or `{"type": "mock"}`. Known backend keys in `config` are normalized before start; unknown config keys remain domain data. Apple container and interactive tmux runners reject `"network": "isolated"` and fail closed instead of running with open network; tmux Docker/bwrap runners accept `"none"` as a complete cutoff. Returns `201 Created` with `{"status": "added", "name": "..."}`, or `400` with `{"error": "..."}` on failure.
 - `DELETE .../agents/:agent` returns `{"status": "removed", "name": "..."}` or `404` with `{"error": "..."}`.
 - `POST .../agents/:base/scale` requires an integer `{"count": N}` (`count >= 0`) and returns `{"status": "ok", "result": {"added": [...], "removed": [...], "failed": [{"name", "reason"}]}}` (the `added`/`removed`/`failed[].name` values are strings). A missing/non-integer/negative `count` returns `400` with `{"error": "Missing or invalid 'count'"}`; a scaling error returns `400` with `{"error": "..."}`.
 

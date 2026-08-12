@@ -82,6 +82,11 @@ The full vocabulary the bridge knows
 | `swarm` | `swarm_started` | info | swarm finished starting (emitters may pass `level:` for a partial start) |
 | `swarm` | `swarm_stopped` | info | swarm torn down |
 | `agent` | `agent_started` | info | agent process up |
+| `agent` | `agent_ready` | info | event-driven backend reached a recognized safe prompt |
+| `agent` | `agent_blocked` | info | backend is waiting for human trust/permission input |
+| `agent` | `agent_needs_attention` | info | durable turn/session recovery needs operator review |
+| `agent` | `agent_interrupted` | info | active backend turn was interrupted without deleting its session |
+| `agent` | `agent_send_failed` | error | backend refused or failed a turn delivery |
 | `agent` | `agent_stopped` | info | agent process exited |
 | `agent` | `agent_error` | error | agent backend/runtime error |
 | `agent` | `agent_added` | info | agent added to a running swarm |

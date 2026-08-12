@@ -4,9 +4,10 @@ description: Documentation for GenSwarms — the declared Elixir/OTP runtime for
 
 # GenSwarms documentation
 
-GenSwarms is an Elixir/OTP orchestrator for swarms of `subzeroclaw` agents, with
-pluggable backends, arbitrary directed-graph topologies, per-agent skills, and
-fault tolerance via OTP supervision trees.
+GenSwarms is an Elixir/OTP orchestrator for swarms of agents, including
+`subzeroclaw` workers and persistent interactive coding clients, with pluggable
+backends, arbitrary directed-graph topologies, per-agent skills, and fault
+tolerance via OTP supervision trees.
 
 This is the documentation index. If you are new, start with
 [Getting started](getting-started.md) and work through the area you need.
@@ -35,7 +36,7 @@ This is the documentation index. If you are new, start with
 ## Architecture and internals
 
 - [Architecture](architecture.md) — the OTP supervision tree, the daemon model, and supported deployment topologies.
-- [Backends](backends.md) — the Local, Docker, Apple container, SSH, Bwrap, and Mock execution backends and the shared backend contract.
+- [Backends](backends.md) — Local, persistent tmux TUIs, Docker, Apple container, SSH, Bwrap, and Mock execution backends and their shared contract.
 - [Containers and sandboxes](containers.md) — NixOS container images, tool presets, and the bwrap sandbox internals.
 
 ## Reference
