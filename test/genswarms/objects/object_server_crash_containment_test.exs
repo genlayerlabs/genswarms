@@ -122,6 +122,26 @@ defmodule Genswarms.Objects.ObjectServerCrashContainmentTest do
     |> Enum.filter(&(&1.event_type == :handler_crashed))
   end
 
+  defp await_linked_exit(swarm, tries \\ 50)
+
+  defp await_linked_exit(swarm, tries) when tries > 0 do
+    linked =
+      [swarm: swarm, limit: 50]
+      |> LogStore.query()
+      |> Enum.filter(&(&1.event_type == :linked_exit))
+
+    case linked do
+      [] ->
+        Process.sleep(20)
+        await_linked_exit(swarm, tries - 1)
+
+      events ->
+        events
+    end
+  end
+
+  defp await_linked_exit(_swarm, 0), do: []
+
   test "a raising handler keeps its pid AND its state", %{swarm: swarm, pid: pid} do
     deliver(swarm, "one")
     assert_receive {:counted, 1}, 2_000
@@ -164,12 +184,10 @@ defmodule Genswarms.Objects.ObjectServerCrashContainmentTest do
     assert_receive {:counted, 1}, 2_000
     assert GenServer.whereis(ObjectServer.via_tuple(swarm, :fragile)) == pid
 
-    linked =
-      [swarm: swarm, limit: 50]
-      |> LogStore.query()
-      |> Enum.filter(&(&1.event_type == :linked_exit))
-
-    assert [event | _] = linked
+    # The linked process is a separate sender, so its EXIT signal is not
+    # ordered against the test process's second cast. Wait for the observable
+    # event instead of assuming that `{:counted, 1}` implies EXIT was handled.
+    assert [event | _] = await_linked_exit(swarm)
     assert event.message =~ "linked_boom"
   end
 

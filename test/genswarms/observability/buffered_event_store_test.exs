@@ -16,6 +16,21 @@ defmodule Genswarms.Observability.BufferedEventStoreTest do
     )
   end
 
+  defp await_events(base, predicate, tries \\ 50)
+
+  defp await_events(base, predicate, tries) when tries > 0 do
+    rows = SwarmRegistry.events_since(base, 100)
+
+    if predicate.(rows) do
+      rows
+    else
+      Process.sleep(20)
+      await_events(base, predicate, tries - 1)
+    end
+  end
+
+  defp await_events(base, _predicate, 0), do: SwarmRegistry.events_since(base, 100)
+
   describe "SwarmRegistry.log_events_bulk/1" do
     test "writes a whole batch in one transaction" do
       base = SwarmRegistry.max_event_id()
@@ -64,9 +79,7 @@ defmodule Genswarms.Observability.BufferedEventStoreTest do
       # Not yet flushed (interval is 60ms, max_buffer not reached).
       assert SwarmRegistry.events_since(base, 100) == []
 
-      Process.sleep(150)
-
-      rows = SwarmRegistry.events_since(base, 100)
+      rows = await_events(base, &Enum.any?(&1, fn row -> row.event_type == :buffered_late end))
       assert Enum.any?(rows, &(&1.event_type == :buffered_late))
     end
 
@@ -79,9 +92,13 @@ defmodule Genswarms.Observability.BufferedEventStoreTest do
       Buffered.persist(ev(:over_2, "buf-b"))
       Buffered.persist(ev(:over_3, "buf-b"))
 
-      Process.sleep(100)
+      rows =
+        await_events(base, fn rows ->
+          types = Enum.map(rows, & &1.event_type)
+          :over_1 in types and :over_2 in types and :over_3 in types
+        end)
 
-      types = SwarmRegistry.events_since(base, 100) |> Enum.map(& &1.event_type)
+      types = Enum.map(rows, & &1.event_type)
       assert :over_1 in types and :over_2 in types and :over_3 in types
     end
   end
