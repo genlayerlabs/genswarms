@@ -6,15 +6,19 @@ defmodule Mix.Tasks.Genswarms.Build do
 
   ## Usage
 
-      mix swarm build [image]
-      mix swarm build --all
+      mix genswarms build [image]
+      mix genswarms build --all
 
   ## Available Images
 
       base        Base agent image with common tools
+      web         Web/browser tooling image
+      code        Coding tools image
+      data        Data tooling image
+      full        Full tools image
       python      Python development image
       node        Node.js development image
-      elixir      Elixir development image
+      devops      DevOps/cloud tooling image
 
   ## Options
 
@@ -25,10 +29,10 @@ defmodule Mix.Tasks.Genswarms.Build do
 
   ## Examples
 
-      mix swarm build base              # Build base image
-      mix swarm build --all             # Build all images
-      mix swarm build base --push       # Build and push
-      mix swarm build base --tag v1.0   # Custom tag
+      mix genswarms build base              # Build base image
+      mix genswarms build --all             # Build all images
+      mix genswarms build base --push       # Build and push
+      mix genswarms build base --tag v1.0   # Custom tag
   """
 
   use Mix.Task
