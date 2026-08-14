@@ -206,6 +206,25 @@ defmodule Genswarms.Agents.AgentServerAsyncOrderingTest do
   end
 
   describe "inbox release after clear_awaiting + TURN_COMPLETE" do
+    test "an object message started while idle is not retained for replay" do
+      swarm = swarm_name()
+      start_agent(swarm, agent_name())
+
+      AgentServer.deliver_message(swarm, agent_name(), "auspex", "incident event")
+
+      state = raw_state(swarm, agent_name())
+      assert state.state == :working
+      assert Inbox.size(state.inbox) == 0
+
+      agent_pid = GenServer.whereis(AgentServer.via_tuple(swarm, agent_name()))
+      send(agent_pid, {make_ref(), {:data, "<<TURN_COMPLETE>>"}})
+      Process.sleep(50)
+
+      state = raw_state(swarm, agent_name())
+      assert state.state == :idle
+      assert Inbox.size(state.inbox) == 0
+    end
+
     test "clearing awaiting makes the queued task available for next TURN_COMPLETE" do
       swarm = swarm_name()
       start_agent(swarm, agent_name())
@@ -400,9 +419,10 @@ defmodule Genswarms.Agents.AgentServerAsyncOrderingTest do
       assert state.awaiting_timer_ref == nil
 
       # 5. The queued user task must still be in the inbox — it is NOT lost.
-      #    It will be released only on the next TURN_COMPLETE.
-      #    (The object reply itself was also pushed into the inbox, so size == 2.)
+      #    It will be released only on the next TURN_COMPLETE. The object reply
+      #    is already running and therefore must not remain queued for replay.
       inbox_contents = Inbox.to_list(state.inbox)
+      assert length(inbox_contents) == 1
       task_entries = Enum.filter(inbox_contents, &Map.get(&1, :task?))
       assert length(task_entries) == 1,
              "The queued user task must still be present in the inbox (not dropped)"

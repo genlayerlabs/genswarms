@@ -975,7 +975,11 @@ defmodule Genswarms.Agents.AgentServer do
               {:noreply,
                %{
                  started_state
-                 | inbox: new_inbox,
+                 | # This message is already running. Keep only entries that
+                   # predated it (for example user work gated on an object
+                   # reply); retaining new_inbox would replay the same message
+                   # on the next TURN_COMPLETE.
+                   inbox: state.inbox,
                    history: new_history,
                    file_inbox_seq: seq,
                    last_activity: DateTime.utc_now()
