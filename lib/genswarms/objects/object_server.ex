@@ -41,13 +41,15 @@ defmodule Genswarms.Objects.ObjectServer do
     :backend_module,
     :backend_ref,
     :backend_config,
+    :init_error,
     # :native | :process
     mode: :native,
     state: :initializing,
     buffer: "",
     message_count: 0,
     started_at: nil,
-    last_activity: nil
+    last_activity: nil,
+    init_waiters: []
   ]
 
   @type t :: %__MODULE__{
@@ -59,12 +61,14 @@ defmodule Genswarms.Objects.ObjectServer do
           backend_module: module() | nil,
           backend_ref: term(),
           backend_config: map(),
+          init_error: term(),
           mode: :native | :process,
           state: :initializing | :idle | :working | :error,
           buffer: String.t(),
           message_count: non_neg_integer(),
           started_at: DateTime.t() | nil,
-          last_activity: DateTime.t() | nil
+          last_activity: DateTime.t() | nil,
+          init_waiters: [GenServer.from()]
         }
 
   # Client API
@@ -109,6 +113,24 @@ defmodule Genswarms.Objects.ObjectServer do
       via_tuple(swarm_name, object_name),
       {:deliver_ask, from, content, correlation_id}
     )
+  end
+
+  @doc """
+  Blocks until the object's init has resolved, returning `:ok` once the
+  handler (native mode) or backend (process mode) has actually come up, or
+  `{:error, reason}` if it rejected/failed.
+
+  `start_link`/`ObjectSupervisor.start_object` return as soon as this
+  GenServer's own `init/1` callback returns `{:ok, state}` — which happens
+  BEFORE the handler's `init/1` runs, since that's deferred via
+  `send(self(), :init_object)` so a slow handler/backend start doesn't block
+  `DynamicSupervisor.start_child`. A caller that needs to know whether the
+  object *actually* came up — e.g. `update_object_config`'s
+  reject-and-roll-back path (see #80) — must await this separately instead
+  of treating `start_object`'s `{:ok, pid}` as success.
+  """
+  def await_init(swarm_name, object_name, timeout \\ 5_000) do
+    GenServer.call(via_tuple(swarm_name, object_name), :await_init, timeout)
   end
 
   @doc """
@@ -236,6 +258,25 @@ defmodule Genswarms.Objects.ObjectServer do
     {:native, nil, %{}}
   end
 
+  # Call this from every place init/backend-start resolves (success or
+  # failure) so callers blocked in await_init/3 get released, and so a
+  # caller that calls await_init/3 AFTER resolution (state is no longer
+  # :initializing) still gets the right answer via init_error.
+  @spec resolve_init(t(), :ok | {:error, term()}) :: t()
+  defp resolve_init(state, result) do
+    reply = if result == :ok, do: :ok, else: result
+
+    Enum.each(state.init_waiters, &GenServer.reply(&1, reply))
+
+    init_error =
+      case result do
+        :ok -> nil
+        {:error, reason} -> reason
+      end
+
+    %{state | init_waiters: [], init_error: init_error}
+  end
+
   @impl true
   def handle_info(:init_object, %{mode: :native} = state) do
     Logger.info(
@@ -261,12 +302,15 @@ defmodule Genswarms.Objects.ObjectServer do
           emit_telemetry(:object_started, state, %{mode: :native})
 
           {:noreply,
-           %{
-             state
-             | handler_state: handler_state,
-               state: :idle,
-               last_activity: DateTime.utc_now()
-           }}
+           resolve_init(
+             %{
+               state
+               | handler_state: handler_state,
+                 state: :idle,
+                 last_activity: DateTime.utc_now()
+             },
+             :ok
+           )}
 
         {:ok, handler_state, {:send, to, content}} ->
           Logger.info(
@@ -278,12 +322,15 @@ defmodule Genswarms.Objects.ObjectServer do
           Router.route(state.swarm_name, state.name, to, content)
 
           {:noreply,
-           %{
-             state
-             | handler_state: handler_state,
-               state: :idle,
-               last_activity: DateTime.utc_now()
-           }}
+           resolve_init(
+             %{
+               state
+               | handler_state: handler_state,
+                 state: :idle,
+                 last_activity: DateTime.utc_now()
+             },
+             :ok
+           )}
 
         {:ok, handler_state, {:multi, messages}} ->
           Logger.info(
@@ -302,12 +349,15 @@ defmodule Genswarms.Objects.ObjectServer do
           end)
 
           {:noreply,
-           %{
-             state
-             | handler_state: handler_state,
-               state: :idle,
-               last_activity: DateTime.utc_now()
-           }}
+           resolve_init(
+             %{
+               state
+               | handler_state: handler_state,
+                 state: :idle,
+                 last_activity: DateTime.utc_now()
+             },
+             :ok
+           )}
 
         {:error, reason} ->
           Logger.error(
@@ -315,7 +365,7 @@ defmodule Genswarms.Objects.ObjectServer do
           )
 
           emit_telemetry(:object_error, state, %{reason: inspect(reason), phase: :init})
-          {:noreply, %{state | state: :error}}
+          {:noreply, resolve_init(%{state | state: :error}, {:error, reason})}
       end
     else
       Logger.error("[#{state.swarm_name}/#{state.name}] No handler specified for native object")
@@ -325,7 +375,7 @@ defmodule Genswarms.Objects.ObjectServer do
         agent: state.name
       )
 
-      {:noreply, %{state | state: :error}}
+      {:noreply, resolve_init(%{state | state: :error}, {:error, :no_handler})}
     end
   end
 
@@ -345,7 +395,12 @@ defmodule Genswarms.Objects.ObjectServer do
         Logger.info("[#{state.swarm_name}/#{state.name}] Object backend started")
 
         emit_telemetry(:object_started, state, %{mode: :process, backend: state.backend_module})
-        {:noreply, %{state | backend_ref: ref, state: :idle, last_activity: DateTime.utc_now()}}
+
+        {:noreply,
+         resolve_init(
+           %{state | backend_ref: ref, state: :idle, last_activity: DateTime.utc_now()},
+           :ok
+         )}
 
       {:error, reason} ->
         Logger.error(
@@ -358,7 +413,7 @@ defmodule Genswarms.Objects.ObjectServer do
           phase: :start
         })
 
-        {:noreply, %{state | state: :error}}
+        {:noreply, resolve_init(%{state | state: :error}, {:error, reason})}
     end
   end
 
@@ -490,6 +545,20 @@ defmodule Genswarms.Objects.ObjectServer do
   end
 
   @impl true
+  def handle_call(:await_init, from, %{state: :initializing} = state) do
+    # Not resolved yet — queue the caller and reply later from
+    # resolve_init/2, whichever handle_info clause gets there first.
+    {:noreply, %{state | init_waiters: [from | state.init_waiters]}}
+  end
+
+  def handle_call(:await_init, _from, %{state: :error} = state) do
+    {:reply, {:error, state.init_error || :init_failed}, state}
+  end
+
+  def handle_call(:await_init, _from, state) do
+    {:reply, :ok, state}
+  end
+
   def handle_call(:get_state, _from, state) do
     {:reply, state.state, state}
   end

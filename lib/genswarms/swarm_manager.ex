@@ -16,6 +16,7 @@ defmodule Genswarms.SwarmManager do
   alias Genswarms.Observability.LogStore
   alias Genswarms.Config.{Loader, SwarmConfig}
   alias Genswarms.Objects.ObjectSupervisor
+  alias Genswarms.Objects.ObjectServer
   alias Genswarms.Routing.Router
 
   defstruct swarms: %{}
@@ -1217,16 +1218,35 @@ defmodule Genswarms.SwarmManager do
 
                 case ObjectSupervisor.start_object(object_config) do
                   {:ok, _pid} ->
-                    new_objects = (swarm_info.config.objects || []) ++ [spec]
+                    # start_object (and this GenServer's own init/1) returning
+                    # {:ok, pid} only means the process was spawned — the
+                    # handler's init/1 (or backend start, for :process mode)
+                    # runs asynchronously afterward. Await its real outcome
+                    # before reporting success, otherwise a rejecting init/1
+                    # is reported as "added"/"updated" while the object is
+                    # actually dead (#80).
+                    case ObjectServer.await_init(swarm_name, name) do
+                      :ok ->
+                        new_objects = (swarm_info.config.objects || []) ++ [spec]
 
-                    new_config = %{
-                      swarm_info.config
-                      | objects: new_objects,
-                        topology: existing ++ all_new_edges
-                    }
+                        new_config = %{
+                          swarm_info.config
+                          | objects: new_objects,
+                            topology: existing ++ all_new_edges
+                        }
 
-                    emit_telemetry(:object_added, %{swarm: swarm_name, object: name})
-                    {:ok, name, %{swarm_info | config: new_config}}
+                        emit_telemetry(:object_added, %{swarm: swarm_name, object: name})
+                        {:ok, name, %{swarm_info | config: new_config}}
+
+                      {:error, init_reason} ->
+                        # The object came up as a process but its own init
+                        # rejected — tear it back down so this add is
+                        # atomic (all-or-nothing), same as any other
+                        # failure branch here.
+                        ObjectSupervisor.stop_object(swarm_name, name)
+                        Router.remove_edges(swarm_name, all_new_edges)
+                        {:error, {:object_init_failed, init_reason}}
+                    end
 
                   {:error, reason} ->
                     Router.remove_edges(swarm_name, all_new_edges)
