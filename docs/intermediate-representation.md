@@ -16,8 +16,8 @@ It lives in `Genswarms.IR.*` and is exposed through the `Genswarms.IR` façade.
     reconcile/actuation layer, and the **default validation gate** are all
     wired and in use. `gsp` and `swarmidx` provide authenticated package
     resolution and vendoring. Runtime translation retains native package
-    handler refs and their explicit loader settings. Package body/policy loading
-    loading is still being completed. Native desired IR seeds now support
+    handler refs and their explicit loader settings. Package bodies (`body.md`)
+    and policies (`policy.json`) are loaded from verified snapshots. Native desired IR seeds support
     database-backed restart without the original configuration file;
     unsupported execution translations fail rather than silently using defaults.
 
@@ -167,7 +167,29 @@ Package handlers require an explicit `opts.path` to the installed package and
 `opts.mode: "verify" | "require"` (`"verify"` by default, matching the existing
 config loader). These options describe local execution, not signed registry
 metadata. Unknown load modes are rejected. The loader still checks package
-bytes; a successful config/IR round trip alone is not proof of BEAM provenance.
+bytes. Require mode compiles exactly the verified in-memory sources and records
+the identities of the modules it produced. Verify mode accepts that recorded
+provenance, or a signed `beams` map in `swarm-object.json` containing module-name
+to `sha256:<compiled-BEAM-hash>` mappings. It checks the active code as well as
+the BEAM artifact. An unrelated loaded module is refused. Existing verify-mode
+packages without such evidence must add a build attestation or use require mode
+in a fresh runtime; this deliberately tightens the previous insufficient check.
+
+Native data refs also use explicit `opts.path`: body packages contain UTF-8
+`body.md`, deployed as `package-body.md` with skill template substitution; policy
+packages contain `policy.json`, an object/list sent as `request_extra.policy_ir`.
+Policies remain data interpreted by the selected router, never evaluated as
+Elixir. The pinned policy takes precedence over an override's `policy_ir`.
+Runtime observation preserves the native refs and original overrides rather
+than replacing their identities with generated inline skills. Inline skill
+entries may also be `{"name":"persona.md","content":"..."}`; names are plain
+filenames. Bind options use JSON `[source,target]` pairs and become runtime
+tuples only for `extra_ro_binds`/`extra_rw_binds`.
+
+Package snapshots reject symlinks and special files and are limited to 10,000
+files/64 MiB. The same snapshot is hashed and consumed, so compilation never
+reopens a subsequently modified source file. Package code and the operator's
+filesystem remain trusted execution inputs: a signature is not a code sandbox.
 
 `State.to_map/1` and `Ref.to_map/1` emit the public JSON shape, retaining native
 refs, model-policy wrappers, execution metadata and explicit null options.

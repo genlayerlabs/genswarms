@@ -1659,45 +1659,59 @@ defmodule Genswarms.Agents.AgentServer do
     priv_skills = Application.get_env(:genswarms, :skills_dir, "priv/skills")
     project_root = Application.get_env(:genswarms, :project_root) || File.cwd!()
 
-    Enum.each(state.skills, fn skill_file ->
-      # Resolve the source path
-      src =
-        cond do
-          # Absolute path
-          String.starts_with?(skill_file, "/") ->
-            skill_file
-
-          # Relative path (./something or ../something)
-          String.starts_with?(skill_file, ".") ->
-            Path.expand(skill_file, project_root)
-
-          # Simple filename - look in priv/skills
-          true ->
-            Path.join(priv_skills, skill_file)
-        end
-
-      # Use basename for the destination
-      dst = Path.join(skills_dir, Path.basename(skill_file))
-
-      # Create parent directory if needed
-      File.mkdir_p!(Path.dirname(dst))
-
-      if File.exists?(src) do
-        # Copy and resolve template variables
-        content = File.read!(src)
-        workspace = effective_workspace(state) || ""
+    Enum.each(state.skills, fn
+      %{"name" => name, "content" => content} ->
+        if name == "" or name in [".", ".."] or Path.basename(name) != name or
+             String.contains?(name, ["/", "\\", <<0>>]),
+           do: raise(ArgumentError, "invalid inline skill name")
 
         resolved =
           content
           |> String.replace("{{agent_name}}", to_string(state.name))
           |> String.replace("{{swarm_name}}", to_string(state.swarm_name))
-          |> String.replace("{{workspace}}", to_string(workspace))
+          |> String.replace("{{workspace}}", to_string(effective_workspace(state) || ""))
 
-        File.write!(dst, resolved)
-        Logger.debug("[#{state.swarm_name}/#{state.name}] Copied skill: #{src} -> #{dst}")
-      else
-        Logger.warning("Skill file not found: #{src}")
-      end
+        File.write!(Path.join(skills_dir, name), resolved)
+
+      skill_file ->
+        # Resolve the source path
+        src =
+          cond do
+            # Absolute path
+            String.starts_with?(skill_file, "/") ->
+              skill_file
+
+            # Relative path (./something or ../something)
+            String.starts_with?(skill_file, ".") ->
+              Path.expand(skill_file, project_root)
+
+            # Simple filename - look in priv/skills
+            true ->
+              Path.join(priv_skills, skill_file)
+          end
+
+        # Use basename for the destination
+        dst = Path.join(skills_dir, Path.basename(skill_file))
+
+        # Create parent directory if needed
+        File.mkdir_p!(Path.dirname(dst))
+
+        if File.exists?(src) do
+          # Copy and resolve template variables
+          content = File.read!(src)
+          workspace = effective_workspace(state) || ""
+
+          resolved =
+            content
+            |> String.replace("{{agent_name}}", to_string(state.name))
+            |> String.replace("{{swarm_name}}", to_string(state.swarm_name))
+            |> String.replace("{{workspace}}", to_string(workspace))
+
+          File.write!(dst, resolved)
+          Logger.debug("[#{state.swarm_name}/#{state.name}] Copied skill: #{src} -> #{dst}")
+        else
+          Logger.warning("Skill file not found: #{src}")
+        end
     end)
 
     skills_dir

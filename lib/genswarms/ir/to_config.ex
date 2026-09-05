@@ -34,26 +34,63 @@ defmodule Genswarms.IR.ToConfig do
   @doc "IR agent -> runtime agent spec map."
   @spec agent_spec(Agent.t()) :: map()
   def agent_spec(%Agent{} = a) do
-    unless a.body.scheme == "inline" do
-      raise ArgumentError, "package body loading is not implemented"
-    end
+    skills = Map.get(a.overrides, "skills", [])
 
-    %{
-      name: a.name,
-      backend: backend(a.backend),
-      model: model(a.model),
-      skills: Map.get(a.overrides, "skills", []),
-      presets: a.overrides |> Map.get("presets", []) |> Enum.map(&String.to_existing_atom/1),
-      config: a.config |> SwarmConfig.atomize_known_backend_opts() |> normalize_option_values()
-    }
-    |> Map.merge(
-      Map.new(
-        for key <- [:endpoint, :request_extra, :compact_extra],
-            value = Map.get(a.overrides, Atom.to_string(key)),
-            not is_nil(value),
-            do: {key, value}
+    skills =
+      if a.body.scheme == "inline",
+        do: skills,
+        else: [Genswarms.Packages.Data.body!(a.body) | skills]
+
+    spec =
+      %{
+        name: a.name,
+        backend: backend(a.backend),
+        model: model(a.model),
+        skills: skills,
+        presets: a.overrides |> Map.get("presets", []) |> Enum.map(&String.to_existing_atom/1),
+        config: a.config |> SwarmConfig.atomize_known_backend_opts() |> normalize_option_values()
+      }
+      |> Map.merge(
+        Map.new(
+          for key <- [:endpoint, :request_extra, :compact_extra],
+              value = Map.get(a.overrides, Atom.to_string(key)),
+              not is_nil(value),
+              do: {key, value}
+        )
       )
-    )
+
+    spec =
+      case a.model do
+        {:policy, ref} ->
+          extra =
+            case Map.get(spec, :request_extra, %{}) do
+              value when is_map(value) -> value
+              value when is_binary(value) -> Jason.decode!(value)
+            end
+
+          Map.put(
+            spec,
+            :request_extra,
+            Map.put(extra, "policy_ir", Genswarms.Packages.Data.policy!(ref))
+          )
+
+        _ ->
+          spec
+      end
+
+    if a.body.scheme != "inline" or elem(a.model, 0) == :policy do
+      Map.put(spec, :ir_slots, %{
+        "body" => Genswarms.IR.Ref.to_map(a.body),
+        "model" =>
+          case a.model do
+            {:policy, ref} -> %{"policy" => Genswarms.IR.Ref.to_map(ref)}
+            {:service, ref} -> Genswarms.IR.Ref.to_map(ref)
+          end,
+        "overrides" => a.overrides
+      })
+    else
+      spec
+    end
   end
 
   @doc "IR object -> runtime object spec map."
@@ -97,12 +134,31 @@ defmodule Genswarms.IR.ToConfig do
   # Never create arbitrary atoms from IR values (Docker network names, etc.).
   defp normalize_option_values(opts) do
     Map.new(opts, fn
-      {:network, "isolated"} -> {:network, :isolated}
-      {:privilege_mode, "rootless"} -> {:privilege_mode, :rootless}
-      {:privilege_mode, "cgroup"} -> {:privilege_mode, :cgroup}
-      {:proc_mount, "new"} -> {:proc_mount, :new}
-      {:proc_mount, "bind"} -> {:proc_mount, :bind}
-      entry -> entry
+      {:network, "isolated"} ->
+        {:network, :isolated}
+
+      {:privilege_mode, "rootless"} ->
+        {:privilege_mode, :rootless}
+
+      {:privilege_mode, "cgroup"} ->
+        {:privilege_mode, :cgroup}
+
+      {:proc_mount, "new"} ->
+        {:proc_mount, :new}
+
+      {:proc_mount, "bind"} ->
+        {:proc_mount, :bind}
+
+      {key, binds} when key in [:extra_ro_binds, :extra_rw_binds] ->
+        {key,
+         Enum.map(binds, fn
+           [source, target] when is_binary(source) and is_binary(target) -> {source, target}
+           {source, target} when is_binary(source) and is_binary(target) -> {source, target}
+           _ -> raise ArgumentError, "invalid IR bind pair"
+         end)}
+
+      entry ->
+        entry
     end)
   end
 
@@ -112,8 +168,7 @@ defmodule Genswarms.IR.ToConfig do
   defp model({:service, %{ref: "openrouter:default"}}), do: nil
   defp model({:service, %{ref: ref}}), do: String.replace_prefix(ref, "openrouter:", "")
   # Never silently replace an unresolved policy with the runtime default.
-  defp model({:policy, _ref}),
-    do: raise(ArgumentError, "package policy loading is not implemented")
+  defp model({:policy, _ref}), do: nil
 
   # ── handler ──────────────────────────────────────────────────────────────────
 

@@ -52,15 +52,16 @@ defmodule Genswarms.IR.FromConfig do
 
   defp agent(%{} = a) do
     name = to_string(Map.get(a, :name))
+    slots = Map.get(a, :ir_slots, %{})
 
     with {:ok, backend} <- backend_ref(Map.get(a, :backend, :bwrap)) do
       {:ok,
        %{
          "name" => name,
-         "body" => %{"ref" => "inline:" <> name, "kind" => "data"},
-         "model" => model_slot(Map.get(a, :model)),
+         "body" => Map.get(slots, "body", %{"ref" => "inline:" <> name, "kind" => "data"}),
+         "model" => Map.get(slots, "model", model_slot(Map.get(a, :model))),
          "backend" => backend,
-         "overrides" => overrides(a),
+         "overrides" => Map.get(slots, "overrides", overrides(a)),
          "config" => stringify_keys(Map.get(a, :config, %{}))
        }}
     end
@@ -182,8 +183,23 @@ defmodule Genswarms.IR.FromConfig do
 
   defp map_each(_, _), do: {:error, :not_a_list}
 
-  defp stringify_keys(map) when is_map(map),
-    do: Map.new(map, fn {k, v} -> {to_string(k), v} end)
+  defp stringify_keys(map) when is_map(map) do
+    Map.new(map, fn {k, v} ->
+      key = to_string(k)
+
+      value =
+        if key in ["extra_ro_binds", "extra_rw_binds"] and is_list(v) do
+          Enum.map(v, fn
+            {source, target} when is_binary(source) and is_binary(target) -> [source, target]
+            item -> item
+          end)
+        else
+          v
+        end
+
+      {key, value}
+    end)
+  end
 
   defp stringify_keys(other), do: other
 end

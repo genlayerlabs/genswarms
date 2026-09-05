@@ -459,7 +459,17 @@ defmodule Genswarms.Config.SwarmConfig do
     do: {:error, {:unsupported_client_source, value}}
 
   defp validate_skills(%{skills: skills}) when is_list(skills) do
-    if Enum.all?(skills, &is_binary/1) do
+    if Enum.all?(skills, fn
+         skill when is_binary(skill) ->
+           true
+
+         %{"name" => name, "content" => content} when is_binary(name) and is_binary(content) ->
+           name != "" and name not in [".", ".."] and Path.basename(name) == name and
+             not String.contains?(name, ["/", "\\", <<0>>])
+
+         _ ->
+           false
+       end) do
       :ok
     else
       {:error, :invalid_skills_format}

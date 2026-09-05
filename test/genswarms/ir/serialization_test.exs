@@ -121,4 +121,24 @@ defmodule Genswarms.IR.SerializationTest do
 
     assert_raise Protocol.UndefinedError, fn -> state |> State.to_map() |> Jason.encode!() end
   end
+
+  test "typed bind options survive native JSON and restore runtime tuple pairs" do
+    opts = %{
+      extra_ro_binds: [{"/fixture/source", "/fixture/target"}],
+      extra_rw_binds: [{"/fixture/write", "/work"}]
+    }
+
+    assert {:ok, state} =
+             FromConfig.from_config(%{
+               name: "binds",
+               agents: [%{name: :worker, backend: {:bwrap, opts}, config: opts}]
+             })
+
+    assert {:ok, restored} =
+             state |> State.to_map() |> Jason.encode!() |> Jason.decode!() |> State.parse()
+
+    spec = ToConfig.agent_spec(hd(restored.agents))
+    assert spec.backend == {:bwrap, opts}
+    assert spec.config == opts
+  end
 end

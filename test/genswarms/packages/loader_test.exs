@@ -101,7 +101,8 @@ defmodule Genswarms.Packages.LoaderTest do
       assert {:error, {:digest_mismatch, _, _}} =
                Loader.resolve_handler(%{
                  ref: "swarmidx:acme/fixture@1.0.0",
-                 digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+                 digest:
+                   "sha256:0000000000000000000000000000000000000000000000000000000000000000",
                  path: dir,
                  mode: mode
                })
@@ -126,30 +127,59 @@ defmodule Genswarms.Packages.LoaderTest do
   test "missing swarm-object.json refuses to bind" do
     dir = Path.join(System.tmp_dir!(), "pkg-noentry-#{System.unique_integer([:positive])}")
     on_exit(fn -> File.rm_rf!(dir) end)
-    write!(Path.join(dir, "object.ex"), "defmodule NoEntry#{System.unique_integer([:positive])} do\nend\n")
+
+    write!(
+      Path.join(dir, "object.ex"),
+      "defmodule NoEntry#{System.unique_integer([:positive])} do\nend\n"
+    )
+
     {:ok, digest} = Dirhash.hash_dir(dir)
 
     assert {:error, {:missing_entry_file, _}} =
              Loader.resolve_handler(%{ref: "r", digest: digest, path: dir, mode: :require})
   end
 
-  test ":verify attests an already-loaded module without loading code" do
+  test ":verify refuses a loaded module with no binding to the package bytes" do
     dir = Path.join(System.tmp_dir!(), "pkg-ver-#{System.unique_integer([:positive])}")
     on_exit(fn -> File.rm_rf!(dir) end)
 
     # The entry names a module that IS already compiled in this BEAM (the mix-dep
     # case); the dir carries the notarized bytes it was compiled from.
-    write!(Path.join(dir, "swarm-object.json"), Jason.encode!(%{module: "Genswarms.Packages.Dirhash"}))
+    write!(
+      Path.join(dir, "swarm-object.json"),
+      Jason.encode!(%{module: "Genswarms.Packages.Dirhash"})
+    )
+
     {:ok, digest} = Dirhash.hash_dir(dir)
 
-    assert {:ok, Genswarms.Packages.Dirhash} =
+    assert {:error, :unproven_beam_provenance} =
              Loader.resolve_handler(%{ref: "r", digest: digest, path: dir, mode: :verify})
+  end
+
+  test ":require cannot borrow an entry module from unrelated loaded code" do
+    dir = Path.join(System.tmp_dir!(), "pkg-borrow-#{System.unique_integer([:positive])}")
+    on_exit(fn -> File.rm_rf!(dir) end)
+
+    write!(
+      Path.join(dir, "swarm-object.json"),
+      Jason.encode!(%{module: "Genswarms.Packages.Dirhash"})
+    )
+
+    {:ok, digest} = Dirhash.hash_dir(dir)
+
+    assert {:error, :unproven_beam_provenance} =
+             Loader.resolve_handler(%{ref: "r", digest: digest, path: dir, mode: :require})
   end
 
   test ":verify fails when the entry module is not loaded (never invents one)" do
     dir = Path.join(System.tmp_dir!(), "pkg-ver2-#{System.unique_integer([:positive])}")
     on_exit(fn -> File.rm_rf!(dir) end)
-    write!(Path.join(dir, "swarm-object.json"), Jason.encode!(%{module: "No.Such.Module.Anywhere"}))
+
+    write!(
+      Path.join(dir, "swarm-object.json"),
+      Jason.encode!(%{module: "No.Such.Module.Anywhere"})
+    )
+
     {:ok, digest} = Dirhash.hash_dir(dir)
 
     assert {:error, {:entry_module_not_loaded, _}} =
@@ -159,10 +189,82 @@ defmodule Genswarms.Packages.LoaderTest do
   test "unsafe entry file paths are rejected" do
     dir = Path.join(System.tmp_dir!(), "pkg-unsafe-#{System.unique_integer([:positive])}")
     on_exit(fn -> File.rm_rf!(dir) end)
-    write!(Path.join(dir, "swarm-object.json"), Jason.encode!(%{module: "X", files: ["../../evil.ex"]}))
+
+    write!(
+      Path.join(dir, "swarm-object.json"),
+      Jason.encode!(%{module: "X", files: ["../../evil.ex"]})
+    )
+
     {:ok, digest} = Dirhash.hash_dir(dir)
 
     assert {:error, {:unsafe_entry_files, _}} =
              Loader.resolve_handler(%{ref: "r", digest: digest, path: dir, mode: :require})
+  end
+
+  test "verified load is reusable, but subsequent loaded code replacement is refused" do
+    dir = Path.join(System.tmp_dir!(), "pkg-identity-#{System.unique_integer([:positive])}")
+    on_exit(fn -> File.rm_rf!(dir) end)
+    {name, digest} = fixture_package!(dir, "Identity#{System.unique_integer([:positive])}")
+    spec = %{ref: "r", digest: digest, path: dir, mode: :require}
+    assert {:ok, mod} = Loader.resolve_handler(spec)
+    assert {:ok, ^mod} = Loader.resolve_handler(spec)
+    assert {:ok, ^mod} = Loader.resolve_handler(%{spec | mode: :verify})
+    Code.compile_string("defmodule #{name} do def ping, do: :replaced end")
+    assert {:error, :loaded_package_changed} = Loader.resolve_handler(spec)
+  end
+
+  test "compilation consumes the hashed snapshot even if an earlier entry rewrites a later source" do
+    dir = Path.join(System.tmp_dir!(), "pkg-snapshot-#{System.unique_integer([:positive])}")
+    on_exit(fn -> File.rm_rf!(dir) end)
+    {name, _} = fixture_package!(dir, "Snapshot#{System.unique_integer([:positive])}")
+    core = Path.join(dir, "core.ex")
+    target = Path.join(dir, "object.ex")
+
+    File.write!(
+      core,
+      File.read!(core) <> "\nFile.write!(#{inspect(target)}, \"changed fixture bytes\")\n"
+    )
+
+    {:ok, digest} = Dirhash.hash_dir(dir)
+
+    assert {:ok, mod} =
+             Loader.resolve_handler(%{ref: "r", digest: digest, path: dir, mode: :require})
+
+    assert to_string(mod) == "Elixir." <> name
+    assert mod.ping() == :pong
+    assert File.read!(target) == "changed fixture bytes"
+  end
+
+  test "symlinks and special files cannot enter a verified snapshot" do
+    dir = Path.join(System.tmp_dir!(), "pkg-links-#{System.unique_integer([:positive])}")
+    on_exit(fn -> File.rm_rf!(dir) end)
+    File.mkdir_p!(dir)
+    File.write!(Path.join(dir, "source"), "fixture")
+    File.ln_s!("source", Path.join(dir, "link"))
+    assert {:error, _} = Dirhash.snapshot(dir)
+    File.rm!(Path.join(dir, "link"))
+    assert {_, 0} = System.cmd("mkfifo", [Path.join(dir, "fifo")])
+    assert {:error, _} = Dirhash.snapshot(dir)
+  end
+
+  test "signed BEAM manifest verifies the active compiled module without executing sources" do
+    dir = Path.join(System.tmp_dir!(), "pkg-beam-#{System.unique_integer([:positive])}")
+    on_exit(fn -> File.rm_rf!(dir) end)
+    mod = Genswarms.Packages.Dirhash
+    {^mod, bytes, _} = :code.get_object_code(mod)
+    beam_digest = "sha256:" <> Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
+    entry = %{module: inspect(mod), beams: %{inspect(mod) => beam_digest}}
+    write!(Path.join(dir, "swarm-object.json"), Jason.encode!(entry))
+    {:ok, digest} = Dirhash.hash_dir(dir)
+
+    assert {:ok, ^mod} =
+             Loader.resolve_handler(%{ref: "r", digest: digest, path: dir, mode: :verify})
+
+    entry = %{entry | beams: %{inspect(mod) => "sha256:" <> String.duplicate("0", 64)}}
+    write!(Path.join(dir, "swarm-object.json"), Jason.encode!(entry))
+    {:ok, digest} = Dirhash.hash_dir(dir)
+
+    assert {:error, :unproven_beam_provenance} =
+             Loader.resolve_handler(%{ref: "r", digest: digest, path: dir, mode: :verify})
   end
 end
