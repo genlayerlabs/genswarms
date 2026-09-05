@@ -45,6 +45,29 @@ systemd/bwrap/FIFO transport, not a provider-backed agent. They require a reply
 round trip before claiming health and skip when the sandbox bases are absent.
 They do not need API keys; subzeroclaw/provider integration is a separate layer.
 
+### Explicit live Unhardcoded runtime check
+
+This manual command spends on model inference and is never run by `mix test`:
+
+```sh
+MIX_ENV=test GENSWARMS_ALLOWED_ENDPOINTS=router.ygr.ai \
+  mix run scripts/unhardcoded-smoke.exs /path/to/private.env /path/to/subzeroclaw
+```
+
+It requires configured bwrap sandbox bases and `socat`/`jq` on PATH. On Nix,
+run Mix inside `nix shell nixpkgs#socat nixpkgs#jq --command ...`.
+Only `UNHARDCODED_API_KEY` is read from the explicit env file; other variables
+are not imported. The key is not a command argument or printed output.
+
+The script uses `profile:agent`, a network-isolated bwrap sandbox, a fresh
+workspace and two tool-using turns. The host verifies the file changes from
+17 to 23 independently of the model's reply. It limits each turn to three
+client requests, requests 512 output tokens per call, and waits at most 90
+seconds per turn. Router-internal fallback and billing remain provider-controlled:
+these are not a guaranteed dollar cap. Cleanup stops the sandbox and removes
+the temporary workspace on normal completion/error, not on host loss/SIGKILL.
+Passing establishes this small live runtime contract, not product quality.
+
 ## Formatting
 
 ```bash

@@ -193,3 +193,25 @@ opencode-unhardcoded 6476b08; subzero-sim bccd843; phylogenesis 3a6f125.
   real-provider verification. This does not authorize live bots, deployments,
   funds or user operations. Live provider verification is separate from the
   credential-free default suite.
+
+## Real Unhardcoded verification (2026-09-05)
+
+- Authenticated minimal completion: HTTP 200, exact requested marker, 30 tokens.
+  The router reported USD 0.000012 for that call; this is not a price estimate
+  or the total cost of later runtime checks. `/x/policy/templates` returned 404
+  on this deployment; `/v1/models` advertised `profile:agent`, which was used
+  without copying a raw policy from a different host version.
+- The actual corrected subzeroclaw binary completed two tool-using turns through
+  bwrap/systemd/FIFO with `network: :isolated` and the router-pinned socket.
+  Host-side file checks observed 17 then 23; both replies and final health passed.
+  A rerun of the durable `scripts/unhardcoded-smoke.exs` entrypoint also passed.
+- The explicit manual script bounds client requests, output tokens and turn
+  time, reads only the selected consumer key from an operator-provided env file,
+  and cleans its private workspace. The ordinary test suite remains offline.
+- The `sigma-policy-author` guide led to checking published capabilities first
+  and using the advertised agent profile. These are live transport/tool checks,
+  not a held-out product benchmark or evidence of bot/market behavior.
+- MicroMarkets now has a separate worktree and `codex/ecosystem-hardening`
+  branch at `/home/jm/docs/genlayer/micromarkets-ecosystem-hardening`.
+  Core/runtime pins there are staged as working changes; product tests and a
+  consumer commit are pending. The original dirty submodules were not changed.
