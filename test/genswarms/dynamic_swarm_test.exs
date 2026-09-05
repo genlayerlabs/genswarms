@@ -338,6 +338,35 @@ defmodule Genswarms.DynamicSwarmTest do
   end
 
   describe "overlay replay on swarm restart" do
+    test "persisted tuple backend and literal config survive a runtime restart", %{swarm: swarm} do
+      {:ok, seed} = SwarmManager.get_full_config(swarm)
+      script = ["~literal", "second"]
+      config = %{"label" => "~not-an-atom", "pair" => {:ok, "value"}}
+
+      assert {:ok, :durable} =
+               SwarmManager.add_agent(
+                 swarm,
+                 %{name: :durable, backend: {:mock, %{script: script}}, config: config},
+                 persist: true
+               )
+
+      # First prove the database payload itself; otherwise a broken replay can
+      # crash the shared manager and obscure the actual serialization failure.
+      assert [{:add_agent, %{backend: {:mock, %{script: ^script}}, config: ^config}}] =
+               SwarmRegistry.load_overlay(swarm)
+
+      assert {:ok, _} = SwarmManager.stop(swarm)
+      assert :ok = wait_unregistered(swarm, :durable)
+      assert {:ok, ^swarm} = SwarmManager.start_from_config(seed)
+
+      assert {:ok, restored} = SwarmManager.get_full_config(swarm)
+      spec = Enum.find(restored.agents, &(&1.name == :durable))
+      assert spec.backend == {:mock, %{script: script}}
+      assert spec.config == config
+      [{pid, _}] = Registry.lookup(Genswarms.AgentRegistry, {swarm, :durable})
+      assert :sys.get_state(pid).backend_ref.script == script
+    end
+
     test "persisted agents are restored after stop+start" do
       swarm_name = "replay-test-#{System.unique_integer([:positive])}"
       SwarmRegistry.clear_overlay(swarm_name)
@@ -392,9 +421,7 @@ defmodule Genswarms.DynamicSwarmTest do
         )
 
       {:ok, :probe} =
-        SwarmManager.update_object_config(swarm_name, :probe, %{registry: %{a: 1}},
-          persist: true
-        )
+        SwarmManager.update_object_config(swarm_name, :probe, %{registry: %{a: 1}}, persist: true)
 
       {:ok, _} = SwarmManager.stop(swarm_name)
       {:ok, ^swarm_name} = SwarmManager.start_from_config(config)
@@ -464,7 +491,8 @@ defmodule Genswarms.DynamicSwarmTest do
       {:ok, ^swarm_name} = SwarmManager.start_from_config(config)
 
       # patch the SEED incarnation (this one may prefold at boot) …
-      {:ok, :probe} = SwarmManager.update_object_config(swarm_name, :probe, %{n: 1}, persist: true)
+      {:ok, :probe} =
+        SwarmManager.update_object_config(swarm_name, :probe, %{n: 1}, persist: true)
 
       # … then remove it and re-add a NEW incarnation, and patch THAT one.
       :ok = SwarmManager.remove_object(swarm_name, :probe, persist: true)
@@ -476,7 +504,8 @@ defmodule Genswarms.DynamicSwarmTest do
           persist: true
         )
 
-      {:ok, :probe} = SwarmManager.update_object_config(swarm_name, :probe, %{n: 2}, persist: true)
+      {:ok, :probe} =
+        SwarmManager.update_object_config(swarm_name, :probe, %{n: 2}, persist: true)
 
       {:ok, _} = SwarmManager.stop(swarm_name)
       {:ok, ^swarm_name} = SwarmManager.start_from_config(config)

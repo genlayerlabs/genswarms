@@ -392,6 +392,19 @@ genswarms build base --no-cache   # rebuild without cache
 
 These commands operate on the runtime state of a swarm. Additions and removals are recorded in an *overlay* that is replayed at start so dynamic state survives a restart.
 
+The internal SQLite payloads for overlays and daemon commands/results use a
+versioned, tagged JSON term encoding. This preserves backend tuples, lists,
+atom keys and literal strings (including strings starting with `~`). It is not
+the public `swarm.state`/`swarm.overlay` JSON format. The database is trusted
+operator storage, not an authenticated package source.
+
+Upgrade the CLI/API and all daemons sharing a database together: older engines
+cannot read the new encoding. New engines can read legacy rows without rewriting
+them, but cannot reconstruct tuple types or literal `~` strings already lost by
+the legacy encoder. Re-author affected legacy mutations from reviewed source;
+do not infer a tuple from an arbitrary list. The seed configuration file is still
+needed at restart; this log is not yet a self-contained persisted IR snapshot.
+
 ### `scale`
 
 Scale an agent group to a target count. The group is identified by `base-name`; members are named `<base-name>_1`, `<base-name>_2`, .... Extra members are stopped, missing ones are created from an existing member's spec.

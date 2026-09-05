@@ -246,3 +246,30 @@ opencode-unhardcoded 6476b08; subzero-sim bccd843; phylogenesis 3a6f125.
   `observed` is reconstructed from config. Full verified-package-to-database
   restart equivalence remains an explicit acceptance gate, not inferred from
   those tables or from successful pure folds. Swarmidx remains unmodified.
+
+## Lossless database payloads (2026-09-05)
+
+- Reproduced three failures before fixing the internal SQLite codec: backend
+  tuples became lists, literal `~` strings/keys became atoms, and the same loss
+  affected queued daemon commands. These were real persistence changes, not
+  presentation differences. The codec now tags containers and atoms under a
+  versioned JSON envelope; tag-shaped user maps/lists remain ordinary data.
+- Six registry tests cover payloads, commands/results, legacy rows, literal
+  strings not minting atoms, rejection of functions before a write, and an
+  independent BEAM process reading the database. A runtime restart test checks
+  the restored mock backend's actual script as well as its manager config.
+  Focused registry/dynamic/daemon tests: 36 passed. Full suite: 732 tests,
+  zero failures, five optional/platform skips (log:
+  `/tmp/genswarms-ecosystem-persistence-suite.log`).
+- Changed Elixir files were formatted. Repository-wide format checking still
+  reports pre-existing formatting differences in unrelated files; those were
+  not mass-reformatted. No development database was migrated or modified.
+- Legacy records retain their old interpretation. Already-lost tuple/string
+  information cannot be restored by guessing. CLI/API/daemons sharing a DB
+  must upgrade together; an old engine cannot decode newly tagged records.
+  Consumer pins still need the final coordinated runtime revision.
+- This fixes the internal mutation/command payload transport, not the public
+  IR format or the remaining self-contained desired-state persistence gate.
+  Seed files are still required. Replay currently logs some failed/unknown
+  events and continues; database write acknowledgement and replay failure
+  semantics still need tightening before restart equivalence can be claimed.

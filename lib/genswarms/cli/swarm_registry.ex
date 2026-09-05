@@ -576,10 +576,9 @@ defmodule Genswarms.CLI.SwarmRegistry do
   """
   @spec enqueue_command(String.t(), atom(), map()) :: {:ok, integer()}
   def enqueue_command(swarm_name, op, payload) do
+    encoded = Jason.encode!(encode_overlay_value(payload))
     ensure_db_exists()
     {:ok, db} = open_db()
-
-    encoded = Jason.encode!(encode_overlay_value(payload))
 
     {:ok, stmt} =
       Exqlite.Sqlite3.prepare(db, """
@@ -624,6 +623,7 @@ defmodule Genswarms.CLI.SwarmRegistry do
   """
   @spec mark_command_done(integer(), term()) :: :ok
   def mark_command_done(command_id, result) do
+    encoded = Jason.encode!(encode_overlay_value(result))
     ensure_db_exists()
     {:ok, db} = open_db()
 
@@ -634,7 +634,7 @@ defmodule Genswarms.CLI.SwarmRegistry do
         WHERE id = ?
       """)
 
-    Exqlite.Sqlite3.bind(stmt, [Jason.encode!(encode_overlay_value(result)), command_id])
+    Exqlite.Sqlite3.bind(stmt, [encoded, command_id])
     Exqlite.Sqlite3.step(db, stmt)
     Exqlite.Sqlite3.release(db, stmt)
     Exqlite.Sqlite3.close(db)
@@ -695,6 +695,7 @@ defmodule Genswarms.CLI.SwarmRegistry do
   """
   @spec append_overlay(String.t(), atom(), map()) :: :ok
   def append_overlay(swarm_name, op, payload) do
+    encoded_payload = Jason.encode!(encode_overlay_value(payload))
     ensure_db_exists()
     {:ok, db} = open_db()
 
@@ -704,8 +705,6 @@ defmodule Genswarms.CLI.SwarmRegistry do
         VALUES (?, COALESCE((SELECT MAX(seq) FROM swarm_overlays WHERE swarm = ?), 0) + 1,
                 ?, ?, datetime('now', 'subsec'))
       """)
-
-    encoded_payload = Jason.encode!(encode_overlay_value(payload))
 
     Exqlite.Sqlite3.bind(stmt, [swarm_name, swarm_name, to_string(op), encoded_payload])
     Exqlite.Sqlite3.step(db, stmt)
@@ -765,50 +764,74 @@ defmodule Genswarms.CLI.SwarmRegistry do
     end
   end
 
-  # Serialization: atoms get a "~" prefix, tuples become lists.
-  # Anonymous functions raise.
-  defp encode_overlay_value(value) when is_atom(value) and value not in [nil, true, false] do
-    "~" <> Atom.to_string(value)
-  end
+  # This is the internal CLI/daemon term codec, not the public JSON IR format.
+  # Tag containers as well as atoms so user maps/lists cannot impersonate tags.
+  # The former ~ prefix and tuple-as-list encoding were not invertible.
+  defp encode_overlay_value(value),
+    do: %{"$genswarms" => "term-v1", "value" => encode_term(value)}
 
-  defp encode_overlay_value(value) when is_tuple(value) do
-    value |> Tuple.to_list() |> Enum.map(&encode_overlay_value/1)
-  end
+  defp encode_term(value) when is_atom(value) and value not in [nil, true, false],
+    do: ["atom", Atom.to_string(value)]
 
-  defp encode_overlay_value(value) when is_list(value) do
-    Enum.map(value, &encode_overlay_value/1)
-  end
+  defp encode_term(value) when is_tuple(value),
+    do: ["tuple", value |> Tuple.to_list() |> Enum.map(&encode_term/1)]
 
-  defp encode_overlay_value(value) when is_map(value) do
-    value
-    |> Enum.map(fn {k, v} -> {encode_overlay_key(k), encode_overlay_value(v)} end)
-    |> Map.new()
-  end
+  defp encode_term(value) when is_list(value), do: ["list", Enum.map(value, &encode_term/1)]
 
-  defp encode_overlay_value(value) when is_function(value) do
+  defp encode_term(value) when is_map(value),
+    do: ["map", Enum.map(value, fn {k, v} -> [encode_term(k), encode_term(v)] end)]
+
+  defp encode_term(value) when is_function(value) do
     raise ArgumentError, "Cannot serialize function in overlay payload"
   end
 
-  defp encode_overlay_value(value), do: value
+  defp encode_term(value)
+       when is_binary(value) or is_number(value) or value in [nil, true, false],
+       do: value
 
-  defp encode_overlay_key(k) when is_atom(k), do: "~" <> Atom.to_string(k)
-  defp encode_overlay_key(k), do: k
+  defp encode_term(_), do: raise(ArgumentError, "Unsupported value in persistent payload")
 
-  defp decode_overlay_value("~" <> rest) do
+  defp decode_overlay_value(%{"$genswarms" => "term-v1", "value" => value}),
+    do: decode_term(value)
+
+  defp decode_overlay_value(%{"$genswarms" => _, "value" => _}),
+    do: raise(ArgumentError, "Unsupported persistent payload encoding")
+
+  defp decode_overlay_value(value), do: decode_legacy_value(value)
+
+  defp decode_term(["atom", name]) when is_binary(name), do: String.to_atom(name)
+
+  defp decode_term(["tuple", values]) when is_list(values),
+    do: values |> Enum.map(&decode_term/1) |> List.to_tuple()
+
+  defp decode_term(["list", values]) when is_list(values), do: Enum.map(values, &decode_term/1)
+
+  defp decode_term(["map", entries]) when is_list(entries),
+    do: Map.new(entries, fn [k, v] -> {decode_term(k), decode_term(v)} end)
+
+  defp decode_term(value)
+       when is_binary(value) or is_number(value) or value in [nil, true, false],
+       do: value
+
+  defp decode_term(_), do: raise(ArgumentError, "Invalid persistent payload encoding")
+
+  # Read existing rows without rewriting them. Their lost tuple/string type
+  # information cannot be recovered safely by guessing from the values.
+  defp decode_legacy_value("~" <> rest) do
     String.to_atom(rest)
   end
 
-  defp decode_overlay_value(value) when is_list(value) do
-    Enum.map(value, &decode_overlay_value/1)
+  defp decode_legacy_value(value) when is_list(value) do
+    Enum.map(value, &decode_legacy_value/1)
   end
 
-  defp decode_overlay_value(value) when is_map(value) do
+  defp decode_legacy_value(value) when is_map(value) do
     value
-    |> Enum.map(fn {k, v} -> {decode_overlay_key(k), decode_overlay_value(v)} end)
+    |> Enum.map(fn {k, v} -> {decode_overlay_key(k), decode_legacy_value(v)} end)
     |> Map.new()
   end
 
-  defp decode_overlay_value(value), do: value
+  defp decode_legacy_value(value), do: value
 
   defp decode_overlay_key("~" <> rest), do: String.to_atom(rest)
   defp decode_overlay_key(k), do: k
