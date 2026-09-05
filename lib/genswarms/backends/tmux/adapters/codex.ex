@@ -5,7 +5,7 @@ defmodule Genswarms.Backends.Tmux.Adapters.Codex do
 
   alias Genswarms.Backends.Tmux.AdapterHelpers, as: Helpers
 
-  @approval_policies ~w(untrusted on-request never)
+  @approval_policies ~w(on-request never)
   @sandboxes ~w(read-only workspace-write danger-full-access)
 
   @impl true

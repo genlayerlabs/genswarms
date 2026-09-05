@@ -31,7 +31,15 @@ defmodule Genswarms.Backends.Tmux.Adapters.Claude do
   end
 
   @impl true
-  def ready?(snapshot, _config), do: Helpers.prompt_visible?(snapshot)
+  def ready?(snapshot, _config) do
+    # --ax-screen-reader renders a literal "$", not the normal ❯ glyph.
+    screen_reader_prompt? =
+      String.contains?(snapshot, "[Screen Reader Mode:") and
+        String.contains?(snapshot, "Claude Code v") and
+        Regex.match?(~r/(?:^|\n)\$\s*\z/, snapshot)
+
+    screen_reader_prompt? or Helpers.prompt_visible?(snapshot)
+  end
 
   @impl true
   def blocked?(snapshot, _config), do: Helpers.blocked?(snapshot)

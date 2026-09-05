@@ -58,6 +58,9 @@ defmodule Genswarms.Backends.Tmux.AdaptersTest do
   end
 
   test "invalid permission and argument values fail before tmux starts" do
+    assert {:error, {:invalid_approval_policy, "untrusted"}} =
+             Codex.launch(Map.put(@base, :approval_policy, :untrusted))
+
     assert {:error, {:invalid_approval_policy, "sometimes"}} =
              Codex.launch(Map.put(@base, :approval_policy, "sometimes"))
 
@@ -81,5 +84,16 @@ defmodule Genswarms.Backends.Tmux.AdaptersTest do
     refute OpenCode.ready?("Ask anything... quoted output without the UI footer", %{})
     refute OpenCode.ready?("OpenCode\n BUILD    Fixture · ctrl+p cmd\n", %{})
     refute OpenCode.ready?("Generating...\n", %{})
+  end
+
+  test "Claude recognizes its native screen-reader prompt, not a bare shell" do
+    screen = "[Screen Reader Mode: on via flag]\nClaude Code v2.1.260\n real-worker\n$\n\n"
+    assert Claude.ready?(screen, %{})
+    refute Claude.ready?("shell output\n$\n", %{})
+
+    refute Claude.ready?(
+             "[Screen Reader Mode: on via flag]\nClaude Code v2.1.260\nWorking...\n",
+             %{}
+           )
   end
 end
