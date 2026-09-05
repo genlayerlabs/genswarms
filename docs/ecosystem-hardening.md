@@ -354,3 +354,36 @@ opencode-unhardcoded 6476b08; subzero-sim bccd843; phylogenesis 3a6f125.
   of metadata to signed releases, and runtime package loading and self-contained
   persisted IR still need end-to-end verification. Concurrent notary appends
   also need a PostgreSQL-backed audit; SQLite tests do not prove that safety.
+
+## Authenticated package resolution (2026-09-05)
+
+- Reproduced the untrusted-resolution gap with a CLI regression: an altered
+  `/v1/resolve` digest was accepted without fetching or checking a signature.
+  Removed that client method rather than adding a second metadata authority
+  to cross-check. Gsp now derives active releases directly from a verified
+  log snapshot, including signed withdrawals and transitive exact-pin deps.
+- `resolve`, `vendor` and `materialize --resolve` now require `--public-key`
+  or `SWARMIDX_PUBLIC_KEY` from an independent trust channel. No implicit
+  endpoint-key bootstrap or insecure fallback. Unsigned card/module metadata
+  is excluded from resolution; `log_seq` is explicitly an unsigned locator,
+  not a trusted checkpoint. Unknown operations, malformed signed metadata,
+  forward dependencies and duplicate active releases are rejected.
+- Authenticated IR resolution checks body/policy/handler slot roles and all
+  existing digest pins before downloads. Removed the unused unauthenticated
+  IR digest-filling helper, whose skip-pinned behavior did not provide that
+  guarantee. Offline folding remains key/network-free and unchanged.
+- Added `genswarms-packages/conformance/notary.py`: actual Go CLI publishing
+  through the Django HTTP API, token authentication, Python dirhash/signing,
+  SQLite persistence, resolution, IR materialization, transitive vendoring
+  and on-disk rehash. Six scenarios pass, including Unicode paths, altered
+  unsigned index records, signed withdrawals, wrong keys, tampered signatures,
+  and IR pin/kind mismatches before writes. Uses public fixture credentials,
+  a fresh in-memory test DB, temporary files and a loopback listener only.
+- `go test -race ./...`, `go vet ./...`, diff/format checks, and all four
+  complete parsed-state Go/Elixir conformance runs pass. Commit `bc4dae6`.
+  No production notary, git source, signing key or deployment was used.
+- Still open: vendoring path/symlink containment, local-source authority,
+  failure atomicity and remote-git transport checks; PostgreSQL append
+  concurrency; runtime package-byte/BEAM binding; self-contained persisted
+  IR and equivalent restart. The new cross-process test proves the tested
+  notary-to-vendored-bytes segment, not that entire remaining chain.
