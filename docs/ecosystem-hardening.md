@@ -387,3 +387,38 @@ opencode-unhardcoded 6476b08; subzero-sim bccd843; phylogenesis 3a6f125.
   concurrency; runtime package-byte/BEAM binding; self-contained persisted
   IR and equivalent restart. The new cross-process test proves the tested
   notary-to-vendored-bytes segment, not that entire remaining chain.
+
+## Vendoring filesystem boundaries and preservation (2026-09-05)
+
+- Four regressions failed before implementation: failed replacement deleted
+  existing edited files, package symlinks copied external fixture bytes, a
+  traversal ref wrote outside the vendor root, and a linked vendor lock
+  redirected writes to another file. All targets were private test fixtures.
+- Removed automatic delete/rebuild of existing packages. Unmodified entries
+  are re-verified; changed entries fail and remain intact. New entries copy
+  regular files into private staging, verify the staged bytes, and rename
+  into place only on success. Package paths/entries and vendor destinations
+  reject symlinks, special files and traversal. Lock writes are sorted and
+  staged/synced/renamed rather than truncating an existing inode.
+- Source and destination operations use Go 1.25 directory capabilities
+  (`os.Root`). A rename-during-copy regression exposed `DirEntry.Info` reopening
+  the old display path; metadata now uses the same opened root as content.
+  Added `HashFS` sharing the existing digest algorithm, not a new hash format.
+  Existing `HashDir` bytes and server signing/canonicalization are unchanged.
+- Signed `local:` sources are no longer implicit host read authority.
+  `--local-source-root DIR` grants access to an independently chosen subtree;
+  no flag, an outside path or an escaping link fails. Remote Git transport
+  remains a separate audit; this change does not claim to harden that process.
+- Verification: all Go packages pass `go test -race ./...` and `go vet ./...`.
+  Tests cover changed-file preservation, path and symlink escapes, FIFO refusal
+  without opening it, hardlinked lock preservation, confined hashing parity,
+  staging cleanup and renamed source directories. Eight actual CLI/Django
+  scenarios pass using only loopback and a fresh test DB. Four Go/Elixir IR
+  fixture comparisons pass. Windows amd64 and Darwin arm64 cross-builds and
+  Windows vendorer test compilation pass; no execution on those OSes claimed.
+- Commit `08c79f8`. Remaining installation gate: a batch is still incremental,
+  so earlier new packages can remain if a later dependency fails. Concurrent
+  writer coordination and crash/power-loss recovery are not established.
+  Server-side local-source authority and concurrent log appends also remain
+  to audit. Package-to-BEAM binding and self-contained IR/DB restart are still
+  explicit acceptance gates, not inferred from these filesystem tests.
