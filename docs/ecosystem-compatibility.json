@@ -4,7 +4,7 @@
   "status": "local-verification-in-progress",
   "branch": "codex/ecosystem-hardening",
   "source_revisions": {
-    "genswarms": "0424275545e6ca83a62208ff7a1c57d7a60b7115",
+    "genswarms": "aa0c4f062876f106ebecb918ed514591a894eef0",
     "subzero-sim": "bccd8430f2f15187128c877cd0f71429adc2807b",
     "phylogenesis": "3a6f1250f37e2430e00980be6b6c22287cdc71bd",
     "subzeroclaw": "ce1dbfb3e35ed6bbb76f9f19e1ce2f8370175995",
@@ -29,6 +29,7 @@
     "package_ir": "complete-parsed-Go-Elixir-state-conformance-four-offline-fixture-runs",
     "package_integrity_and_database_restart": "end-to-end-verification-pending",
     "sqlite_payload_codec": "term-v1-with-legacy-read-support",
+    "object_startup": "async-readiness-barriers-and-fail-closed-overlay-replay",
     "candidate": "bounded-json-patch-v1",
     "evaluation": "operator-owned-training-and-frozen-holdout",
     "port_runtime": "szc-wrapper-fifo",
