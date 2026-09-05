@@ -10,6 +10,13 @@ All routes are defined in `lib/genswarms_web/router.ex` and implemented by the c
 
 ## Base URL and conventions
 
+Native IR creation accepts `POST /api/swarms` with `{"ir": <swarm.state>}`.
+`POST /api/swarms/:name/restore` restores a stopped native swarm from SQLite
+(404 without a seed, 409 on failed recovery or an already-running swarm).
+Restart also recognizes native seeds; `delete=true` is rejected for these
+because replacing their immutable seed requires an explicit purge/new start.
+See [native IR recovery](intermediate-representation.md#native-startup-and-recovery).
+
 - Base URL: `http://localhost:4000` (the port is set by the `PORT` env var, default `4000`).
 - The API pipeline accepts `application/json` only. Send request bodies as JSON and set `Content-Type: application/json`.
 - **Authentication:** when `GENSWARMS_API_TOKEN` is set, every request must send `Authorization: Bearer <token>`; when unset, only loopback callers are accepted. The CLI attaches the token automatically. See [Security](security.md).

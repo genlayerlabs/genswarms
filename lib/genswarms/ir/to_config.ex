@@ -17,6 +17,20 @@ defmodule Genswarms.IR.ToConfig do
   alias Genswarms.Config.SwarmConfig
   alias Genswarms.IR.State.{Agent, Object}
 
+  @doc "Converts a complete parsed IR state to a validated runtime configuration."
+  @spec swarm_config(Genswarms.IR.State.t()) :: {:ok, SwarmConfig.t()} | {:error, term()}
+  def swarm_config(%Genswarms.IR.State{} = state) do
+    SwarmConfig.parse(%{
+      name: state.name,
+      agents: Enum.map(state.agents, &agent_spec/1),
+      objects: Enum.map(state.objects, &object_spec/1),
+      topology: state.topology,
+      options: state.options
+    })
+  rescue
+    _ -> {:error, :invalid_runtime_spec}
+  end
+
   @doc "IR agent -> runtime agent spec map."
   @spec agent_spec(Agent.t()) :: map()
   def agent_spec(%Agent{} = a) do

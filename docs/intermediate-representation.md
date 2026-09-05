@@ -17,7 +17,8 @@ It lives in `Genswarms.IR.*` and is exposed through the `Genswarms.IR` façade.
     wired and in use. `gsp` and `swarmidx` provide authenticated package
     resolution and vendoring. Runtime translation retains native package
     handler refs and their explicit loader settings. Package body/policy loading
-    and self-contained database-backed IR restart are not yet wired end to end;
+    loading is still being completed. Native desired IR seeds now support
+    database-backed restart without the original configuration file;
     unsupported execution translations fail rather than silently using defaults.
 
 ## The two representations
@@ -97,6 +98,30 @@ json = state |> Genswarms.IR.State.to_map() |> Jason.encode!()
 
 `apply_op/3` is the single choke point where **both** the security policy
 (`IR.OpPolicy`) and the structural preconditions (`IR.Fold`) are enforced.
+
+## Native startup and recovery
+
+`Genswarms.start_swarm_from_ir(document)` accepts a parsed JSON map in desired,
+resolved form. It validates execution translation and stores an immutable public
+JSON seed in SQLite before boot. `Genswarms.restore_swarm(name)` restores that
+seed and replays successfully persisted runtime mutations. A different seed
+under the same name, corrupt data, and legacy overlays without their original
+seed are refused. Stopping preserves recovery data; purging deletes it.
+
+REST accepts `POST /api/swarms` with `{"ir": <document>}` and
+`POST /api/swarms/:name/restore`. Restart recognizes native seeds; `delete=true`
+is refused for them because replacing a seed must be explicit. The foreground
+CLI equivalents are `genswarms ir start seed.json` and
+`genswarms ir restore swarm-name` (also `mix genswarms.ir ...`). Run the CLI
+under a service supervisor for unattended operation.
+
+Recovery needs the same database and referenced runtime assets (package files,
+images, skills and operator-provided credentials), but not the original JSON
+file or writer process. It does not snapshot conversations, external services,
+or arbitrary Elixir closures. Use `persist: true` for durable runtime mutations.
+If a mutation takes effect but SQLite refuses its write, the caller receives
+`{:error, :applied_but_not_persisted}` and must reconcile before retrying; this is
+not an atomic transaction spanning SQLite and external runtime effects.
 
 ## From your config
 

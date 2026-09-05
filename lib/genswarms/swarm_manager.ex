@@ -54,6 +54,13 @@ defmodule Genswarms.SwarmManager do
     GenServer.call(__MODULE__, {:start_from_config, config}, 60_000)
   end
 
+  @doc "Starts from a native desired IR document, persisting its immutable seed before boot."
+  def start_from_ir(document),
+    do: GenServer.call(__MODULE__, {:start_from_ir, document}, 60_000)
+
+  @doc "Restores a stored IR seed and its overlays without the original config file."
+  def restore_swarm(name), do: GenServer.call(__MODULE__, {:restore_swarm, name}, 60_000)
+
   @doc """
   Stops a running swarm.
   """
@@ -289,6 +296,20 @@ defmodule Genswarms.SwarmManager do
     end
   end
 
+  def handle_call({:start_from_ir, document}, from, state) do
+    case Genswarms.IR.State.parse(document) do
+      {:ok, ir} -> start_ir(ir, from, state)
+      {:error, _} -> {:reply, {:error, :invalid_ir_seed}, state}
+    end
+  end
+
+  def handle_call({:restore_swarm, name}, from, state) do
+    case Genswarms.CLI.SwarmRegistry.load_ir_seed(name) do
+      {:ok, ir} -> start_ir(ir, from, state)
+      error -> {:reply, error, state}
+    end
+  end
+
   def handle_call({:stop, swarm_name}, _from, %{starts: starts} = state)
       when is_map_key(starts, swarm_name) do
     config_path = state.swarms[swarm_name].config_path
@@ -438,9 +459,12 @@ defmodule Genswarms.SwarmManager do
         with :ok <- Genswarms.IR.Gate.validate_add_agent(swarm_info.config, spec),
              {:ok, name, new_info} <- do_add_agent(swarm_name, swarm_info, spec, opts) do
           new_state = put_swarm(state, swarm_name, new_info)
-          maybe_persist(opts, swarm_name, :add_agent, normalize_spec_for_overlay(spec, opts))
+
+          saved =
+            maybe_persist(opts, swarm_name, :add_agent, normalize_spec_for_overlay(spec, opts))
+
           broadcast_topology_changed(swarm_name)
-          {:reply, {:ok, name}, new_state}
+          mutation_reply(saved, {:ok, name}, new_state)
         else
           {:error, _} = err -> {:reply, err, state}
         end
@@ -456,9 +480,9 @@ defmodule Genswarms.SwarmManager do
         case do_remove_agent(swarm_name, swarm_info, agent_name) do
           {:ok, new_info} ->
             new_state = put_swarm(state, swarm_name, new_info)
-            maybe_persist(opts, swarm_name, :remove_agent, %{name: agent_name})
+            saved = maybe_persist(opts, swarm_name, :remove_agent, %{name: agent_name})
             broadcast_topology_changed(swarm_name)
-            {:reply, :ok, new_state}
+            mutation_reply(saved, :ok, new_state)
 
           {:error, _} = err ->
             {:reply, err, state}
@@ -475,9 +499,12 @@ defmodule Genswarms.SwarmManager do
         case do_add_object(swarm_name, swarm_info, spec, opts) do
           {:ok, name, new_info} ->
             new_state = put_swarm(state, swarm_name, new_info)
-            maybe_persist(opts, swarm_name, :add_object, normalize_spec_for_overlay(spec, opts))
+
+            saved =
+              maybe_persist(opts, swarm_name, :add_object, normalize_spec_for_overlay(spec, opts))
+
             broadcast_topology_changed(swarm_name)
-            {:reply, {:ok, name}, new_state}
+            mutation_reply(saved, {:ok, name}, new_state)
 
           {:error, _} = err ->
             {:reply, err, state}
@@ -494,9 +521,9 @@ defmodule Genswarms.SwarmManager do
         case do_remove_object(swarm_name, swarm_info, object_name) do
           {:ok, new_info} ->
             new_state = put_swarm(state, swarm_name, new_info)
-            maybe_persist(opts, swarm_name, :remove_object, %{name: object_name})
+            saved = maybe_persist(opts, swarm_name, :remove_object, %{name: object_name})
             broadcast_topology_changed(swarm_name)
-            {:reply, :ok, new_state}
+            mutation_reply(saved, :ok, new_state)
 
           {:error, _} = err ->
             {:reply, err, state}
@@ -513,9 +540,12 @@ defmodule Genswarms.SwarmManager do
         case do_update_object_config(swarm_name, swarm_info, object_name, patch) do
           {:ok, name, new_info} ->
             new_state = put_swarm(state, swarm_name, new_info)
-            maybe_persist(opts, swarm_name, :update_config, %{name: object_name, config: patch})
+
+            saved =
+              maybe_persist(opts, swarm_name, :update_config, %{name: object_name, config: patch})
+
             broadcast_topology_changed(swarm_name)
-            {:reply, {:ok, name}, new_state}
+            mutation_reply(saved, {:ok, name}, new_state)
 
           {:error, _} = err ->
             {:reply, err, state}
@@ -536,9 +566,9 @@ defmodule Genswarms.SwarmManager do
 
             new_info = %{swarm_info | config: new_config}
             new_state = put_swarm(state, swarm_name, new_info)
-            maybe_persist(opts, swarm_name, :add_topology_edges, %{edges: edges})
+            saved = maybe_persist(opts, swarm_name, :add_topology_edges, %{edges: edges})
             broadcast_topology_changed(swarm_name)
-            {:reply, :ok, new_state}
+            mutation_reply(saved, :ok, new_state)
 
           err ->
             {:reply, err, state}
@@ -558,9 +588,9 @@ defmodule Genswarms.SwarmManager do
             new_config = %{swarm_info.config | topology: new_topology}
             new_info = %{swarm_info | config: new_config}
             new_state = put_swarm(state, swarm_name, new_info)
-            maybe_persist(opts, swarm_name, :remove_topology_edges, %{edges: edges})
+            saved = maybe_persist(opts, swarm_name, :remove_topology_edges, %{edges: edges})
             broadcast_topology_changed(swarm_name)
-            {:reply, :ok, new_state}
+            mutation_reply(saved, :ok, new_state)
 
           err ->
             {:reply, err, state}
@@ -609,13 +639,14 @@ defmodule Genswarms.SwarmManager do
                do_scale_agent_group(swarm_name, swarm_info, base_name, target_count, opts) do
           new_state = put_swarm(state, swarm_name, new_info)
 
-          maybe_persist(opts, swarm_name, :scale_agent_group, %{
-            base_name: base_name,
-            target_count: target_count
-          })
+          saved =
+            maybe_persist(opts, swarm_name, :scale_agent_group, %{
+              base_name: base_name,
+              target_count: target_count
+            })
 
           broadcast_topology_changed(swarm_name)
-          {:reply, {:ok, result}, new_state}
+          mutation_reply(saved, {:ok, result}, new_state)
         else
           {:error, _} = err -> {:reply, err, state}
         end
@@ -666,7 +697,18 @@ defmodule Genswarms.SwarmManager do
 
   # Private functions
 
-  defp do_start_swarm(config, config_path, state, from) do
+  defp start_ir(ir, from, state) do
+    with :desired <- ir.phase,
+         :ok <- Genswarms.IR.State.validate_resolved(ir),
+         {:ok, config} <- Genswarms.IR.ToConfig.swarm_config(ir) do
+      do_start_swarm(config, nil, state, from, ir)
+    else
+      :observed -> {:reply, {:error, :expected_desired_ir}, state}
+      {:error, _} = error -> {:reply, error, state}
+    end
+  end
+
+  defp do_start_swarm(config, config_path, state, from, ir_seed \\ nil) do
     swarm_name = config.name
 
     case Genswarms.IR.Gate.validate_start(config) do
@@ -683,13 +725,34 @@ defmodule Genswarms.SwarmManager do
         {:reply, {:error, reason}, state}
 
       :ok ->
-        events = Genswarms.CLI.SwarmRegistry.load_overlay(swarm_name) |> Enum.with_index()
-
-        case validate_replay_events(events) do
-          :ok -> start_validated_swarm(config, config_path, state, swarm_name, events, from)
+        with {:ok, events} <- recovery_events(swarm_name),
+             :ok <- validate_replay_events(events),
+             :ok <- persist_ir_seed(ir_seed, swarm_name, state) do
+          start_validated_swarm(config, config_path, state, swarm_name, events, from)
+        else
           {:error, reason} -> {:reply, {:error, reason}, state}
         end
     end
+  end
+
+  defp recovery_events(name) do
+    {:ok, Genswarms.CLI.SwarmRegistry.load_overlay(name) |> Enum.with_index()}
+  rescue
+    _ -> {:error, :invalid_persisted_overlay}
+  end
+
+  defp persist_ir_seed(nil, name, _state) do
+    case Genswarms.CLI.SwarmRegistry.load_ir_seed(name) do
+      {:error, :not_found} -> :ok
+      {:ok, _} -> {:error, :use_persisted_ir_restore}
+      error -> error
+    end
+  end
+
+  defp persist_ir_seed(seed, name, state) do
+    if Map.has_key?(state.swarms, name),
+      do: {:error, :already_exists},
+      else: Genswarms.CLI.SwarmRegistry.save_ir_seed(seed)
   end
 
   defp start_validated_swarm(config, config_path, state, swarm_name, overlay_events, from) do
@@ -1558,7 +1621,14 @@ defmodule Genswarms.SwarmManager do
     else
       :ok
     end
+  rescue
+    _ -> {:error, :overlay_storage_error}
   end
+
+  defp mutation_reply(:ok, reply, state), do: {:reply, reply, state}
+
+  defp mutation_reply({:error, _}, _reply, state),
+    do: {:reply, {:error, :applied_but_not_persisted}, state}
 
   defp normalize_spec_for_overlay(spec, opts) do
     spec

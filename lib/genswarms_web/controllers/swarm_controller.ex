@@ -29,6 +29,16 @@ defmodule GenswarmsWeb.SwarmController do
   POST /api/swarms
   Body: { "config": { ... } } or { "config_path": "path/to/config.exs" }
   """
+  def create(conn, %{"ir" => document}) do
+    case SwarmManager.start_from_ir(document) do
+      {:ok, name} ->
+        conn |> put_status(:created) |> json(%{status: "created", swarm_name: name})
+
+      {:error, _} ->
+        conn |> put_status(:bad_request) |> json(%{error: "Invalid or unavailable IR seed"})
+    end
+  end
+
   def create(conn, %{"config" => config}) do
     case SwarmManager.start_from_config(config) do
       {:ok, swarm_name} ->
@@ -71,7 +81,7 @@ defmodule GenswarmsWeb.SwarmController do
   def create(conn, _params) do
     conn
     |> put_status(:bad_request)
-    |> json(%{error: "Missing 'config' or 'config_path' parameter"})
+    |> json(%{error: "Missing 'ir', 'config' or 'config_path' parameter"})
   end
 
   @doc """
@@ -250,6 +260,42 @@ defmodule GenswarmsWeb.SwarmController do
     - delete: true to clean slate (delete old data before restart)
   """
   def restart(conn, %{"name" => name} = params) do
+    case SwarmRegistry.load_ir_seed(name) do
+      {:ok, _} -> restart_ir(conn, name, params)
+      {:error, :not_found} -> restart_config(conn, params)
+      {:error, _} -> conn |> put_status(:conflict) |> json(%{error: "Invalid persisted IR seed"})
+    end
+  end
+
+  @doc "Restores a stopped native IR swarm from SQLite in the API process."
+  def restore(conn, %{"name" => name}) do
+    case SwarmManager.restore_swarm(name) do
+      {:ok, ^name} ->
+        json(conn, %{status: "restored", swarm_name: name})
+
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(%{error: "No persisted IR seed"})
+
+      {:error, _} ->
+        conn |> put_status(:conflict) |> json(%{error: "IR restoration failed"})
+    end
+  end
+
+  defp restart_ir(conn, name, params) do
+    if params["delete"] in [true, "true"] do
+      conn
+      |> put_status(:bad_request)
+      |> json(%{error: "Purging a native IR swarm requires an explicit new seed"})
+    else
+      case SwarmManager.stop(name) do
+        {:ok, _} -> restore(conn, %{"name" => name})
+        {:error, :not_found} -> restore(conn, %{"name" => name})
+        {:error, _} -> conn |> put_status(:conflict) |> json(%{error: "Swarm stop failed"})
+      end
+    end
+  end
+
+  defp restart_config(conn, %{"name" => name} = params) do
     delete_data = params["delete"] == "true"
 
     # Get config path before stopping

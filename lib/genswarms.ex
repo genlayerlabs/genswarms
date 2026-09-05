@@ -55,6 +55,12 @@ defmodule Genswarms do
   """
   defdelegate start_swarm_from_config(config), to: SwarmManager, as: :start_from_config
 
+  @doc "Starts a native desired IR document and stores its immutable seed in SQLite."
+  defdelegate start_swarm_from_ir(document), to: SwarmManager, as: :start_from_ir
+
+  @doc "Restores a native IR swarm from SQLite without its original configuration file."
+  defdelegate restore_swarm(name), to: SwarmManager
+
   @doc """
   Stops a running swarm.
   """

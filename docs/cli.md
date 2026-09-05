@@ -8,6 +8,13 @@ The `genswarms` command-line interface manages the full lifecycle of a swarm: cr
 
 ## Building and invoking the CLI
 
+Native IR runs in the foreground with `genswarms ir start seed.json` or
+`genswarms ir restore swarm-name` (`mix genswarms.ir ...` is equivalent).
+Restore uses the immutable SQLite seed plus persisted mutations, without the
+original JSON file. Runtime assets must remain available. These commands are
+separate from the config-file daemon commands below; see
+[native IR recovery](intermediate-representation.md#native-startup-and-recovery).
+
 Build the standalone escript binary with Mix:
 
 ```bash

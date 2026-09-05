@@ -1,0 +1,198 @@
+defmodule Genswarms.IR.PersistenceTest do
+  use ExUnit.Case, async: false
+
+  alias Genswarms.CLI.SwarmRegistry
+  alias Genswarms.IR.State
+  alias Genswarms.SwarmManager
+
+  setup do
+    name = "native-ir-#{System.unique_integer([:positive])}"
+    SwarmRegistry.init()
+
+    on_exit(fn ->
+      SwarmManager.stop(name)
+      SwarmRegistry.delete_swarm(name)
+    end)
+
+    %{name: name, document: document(name)}
+  end
+
+  test "native seed is immutable and cannot adopt a legacy log", %{document: doc, name: name} do
+    assert {:ok, seed} = State.parse(doc)
+    assert :ok = SwarmRegistry.save_ir_seed(seed)
+    assert :ok = SwarmRegistry.save_ir_seed(seed)
+
+    assert {:error, :ir_seed_conflict} =
+             SwarmRegistry.save_ir_seed(%{seed | options: %{"x" => 1}})
+
+    assert {:ok, ^seed} = SwarmRegistry.load_ir_seed(name)
+    SwarmRegistry.delete_swarm(name)
+    assert :ok = SwarmRegistry.append_overlay(name, :remove_agent, %{name: :worker})
+    assert {:error, :legacy_overlay_requires_migration} = SwarmRegistry.save_ir_seed(seed)
+  end
+
+  test "observed or nonportable seeds cannot be stored or started", %{document: doc, name: name} do
+    assert {:error, :expected_desired_ir} =
+             SwarmManager.start_from_ir(%{doc | "phase" => "observed"})
+
+    assert {:ok, seed} = State.parse(doc)
+
+    assert {:error, :invalid_ir_seed} =
+             SwarmRegistry.save_ir_seed(%{seed | options: %{"x" => fn -> :ok end}})
+
+    assert {:error, :not_found} = SwarmRegistry.load_ir_seed(name)
+    assert {:error, :not_found} = SwarmManager.status(name)
+  end
+
+  test "restoration uses SQLite seed and durable mutations across independent runtimes", %{
+    document: doc,
+    name: name
+  } do
+    dir = Path.join(System.tmp_dir!(), name)
+    File.mkdir_p!(dir)
+    on_exit(fn -> File.rm_rf!(dir) end)
+    seed_file = Path.join(dir, "seed.json")
+    db = Path.join(dir, "swarms.db")
+    File.write!(seed_file, Jason.encode!(doc))
+
+    writer = ~S"""
+    [db, seed_file] = System.argv()
+    Application.put_env(:genswarms, :db_path, db)
+    Application.put_env(:genswarms, :events_dir, Path.join(Path.dirname(db), "events"))
+    {:ok, _} = Application.ensure_all_started(:genswarms)
+    doc = seed_file |> File.read!() |> Jason.decode!()
+    {:ok, name} = Genswarms.start_swarm_from_ir(doc)
+    {:ok, :extra} = Genswarms.SwarmManager.add_agent(name,
+      %{name: :extra, backend: {:mock, %{script: ["~persisted"]}}}, persist: true)
+    :ok = Genswarms.SwarmManager.add_topology_edges(name, [{:worker, :extra}], persist: true)
+    {:ok, config} = Genswarms.SwarmManager.get_full_config(name)
+    File.write!(Path.join(Path.dirname(db), "expected.term"), :erlang.term_to_binary(config))
+    {:ok, nil} = Genswarms.stop_swarm(name)
+    IO.puts("IR_WRITTEN")
+    """
+
+    assert run_vm(writer, [db, seed_file]) =~ "IR_WRITTEN"
+    File.rm!(seed_file)
+
+    reader = ~S"""
+    [db, name] = System.argv()
+    Application.put_env(:genswarms, :db_path, db)
+    Application.put_env(:genswarms, :events_dir, Path.join(Path.dirname(db), "events"))
+    {:ok, _} = Application.ensure_all_started(:genswarms)
+    {:ok, ^name} = Genswarms.restore_swarm(name)
+    {:ok, config} = Genswarms.SwarmManager.get_full_config(name)
+    expected = Path.join(Path.dirname(db), "expected.term") |> File.read!() |> :erlang.binary_to_term()
+    # Parsing records a new boot timestamp; all execution fields must match.
+    true = Map.delete(config, :created_at) == Map.delete(expected, :created_at)
+    [{pid, _}] = Registry.lookup(Genswarms.AgentRegistry, {name, :extra})
+    ["~persisted"] = :sys.get_state(pid).backend_ref.script
+    [{seed_pid, _}] = Registry.lookup(Genswarms.AgentRegistry, {name, :worker})
+    ["~seed"] = :sys.get_state(seed_pid).backend_ref.script
+    {:ok, nil} = Genswarms.stop_swarm(name)
+    IO.puts("IR_RESTORED")
+    """
+
+    assert run_vm(reader, [db, name]) =~ "IR_RESTORED"
+  end
+
+  test "corrupt database seed fails closed without starting agents", %{document: doc, name: name} do
+    assert {:ok, seed} = State.parse(doc)
+    assert :ok = SwarmRegistry.save_ir_seed(seed)
+    {:ok, db} = Exqlite.Sqlite3.open(Application.fetch_env!(:genswarms, :db_path))
+
+    {:ok, stmt} =
+      Exqlite.Sqlite3.prepare(db, "UPDATE swarm_ir_seeds SET document = ? WHERE swarm = ?")
+
+    :ok = Exqlite.Sqlite3.bind(stmt, ["{broken", name])
+    :done = Exqlite.Sqlite3.step(db, stmt)
+    Exqlite.Sqlite3.release(db, stmt)
+    Exqlite.Sqlite3.close(db)
+    assert {:error, :invalid_persisted_ir_seed} = SwarmManager.restore_swarm(name)
+    assert [] = Registry.lookup(Genswarms.AgentRegistry, {name, :worker})
+  end
+
+  test "a rejected SQLite write is never acknowledged as a durable mutation", %{
+    document: doc,
+    name: name
+  } do
+    assert {:ok, ^name} = SwarmManager.start_from_ir(doc)
+    {:ok, db} = Exqlite.Sqlite3.open(Application.fetch_env!(:genswarms, :db_path))
+    # Names are generated by this fixture; the trigger affects only this swarm.
+    :ok =
+      Exqlite.Sqlite3.execute(
+        db,
+        "CREATE TRIGGER reject_ir_fixture BEFORE INSERT ON swarm_overlays WHEN NEW.swarm = '#{name}' BEGIN SELECT RAISE(ABORT, 'fixture'); END"
+      )
+
+    on_exit(fn ->
+      Exqlite.Sqlite3.execute(db, "DROP TRIGGER IF EXISTS reject_ir_fixture")
+      Exqlite.Sqlite3.close(db)
+    end)
+
+    assert {:error, :overlay_storage_error} =
+             SwarmRegistry.append_overlay(name, :remove_agent, %{name: :worker})
+
+    assert {:error, :applied_but_not_persisted} =
+             SwarmManager.add_agent(name, %{name: :extra, backend: :mock}, persist: true)
+
+    assert {:ok, config} = SwarmManager.get_full_config(name)
+    assert Enum.any?(config.agents, &(&1.name == :extra))
+    assert [] = SwarmRegistry.load_overlay(name)
+  end
+
+  test "REST and CLI entry points restore the same native seed", %{document: doc, name: name} do
+    alias GenswarmsWeb.SwarmController
+    conn = SwarmController.create(Phoenix.ConnTest.build_conn(), %{"ir" => doc})
+    assert conn.status == 201
+    assert {:ok, nil} = SwarmManager.stop(name)
+    conn = SwarmController.restore(Phoenix.ConnTest.build_conn(), %{"name" => name})
+    assert conn.status == 200
+    conn = SwarmController.restart(Phoenix.ConnTest.build_conn(), %{"name" => name})
+    assert conn.status == 200
+
+    conn =
+      SwarmController.restart(Phoenix.ConnTest.build_conn(), %{"name" => name, "delete" => true})
+
+    assert conn.status == 400
+    assert {:ok, nil} = SwarmManager.stop(name)
+    assert {:ok, ^name} = Mix.Tasks.Genswarms.Ir.execute(["restore", name])
+  end
+
+  defp document(name) do
+    %{
+      "v" => 1,
+      "kind" => "swarm.state",
+      "name" => name,
+      "phase" => "desired",
+      "agents" => [
+        %{
+          "name" => "worker",
+          "body" => %{"ref" => "inline:worker", "kind" => "data"},
+          "model" => %{"ref" => "openrouter:default", "attested" => true},
+          "backend" => %{"ref" => "mock", "opts" => %{"script" => ["~seed"]}},
+          "overrides" => %{
+            "endpoint" => "http://127.0.0.1:9/v1",
+            "request_extra" => %{"label" => "~literal"}
+          },
+          "config" => %{"label" => "~literal"}
+        }
+      ],
+      "objects" => [],
+      "topology" => [],
+      "options" => %{}
+    }
+  end
+
+  defp run_vm(script, args) do
+    {output, status} =
+      System.cmd(
+        System.find_executable("mix"),
+        ["run", "--no-start", "-e", script, "--" | args],
+        env: [{"MIX_ENV", "test"}],
+        stderr_to_stdout: true
+      )
+
+    assert status == 0, output
+    output
+  end
+end

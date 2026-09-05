@@ -60,6 +60,7 @@ defmodule GenswarmsWeb.Router do
     post "/swarms/:name/pause", SwarmController, :pause
     post "/swarms/:name/resume", SwarmController, :resume
     post "/swarms/:name/restart", SwarmController, :restart
+    post "/swarms/:name/restore", SwarmController, :restore
     post "/swarms/:name/message", SwarmController, :route_message
 
     # Bulk operations

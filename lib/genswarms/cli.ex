@@ -14,6 +14,7 @@ defmodule Genswarms.CLI do
     "init" => "Create a new swarm project",
     "dashboard" => "Start/stop the web dashboard",
     "start" => "Start a swarm from configuration",
+    "ir" => "Start or restore a native IR swarm in the foreground",
     "stop" => "Stop a running swarm",
     "restart" => "Restart a swarm",
     "status" => "Show status of dashboard and swarms",
@@ -93,6 +94,9 @@ defmodule Genswarms.CLI do
 
       "start" ->
         Mix.Tasks.Genswarms.Start.run(args)
+
+      "ir" ->
+        Mix.Tasks.Genswarms.Ir.run(args)
 
       "stop" ->
         Mix.Tasks.Genswarms.Stop.run(args)
