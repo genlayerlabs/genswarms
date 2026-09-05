@@ -18,9 +18,7 @@
     },
     "micromarkets": {"verification": "pending"}
   },
-  "open_regressions": [
-    "Bwrap cgroup startup intermittently fails in the full suite; focused backend suite passes."
-  ],
+  "open_regressions": [],
   "tui_clients": {
     "opencode": {"version": "1.18.28", "two_turns_and_reconnect": "passed-local-provider-fixture"},
     "codex": {"version": "0.153.4", "two_turns_and_reconnect": "passed-local-provider-fixture"},

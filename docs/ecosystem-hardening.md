@@ -173,3 +173,23 @@ opencode-unhardcoded 6476b08; subzero-sim bccd843; phylogenesis 3a6f125.
   `ce1dbfb`. Full detail and runnable offline commands live in the consumer's
   `docs/ecosystem-hardening.md`. No paid provider, Telegram, Postgres service,
   dashboard upgrade, rebuilt image or deployment was exercised by this gate.
+
+## Deterministic cgroup transport tests (2026-09-05)
+
+- The intermittent cgroup failures were tests launching the real subzeroclaw
+  without a provider key. A controlled startup comparison showed the empty-key
+  process already closed after 200 ms while a dummy-key process remained alive
+  (loopback endpoint, no turn or model call). A transient live unit was a false
+  positive, not proof of a functioning transport.
+- Backend lifecycle tests now run an explicit NUL-input echo fixture through
+  the actual bwrap/systemd/FIFO stack and demand matching output frames. Input
+  testing covers two turns; health also checks the stopped state. Cleanup runs
+  after failed assertions, and unsupported infrastructure uses ExUnit skip tags.
+  A test accepting any success or error was removed: it proved no contract.
+- Focused backend: 35 passed, including the previously failing seed. Full suite
+  with that seed: 725 tests, zero failures, five skips. Opted-in three-client TUI
+  suite: 725 tests, zero failures, two platform skips.
+- User subsequently authorized controlled use of existing Unhardcoded keys for
+  real-provider verification. This does not authorize live bots, deployments,
+  funds or user operations. Live provider verification is separate from the
+  credential-free default suite.

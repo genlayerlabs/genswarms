@@ -4,6 +4,56 @@ defmodule Genswarms.Backends.BwrapBackendTest do
   alias Genswarms.Backends.BwrapBackend
   alias Genswarms.Backends.Bwrap.{OverlayManager, AgentTelemetry, SeccompProfile}
 
+  defp transport_config(context) do
+    %{
+      swarm_name: "test",
+      presets: [:base],
+      subzeroclaw_path: context.fixture,
+      workspace:
+        Path.join(context.fixture_dir, "workspace-#{System.unique_integer([:positive])}"),
+      api_key: "",
+      endpoint: "http://127.0.0.1:9"
+    }
+  end
+
+  defp assert_echo(ref, text) do
+    task = Jason.encode!(%{type: "task", content: text})
+    assert :ok = BwrapBackend.send_input(ref, task)
+
+    await_echo(
+      ref.port,
+      "[From orchestrator] #{text}",
+      "",
+      System.monotonic_time(:millisecond) + 3_000
+    )
+  end
+
+  defp await_echo(port, expected, buffer, deadline) do
+    timeout = max(deadline - System.monotonic_time(:millisecond), 0)
+
+    receive do
+      {^port, {:data, data}} ->
+        data =
+          case data do
+            {:eol, line} -> line <> "\n"
+            {:noeol, fragment} -> fragment
+            binary -> binary
+          end
+
+        {:ok, messages, remaining} =
+          BwrapBackend.handle_output(%BwrapBackend{buffer: buffer}, data)
+
+        unless Enum.any?(messages, &(&1["type"] == "output" and &1["content"] == expected)) do
+          await_echo(port, expected, remaining, deadline)
+        end
+
+      {^port, {:exit_status, code}} ->
+        flunk("transport exited with status #{code} before replying")
+    after
+      timeout -> flunk("transport did not return the expected FIFO reply")
+    end
+  end
+
   @moduletag :bwrap
 
   setup_all do
@@ -13,7 +63,18 @@ defmodule Genswarms.Backends.BwrapBackendTest do
       {:error, {:already_started, _}} -> :ok
     end
 
-    {:ok, infrastructure_ready: OverlayManager.infrastructure_ready?()}
+    fixture_dir =
+      Path.join(
+        System.tmp_dir!(),
+        "bwrap-transport-#{Base.encode16(:crypto.strong_rand_bytes(12))}"
+      )
+
+    File.mkdir_p!(fixture_dir)
+    fixture = Path.join(fixture_dir, "runtime")
+    File.cp!(Path.expand("../../fixtures/bwrap-echo-runtime.sh", __DIR__), fixture)
+    File.chmod!(fixture, 0o755)
+    on_exit(fn -> File.rm_rf!(fixture_dir) end)
+    {:ok, fixture: fixture, fixture_dir: fixture_dir}
   end
 
   describe "backend_type/0" do
@@ -24,53 +85,26 @@ defmodule Genswarms.Backends.BwrapBackendTest do
 
   describe "start/2 and stop/1" do
     @tag :integration
-    test "starts and stops a bwrap sandbox", %{infrastructure_ready: ready} do
-      if not ready do
-        IO.puts("Skipping: bwrap infrastructure not ready")
-      else
-        config = %{
-          swarm_name: "test",
-          presets: [:base],
-          workspace: "/tmp/test-workspace-#{:rand.uniform(999_999)}"
-        }
+    @tag skip: not OverlayManager.infrastructure_ready?()
+    test "starts and stops a bwrap sandbox", context do
+      config = transport_config(context)
 
-        assert {:ok, ref} = BwrapBackend.start("test-agent", config)
-        assert %BwrapBackend{} = ref
-        assert ref.sandbox_id =~ "test-test-agent"
-        assert ref.port != nil
+      assert {:ok, ref} = BwrapBackend.start("test-agent", config)
+      on_exit(fn -> BwrapBackend.stop(ref) end)
+      assert %BwrapBackend{} = ref
+      assert ref.sandbox_id =~ "test-test-agent"
+      assert ref.port != nil
 
-        # Should be healthy
-        assert :ok = BwrapBackend.health_check(ref)
+      # A live cgroup alone can briefly describe a process already exiting.
+      # Demand a real FIFO round trip before claiming a healthy sandbox.
+      assert_echo(ref, "startup-proof")
+      assert :ok = BwrapBackend.health_check(ref)
 
-        # Stop should cleanup
-        assert :ok = BwrapBackend.stop(ref)
+      # Stop should cleanup
+      assert :ok = BwrapBackend.stop(ref)
 
-        # Overlay should be cleaned up
-        refute File.exists?(ref.overlay_dir)
-      end
-    end
-
-    test "returns error when overlay setup fails" do
-      # Test with a config that will fail (infrastructure not ready simulates this)
-      config = %{
-        swarm_name: "test",
-        presets: [:base]
-      }
-
-      result = BwrapBackend.start("test-agent", config)
-
-      # Should either succeed (if infra ready) or fail gracefully
-      case result do
-        {:ok, ref} ->
-          BwrapBackend.stop(ref)
-          assert true
-
-        {:error, {:overlay_setup_failed, _}} ->
-          assert true
-
-        {:error, _other} ->
-          assert true
-      end
+      # Overlay should be cleaned up
+      refute File.exists?(ref.overlay_dir)
     end
   end
 
@@ -111,24 +145,16 @@ defmodule Genswarms.Backends.BwrapBackendTest do
 
   describe "send_input/2" do
     @tag :integration
-    test "sends input to running sandbox", %{infrastructure_ready: ready} do
-      if not ready do
-        IO.puts("Skipping: bwrap infrastructure not ready")
-      else
-        config = %{
-          swarm_name: "test",
-          presets: [:base],
-          workspace: "/tmp/test-workspace-#{:rand.uniform(999_999)}"
-        }
+    @tag skip: not OverlayManager.infrastructure_ready?()
+    test "sends input to running sandbox", context do
+      config = transport_config(context)
 
-        {:ok, ref} = BwrapBackend.start("test-agent", config)
+      {:ok, ref} = BwrapBackend.start("test-agent", config)
+      on_exit(fn -> BwrapBackend.stop(ref) end)
 
-        # Send some input
-        assert :ok = BwrapBackend.send_input(ref, "echo hello")
-
-        # Cleanup
-        BwrapBackend.stop(ref)
-      end
+      assert_echo(ref, "first-turn")
+      assert_echo(ref, "second-turn")
+      assert :ok = BwrapBackend.stop(ref)
     end
 
     test "returns error for nil port" do
@@ -148,22 +174,14 @@ defmodule Genswarms.Backends.BwrapBackendTest do
 
   describe "health_check/1" do
     @tag :integration
-    test "returns :ok for healthy sandbox", %{infrastructure_ready: ready} do
-      if not ready do
-        IO.puts("Skipping: bwrap infrastructure not ready")
-      else
-        config = %{
-          swarm_name: "test",
-          presets: [:base],
-          workspace: "/tmp/test-workspace-#{:rand.uniform(999_999)}"
-        }
-
-        {:ok, ref} = BwrapBackend.start("test-agent", config)
-
-        assert :ok = BwrapBackend.health_check(ref)
-
-        BwrapBackend.stop(ref)
-      end
+    @tag skip: not OverlayManager.infrastructure_ready?()
+    test "returns :ok for healthy sandbox", context do
+      {:ok, ref} = BwrapBackend.start("test-agent", transport_config(context))
+      on_exit(fn -> BwrapBackend.stop(ref) end)
+      assert_echo(ref, "health-proof")
+      assert :ok = BwrapBackend.health_check(ref)
+      assert :ok = BwrapBackend.stop(ref)
+      assert {:error, :port_closed} = BwrapBackend.health_check(ref)
     end
 
     test "returns error for nil port" do

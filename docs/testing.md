@@ -40,6 +40,11 @@ Key test files include:
 | `test/genswarms/config/swarm_config_test.exs` | config validation |
 | `test/genswarms/agents/inbox_test.exs` | the message queue |
 
+The bwrap lifecycle tests use a local echo executable through the real
+systemd/bwrap/FIFO transport, not a provider-backed agent. They require a reply
+round trip before claiming health and skip when the sandbox bases are absent.
+They do not need API keys; subzeroclaw/provider integration is a separate layer.
+
 ## Formatting
 
 ```bash
