@@ -75,3 +75,32 @@ its stated result; scaffolding or an unavailable live service is not completion.
   detector fails this test; recognition of the actual input+footer fixes it.
   This verifies runtime transport, not model quality. Claude/Codex full-turn
   executions remain unverified.
+- Evaluator API added in Phylogenesis (three focused tests): compares bounded
+  baseline/fixed/candidate JSON patches using an operator-owned runner and scorer.
+  Expected answers reach only the scorer, reported candidate fitness is ignored,
+  tasks run without links to the caller, and crashes/timeouts are failures.
+  Reports separate training and held-out aggregates. These are deterministic
+  fixture checks, not evidence of model/architecture quality improvements.
+  Final holdout comparisons must not feed back into the evolution loop.
+
+## Remaining integration work
+
+1. Replace the legacy generated-.sim runner path with Candidate + evaluator.
+   Prefer candidates delivered as JSON messages: no host reads of agent-chosen
+   paths, no generated Elixir evaluation. Keep evaluator code/held-out answers
+   out of generator mounts. Reduce the LLM fixer stage to deterministic schema
+   validation once the data format is wired in; do not leave two competing paths.
+2. Bound whole generations and per-run resources, classify timeouts as failures,
+   retain generation artifacts, and test duplicate/stale generation messages.
+3. Extend real-client fixtures to Claude/Codex. Codex custom-provider docs were
+   checked at https://learn.chatgpt.com/docs/config-file/config-reference:
+   custom providers support a base_url, wire_api=responses and
+   requires_openai_auth=false. Use private fixture config, never user credentials.
+   No Codex configuration was changed and no Codex full-turn fixture exists yet.
+4. Read product-specific instructions before changes; test conversation/fake-chain
+   recovery without live bot polling or funds. Preserve dirty product submodules.
+5. Record exact local compatibility revisions, validate consumer pin changes in
+   branches, and provide a repeatable bounded benchmark command.
+
+Local commits so far: genswarms 552de3e + a4721c0; subzeroclaw ce1dbfb;
+opencode-unhardcoded 6476b08; subzero-sim 17a703a; phylogenesis eae7711.
