@@ -115,6 +115,16 @@ defmodule Genswarms.DynamicSwarmTest do
     assert {:ok, [:sink]} = Router.get_connections(swarm, :first)
   end
 
+  test "dynamic backend tuple cannot bypass the host-path policy", %{swarm: swarm} do
+    spec = %{name: :forbidden, backend: {:mock, %{extra_ro_binds: [{"/etc", "/etc"}]}}}
+
+    assert {:error, {:forbidden_config_keys, ["extra_ro_binds"]}} =
+             SwarmManager.add_agent(swarm, spec, persist: true)
+
+    assert Registry.lookup(Genswarms.AgentRegistry, {swarm, :forbidden}) == []
+    assert SwarmRegistry.load_overlay(swarm) == []
+  end
+
   describe "add_topology_edges/3" do
     test "adds edges to router and config", %{swarm: swarm} do
       :ok = SwarmManager.add_topology_edges(swarm, [{:sink, :alpha}])

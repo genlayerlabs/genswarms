@@ -356,6 +356,9 @@ defmodule Genswarms.Config.SwarmConfigTest do
           "request_extra" => %{"model" => "x/y"},
           "compact_extra" => %{"mode" => "brief"},
           "endpoint" => "https://llm.example",
+          "script" => ["literal"],
+          "port" => 2222,
+          "key_path" => "/keys/worker",
           "population_size" => 10
         })
 
@@ -363,6 +366,9 @@ defmodule Genswarms.Config.SwarmConfigTest do
       assert opts.request_extra == %{"model" => "x/y"}
       assert opts.compact_extra == %{"mode" => "brief"}
       assert opts.endpoint == "https://llm.example"
+      assert opts.script == ["literal"]
+      assert opts.port == 2222
+      assert opts.key_path == "/keys/worker"
       assert opts["population_size"] == 10
 
       assert :request_extra in SwarmConfig.backend_config_keys()

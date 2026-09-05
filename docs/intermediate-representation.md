@@ -103,11 +103,14 @@ alias Genswarms.IR
 | `skills` / `presets` | `body {ref: "inline:<name>"}` + `overrides` |
 | `model: "x/y"` | `{ref: "openrouter:x/y", attested: true}` |
 | `backend: :bwrap` / `:local` / `:mock` | bare refs `{ref: "bwrap"}` … |
+| `backend: {kind, opts}` for local/bwrap/mock | bare refs with `opts` retained |
 | `backend: {:docker, n}` | `{ref: "oci:<n>", kind: data}` |
+| `backend: {:docker, n, opts}` | `{ref: "oci:<n>", kind: data, opts: opts}` |
 | `backend: :apple_container` | `{ref: "apple_container"}` |
 | `backend: {:apple_container, n}` | `{ref: "apple_container", image: n}` |
 | `backend: {:apple_container, n, opts}` | `{ref: "apple_container", image: n, opts: opts}` |
 | `backend: {:ssh, "u@h"}` | `{ref: "ssh", host: "u@h"}` |
+| `backend: {:ssh, "u@h", opts}` | `{ref: "ssh", host: "u@h", opts: opts}` |
 | `backend: {:tmux, client}` | `{ref: "tmux", client: client}` |
 | `backend: {:tmux, client, opts}` | `{ref: "tmux", client: client, opts: opts}`; runner options such as `{runner: "docker", image: "coding-tuis:latest", client_source: "runtime"}` round-trip unchanged |
 | `object.handler Mod` | `{ref: "module:<Mod>", kind: code}` |
@@ -121,6 +124,13 @@ does not claim an OCI digest. Docker keeps the existing `oci:<image>` mapping.
 Tmux refs likewise preserve the declared client and known option keys across
 the config → IR → config round trip.
 
+Backend options are also retained for local, bwrap, mock, Docker and SSH refs.
+Known execution keys are restored to atom keys; JSON selectors such as
+`network: "isolated"` and `privilege_mode: "rootless"` become the runtime's
+atom selectors. Arbitrary string values are not converted to atoms. An Apple
+ref with nonempty options must declare its image explicitly; `ToConfig` refuses
+an unrepresentable form instead of dropping those options.
+
 ## The default control-plane gate
 
 The IR is wired into the orchestrator as a **strict, fail-closed gate**
@@ -132,7 +142,8 @@ spawned:
   spawning**.
 - **On `add_agent`** — rejects host-escape backend config keys
   (`subzeroclaw_path`, `extra_ro_binds`, `extra_rw_binds`, `extra_path`) and the
-  per-swarm agent cap.
+  per-swarm agent cap. The key restrictions apply both to agent `config` and
+  backend tuple options / native IR `backend.opts`.
 - **On `scale_agent_group`** — enforces the agent cap.
 
 The cap defaults to `config :genswarms, :max_agents_per_swarm` (100) and applies

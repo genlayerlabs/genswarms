@@ -164,7 +164,8 @@ defmodule Genswarms.Config.SwarmConfig do
                           bwrap_executable xargs_executable state_dir client_source pass_env runner_env
                           keepalive_command client_store_paths nix_store_executable submit_delay_ms
                           submission_context_lines submit_retry_after_ms submit_max_attempts
-                          submit_check_max_errors)a
+                          submit_check_max_errors script port key_path nixos remote_skills_dir
+                          remote_user silently_accept_hosts password)a
 
   @type topology_edge :: {atom(), atom()}
 

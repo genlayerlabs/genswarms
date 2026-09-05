@@ -68,7 +68,7 @@ defmodule Genswarms.IR.ExecutorTest do
       assert ToConfig.agent_spec(b).backend == {:ssh, "pi@192.168.1.50"}
     end
 
-    test "local backend opts tuple round-trips like bwrap opts tuple" do
+    test "local and bwrap backend options are not discarded" do
       {:ok, state} =
         FromConfig.from_config(%{
           name: "s",
@@ -79,8 +79,67 @@ defmodule Genswarms.IR.ExecutorTest do
         })
 
       [a, b] = state.agents
-      assert ToConfig.agent_spec(a).backend == :bwrap
-      assert ToConfig.agent_spec(b).backend == :local
+      assert ToConfig.agent_spec(a).backend == {:bwrap, %{workspace: "/tmp/bwrap"}}
+      assert ToConfig.agent_spec(b).backend == {:local, %{workspace: "/tmp/local"}}
+    end
+
+    test "backend isolation, limits and connection options survive JSON refs" do
+      for backend <- [
+            {:bwrap, %{network: :isolated, memory_limit: "256M", privilege_mode: :rootless}},
+            {:docker, "agent:code", %{network: :isolated, pids_limit: 32}},
+            {:ssh, "worker@example", %{port: 2222, key_path: "/keys/worker", nixos: false}},
+            {:mock, %{script: ["~literal", "second"]}}
+          ] do
+        assert {:ok, state} =
+                 FromConfig.from_config(%{name: "s", agents: [%{name: :a, backend: backend}]})
+
+        agent = hd(state.agents)
+        # Pass through actual JSON, not only in-memory Elixir structs.
+        opts = agent.backend.opts |> Jason.encode!() |> Jason.decode!()
+        spec = ToConfig.agent_spec(%{agent | backend: %{agent.backend | opts: opts}})
+        assert spec.backend == backend
+
+        if agent.backend.scheme in ["bwrap", "oci"] do
+          assert spec.backend
+                 |> Genswarms.Config.SwarmConfig.backend_config()
+                 |> Genswarms.Backends.EgressGuard.isolated?()
+        end
+      end
+    end
+
+    test "Apple options without an image are refused instead of silently dropped" do
+      {:ok, state} =
+        FromConfig.from_config(%{name: "s", agents: [%{name: :a, backend: :apple_container}]})
+
+      agent = hd(state.agents)
+      agent = %{agent | backend: %{agent.backend | opts: %{"memory_limit" => "1g"}}}
+
+      assert_raise ArgumentError, "Apple container IR options require an explicit image", fn ->
+        ToConfig.agent_spec(agent)
+      end
+    end
+
+    test "backend keys in agent config retain runtime meaning without atomizing domain keys" do
+      {:ok, state} =
+        FromConfig.from_config(%{
+          name: "s",
+          agents: [
+            %{
+              name: :a,
+              backend: :bwrap,
+              config: %{"domain_label" => "~literal", network: :isolated, memory_limit: "256M"}
+            }
+          ]
+        })
+
+      agent = hd(state.agents)
+      config = agent.config |> Jason.encode!() |> Jason.decode!()
+      spec = ToConfig.agent_spec(%{agent | config: config})
+
+      assert spec.config.network == :isolated
+      assert spec.config.memory_limit == "256M"
+      assert spec.config["domain_label"] == "~literal"
+      assert Genswarms.Backends.EgressGuard.isolated?(spec.config)
     end
 
     test "Apple container backend image and opts round-trip" do

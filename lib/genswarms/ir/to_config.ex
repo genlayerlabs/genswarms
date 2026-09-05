@@ -26,7 +26,7 @@ defmodule Genswarms.IR.ToConfig do
       model: model(a.model),
       skills: Map.get(a.overrides, "skills", []),
       presets: a.overrides |> Map.get("presets", []) |> Enum.map(&String.to_atom/1),
-      config: a.config
+      config: a.config |> SwarmConfig.atomize_known_backend_opts() |> normalize_option_values()
     }
   end
 
@@ -38,27 +38,47 @@ defmodule Genswarms.IR.ToConfig do
 
   # ── backend ──────────────────────────────────────────────────────────────────
 
-  defp backend(%{scheme: "bwrap"}), do: :bwrap
-  defp backend(%{scheme: "local"}), do: :local
-  defp backend(%{scheme: "mock"}), do: :mock
-  defp backend(%{scheme: "oci", ref: ref}), do: {:docker, String.replace_prefix(ref, "oci:", "")}
-  defp backend(%{scheme: "apple_container", image: nil}), do: :apple_container
+  defp backend(%{scheme: "bwrap", opts: opts}), do: with_opts(:bwrap, opts)
+  defp backend(%{scheme: "local", opts: opts}), do: with_opts(:local, opts)
+  defp backend(%{scheme: "mock", opts: opts}), do: with_opts(:mock, opts)
 
-  defp backend(%{scheme: "apple_container", image: image, opts: opts})
+  defp backend(%{scheme: "oci", ref: ref, opts: opts}),
+    do: with_opts({:docker, String.replace_prefix(ref, "oci:", "")}, opts)
+
+  defp backend(%{scheme: "apple_container", image: nil, opts: opts})
        when opts == %{} or is_nil(opts),
-       do: {:apple_container, image}
+       do: :apple_container
+
+  defp backend(%{scheme: "apple_container", image: nil}),
+    do: raise(ArgumentError, "Apple container IR options require an explicit image")
 
   defp backend(%{scheme: "apple_container", image: image, opts: opts}),
-    do: {:apple_container, image, SwarmConfig.atomize_known_backend_opts(opts)}
-
-  defp backend(%{scheme: "tmux", client: client, opts: opts})
-       when opts == %{} or is_nil(opts),
-       do: {:tmux, client}
+    do: with_opts({:apple_container, image}, opts)
 
   defp backend(%{scheme: "tmux", client: client, opts: opts}),
-    do: {:tmux, client, SwarmConfig.atomize_known_backend_opts(opts)}
+    do: with_opts({:tmux, client}, opts)
 
-  defp backend(%{scheme: "ssh", host: host}), do: {:ssh, host}
+  defp backend(%{scheme: "ssh", host: host, opts: opts}), do: with_opts({:ssh, host}, opts)
+
+  defp with_opts(base, opts) when opts == %{} or is_nil(opts), do: base
+
+  defp with_opts(base, opts) do
+    opts = opts |> SwarmConfig.atomize_known_backend_opts() |> normalize_option_values()
+    if is_tuple(base), do: Tuple.insert_at(base, tuple_size(base), opts), else: {base, opts}
+  end
+
+  # These backend selectors are atoms at execution time, strings in JSON.
+  # Never create arbitrary atoms from IR values (Docker network names, etc.).
+  defp normalize_option_values(opts) do
+    Map.new(opts, fn
+      {:network, "isolated"} -> {:network, :isolated}
+      {:privilege_mode, "rootless"} -> {:privilege_mode, :rootless}
+      {:privilege_mode, "cgroup"} -> {:privilege_mode, :cgroup}
+      {:proc_mount, "new"} -> {:proc_mount, :new}
+      {:proc_mount, "bind"} -> {:proc_mount, :bind}
+      entry -> entry
+    end)
+  end
 
   # ── model ────────────────────────────────────────────────────────────────────
 

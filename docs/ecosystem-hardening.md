@@ -273,3 +273,27 @@ opencode-unhardcoded 6476b08; subzero-sim bccd843; phylogenesis 3a6f125.
   Seed files are still required. Replay currently logs some failed/unknown
   events and continues; database write acknowledgement and replay failure
   semantics still need tightening before restart equivalence can be claimed.
+
+## Runtime IR option preservation and policy (2026-09-05)
+
+- Four regressions failed before the fix: local/bwrap options were discarded,
+  resource/isolation/SSH/mock options did not survive IR translation, and both
+  the runtime gate and native IR policy allowed forbidden host-path keys inside
+  backend options. These keys were previously checked only in agent config.
+- FromConfig now retains options for local/bwrap/mock/Docker/SSH, and ToConfig
+  uses one option attachment path for all backends. It restores known execution
+  keys and fixed JSON selectors, including `network: "isolated"`, in both
+  backend options and agent config. Domain string keys remain strings. Apple
+  refs with options but no image are refused rather than silently losing options.
+- Policy checks now cover backend tuple options and IR `backend.opts` as well
+  as agent config. A real SwarmManager mutation test verifies rejection before
+  agent registration or overlay persistence. Operator-authored seeds retain
+  their existing authority to declare these options.
+- Final full suite: 738 tests, zero failures, five optional/platform skips;
+  `/tmp/genswarms-ecosystem-ir-options-suite.log`. Changed files pass formatting
+  and diff checks. All four Go/Elixir conformance fixture runs still pass.
+- Remaining mapping audit: native package body/policy/handler resolution is not
+  fully wired through ToConfig; provider override fields and structured option
+  values (e.g. bind tuples after JSON serialization) need end-to-end coverage.
+  These results prove the tested execution options and policy correction, not
+  the outstanding complete native IR-to-runtime/persistence acceptance gate.

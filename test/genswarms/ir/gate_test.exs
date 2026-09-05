@@ -54,6 +54,21 @@ defmodule Genswarms.IR.GateTest do
       assert {:error, {:agent_cap_exceeded, 2, 1}} =
                Gate.validate_add_agent(cfg, %{name: :b, backend: :bwrap})
     end
+
+    test "backend tuple options cannot bypass forbidden config keys" do
+      cfg = swarm_config([])
+
+      for backend <- [
+            {:bwrap, %{extra_ro_binds: [{"/etc", "/etc"}]}},
+            {:local, %{"extra_ro_binds" => []}},
+            {:docker, "image", %{extra_ro_binds: []}},
+            {:ssh, "host", %{extra_ro_binds: []}},
+            {:tmux, :codex, %{extra_ro_binds: []}}
+          ] do
+        assert {:error, {:forbidden_config_keys, ["extra_ro_binds"]}} =
+                 Gate.validate_add_agent(cfg, %{name: :b, backend: backend})
+      end
+    end
   end
 
   describe "validate_scale/3" do

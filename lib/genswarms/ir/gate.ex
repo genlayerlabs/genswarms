@@ -34,7 +34,10 @@ defmodule Genswarms.IR.Gate do
       event = %Event{
         seq: 0,
         op: :add_agent,
-        payload: %{"config" => string_keys(Map.get(agent_spec, :config, %{}))}
+        payload: %{
+          "config" => string_keys(Map.get(agent_spec, :config, %{})),
+          "backend" => %{"opts" => backend_opts(Map.get(agent_spec, :backend))}
+        }
       }
 
       OpPolicy.validate(event, state)
@@ -59,4 +62,8 @@ defmodule Genswarms.IR.Gate do
 
   defp string_keys(map) when is_map(map), do: Map.new(map, fn {k, v} -> {to_string(k), v} end)
   defp string_keys(other), do: other
+
+  defp backend_opts({_kind, opts}) when is_map(opts), do: string_keys(opts)
+  defp backend_opts({_kind, _target, opts}) when is_map(opts), do: string_keys(opts)
+  defp backend_opts(_), do: %{}
 end

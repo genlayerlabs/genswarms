@@ -84,9 +84,10 @@ defmodule Genswarms.IR.FromConfig do
   defp backend_ref(:local), do: {:ok, %{"ref" => "local"}}
   defp backend_ref(:bwrap), do: {:ok, %{"ref" => "bwrap"}}
   defp backend_ref(:mock), do: {:ok, %{"ref" => "mock"}}
-  defp backend_ref({:local, _opts}), do: {:ok, %{"ref" => "local"}}
-  defp backend_ref({:bwrap, _opts}), do: {:ok, %{"ref" => "bwrap"}}
-  defp backend_ref({:mock, _opts}), do: {:ok, %{"ref" => "mock"}}
+
+  defp backend_ref({kind, opts}) when kind in [:local, :bwrap, :mock],
+    do: {:ok, %{"ref" => Atom.to_string(kind), "opts" => stringify_keys(opts)}}
+
   defp backend_ref(:apple_container), do: {:ok, %{"ref" => "apple_container"}}
   defp backend_ref({:apple_container, image}), do: {:ok, apple_container(image)}
 
@@ -94,9 +95,15 @@ defmodule Genswarms.IR.FromConfig do
     do: {:ok, Map.put(apple_container(image), "opts", stringify_keys(opts))}
 
   defp backend_ref({:docker, name}), do: {:ok, oci(name)}
-  defp backend_ref({:docker, name, _opts}), do: {:ok, oci(name)}
+
+  defp backend_ref({:docker, name, opts}),
+    do: {:ok, Map.put(oci(name), "opts", stringify_keys(opts))}
+
   defp backend_ref({:ssh, host}), do: {:ok, %{"ref" => "ssh", "host" => to_string(host)}}
-  defp backend_ref({:ssh, host, _opts}), do: {:ok, %{"ref" => "ssh", "host" => to_string(host)}}
+
+  defp backend_ref({:ssh, host, opts}),
+    do: {:ok, %{"ref" => "ssh", "host" => to_string(host), "opts" => stringify_keys(opts)}}
+
   defp backend_ref({:tmux, client}), do: {:ok, tmux(client)}
 
   defp backend_ref({:tmux, client, opts}),

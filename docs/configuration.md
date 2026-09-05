@@ -111,6 +111,11 @@ For agents, the agent's `config` map is split at deploy time (in `Genswarms.Agen
 
 The shared/backend-specific keys are:
 
+SSH-specific keys (`port`, `key_path`, `nixos`, `remote_skills_dir`,
+`remote_user`, `silently_accept_hosts`, `password`) and the mock backend's
+`script` are also recognized execution keys. They are preserved when translating
+through IR, whether declared in backend options or the agent's `config`.
+
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `workspace` | string | `/tmp/szc-workspace/<sandbox_id>` | Working directory mounted read-write into the sandbox. |

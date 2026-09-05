@@ -41,7 +41,8 @@ defmodule Genswarms.IR.OpPolicy do
 
   def validate(%Event{op: :add_agent, payload: p}, %State{agents: agents}, opts) do
     with :ok <- within_cap(length(agents) + 1, opts),
-         :ok <- no_forbidden_keys(Map.get(p, "config", %{})) do
+         :ok <- no_forbidden_keys(Map.get(p, "config", %{})),
+         :ok <- no_forbidden_keys(backend_opts(p)) do
       :ok
     end
   end
@@ -77,4 +78,7 @@ defmodule Genswarms.IR.OpPolicy do
   end
 
   defp no_forbidden_keys(_), do: :ok
+
+  defp backend_opts(%{"backend" => %{"opts" => opts}}), do: opts
+  defp backend_opts(_), do: %{}
 end

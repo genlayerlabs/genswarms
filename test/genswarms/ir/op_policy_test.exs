@@ -49,6 +49,20 @@ defmodule Genswarms.IR.OpPolicyTest do
   end
 
   describe "host-escape config keys (#24)" do
+    test "native IR backend opts have the same restrictions as config" do
+      event = %Event{
+        seq: 1,
+        op: :add_agent,
+        payload: %{
+          "name" => "x",
+          "backend" => %{"ref" => "bwrap", "opts" => %{"subzeroclaw_path" => "/host/executable"}}
+        }
+      }
+
+      assert {:error, {:forbidden_config_keys, ["subzeroclaw_path"]}} =
+               OpPolicy.validate(event, state_with(0))
+    end
+
     test "add_agent with a forbidden backend key is rejected" do
       for key <- OpPolicy.forbidden_config_keys() do
         assert {:error, {:forbidden_config_keys, [^key]}} =
