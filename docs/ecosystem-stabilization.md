@@ -60,7 +60,7 @@ Core validation on 2026-09-05:
 
 | Component | Revision | Validation |
 | --- | --- | --- |
-| Genswarms | `31c4ed5` | 771 tests, zero failures, five optional/platform skips; seed 968530. All three opted-in real TUI fixtures pass separately; escript build passes. Changed Elixir files pass formatting. |
+| Genswarms | `93a41d6` | 773 tests, zero failures, five optional/platform skips; seed 968530. All three opted-in real TUI fixtures pass separately; escript build passes. Changed Elixir files pass formatting. |
 | Subzeroclaw | `8684b8b` | 32 unit tests and six real-executable loopback integration tests pass. |
 | Gsp | `58e6d73` | `go test -race ./...`, `go vet ./...`; Windows amd64 and Darwin arm64 cross-builds, Windows vendorer test compilation. |
 | Swarmidx | `f366b49` | Checks and migration drift pass; 45 tests on SQLite (one PostgreSQL-only skip) and all 45 on an isolated PostgreSQL 17 cluster. |
@@ -78,4 +78,16 @@ detector; swarmidx CI runs both SQLite and PostgreSQL to exercise append locking
 CI outcomes will be recorded separately from local evidence.
 
 The compatibility manifest pins executable revisions; subsequent documentation
-commits do not change those tested source bytes. Core PR URLs pending creation.
+commits do not change those tested source bytes. Core PRs: [Genswarms #98](https://github.com/genlayerlabs/genswarms/pull/98),
+[Gsp #12](https://github.com/genlayerlabs/genswarms-packages/pull/12),
+[Swarmidx #12](https://github.com/genlayerlabs/swarmidx/pull/12),
+[Subzeroclaw #29](https://github.com/genlayerlabs/subzeroclaw/pull/29).
+The initial four revisions passed their GitHub test workflows.
+
+Consumer verification found a cold-start EventStore bug: optional callback
+inspection could omit an unloaded backend's writer. Backends are now loaded
+before capability inspection; the buffered writer traps supervisor shutdown to
+flush its tail, and stops before its inner backend. Both regressions fail before
+the fixes and pass after them. The final 773-test engine suite passes. MicroMarkets
+also verifies PubSub delivery AND all 200 fixture events in its actual SQLite
+store, rather than accepting an in-memory-only result.

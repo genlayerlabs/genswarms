@@ -4,7 +4,7 @@
   "status": "core-verified-consumer-integration-pending",
   "branch": "codex/ecosystem-hardening",
   "source_revisions": {
-    "genswarms": "31c4ed513edbc3e947068d9e6e418b57f7b1c180",
+    "genswarms": "93a41d6698871d6f6bf2af9c8a79bfe52f9a04f6",
     "subzero-sim": "bccd8430f2f15187128c877cd0f71429adc2807b",
     "phylogenesis": "3a6f1250f37e2430e00980be6b6c22287cdc71bd",
     "subzeroclaw": "8684b8b86569f16ff15bcc67ace7f34943967867",
@@ -71,7 +71,7 @@
   ],
   "validation": {
     "core": {
-      "tests": 771,
+      "tests": 773,
       "failures": 0,
       "skipped": 5,
       "seed": 968530
