@@ -384,3 +384,24 @@ authoring details and built-in skills.
 - [objects.md](objects.md) — the `ObjectHandler` behaviour and object patterns
 - [skills.md](skills.md) — authoring and deploying agent skill files
 - [cli.md](cli.md) — validating and running configs from the command line
+
+### Dynamic agents with operator-approved read-only mounts
+
+Dynamic agent operations reject host mounts by default. A host application can
+authorize one exact ordered read-only mount list for a named swarm before
+starting it:
+
+```elixir
+config :genswarms, :dynamic_agent_ro_binds, %{
+  "wingston" => [{"/opt/wingston/reply.sh", "/usr/local/bin/reply"}]
+}
+```
+
+The proposed agent's `extra_ro_binds` must match the entire list, including
+source paths, destination paths and order. Tuple pairs in the DSL and array
+pairs in native IR are equivalent. A different swarm, reordered/subset list or
+additional mount is rejected. This grants dynamic agents in that swarm access
+to those paths; authorize only files intended for every such agent. The policy
+is operator-owned application configuration, not a swarm IR option or REST
+parameter. Writable mounts, executable overrides and PATH overrides remain
+forbidden; agent caps still apply.

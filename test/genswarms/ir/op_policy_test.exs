@@ -83,6 +83,92 @@ defmodule Genswarms.IR.OpPolicyTest do
     end
   end
 
+  describe "operator-authorized read-only mounts" do
+    setup do
+      previous = Application.get_env(:genswarms, :dynamic_agent_ro_binds)
+
+      Application.put_env(:genswarms, :dynamic_agent_ro_binds, %{
+        "s" => [{"/app/reply.sh", "/usr/local/bin/reply"}, {"/app/help", "/help"}]
+      })
+
+      on_exit(fn ->
+        if previous,
+          do: Application.put_env(:genswarms, :dynamic_agent_ro_binds, previous),
+          else: Application.delete_env(:genswarms, :dynamic_agent_ro_binds)
+      end)
+
+      :ok
+    end
+
+    test "DSL tuples and native IR arrays accept the exact ordered list" do
+      binds = [{"/app/reply.sh", "/usr/local/bin/reply"}, {"/app/help", "/help"}]
+      assert :ok = OpPolicy.validate(add_agent(%{extra_ro_binds: binds}), state_with(0))
+
+      event = %Event{
+        seq: 1,
+        op: :add_agent,
+        payload: %{
+          "backend" => %{
+            "ref" => "bwrap",
+            "opts" => %{"extra_ro_binds" => Enum.map(binds, &Tuple.to_list/1)}
+          }
+        }
+      }
+
+      assert :ok = OpPolicy.validate(event, state_with(0))
+    end
+
+    test "different swarm, source, destination, order, subset and malformed lists fail closed" do
+      binds = [{"/app/reply.sh", "/usr/local/bin/reply"}, {"/app/help", "/help"}]
+
+      assert {:error, {:forbidden_config_keys, ["extra_ro_binds"]}} =
+               OpPolicy.validate(add_agent(%{"extra_ro_binds" => binds}), %{
+                 state_with(0)
+                 | name: "other"
+               })
+
+      for bad <- [
+            [{"/etc", "/help"}],
+            [{"/app/help", "/etc"}],
+            Enum.reverse(binds),
+            Enum.take(binds, 1),
+            binds ++ [{"/etc", "/etc"}],
+            [],
+            nil,
+            ["bad"]
+          ] do
+        assert {:error, {:forbidden_config_keys, ["extra_ro_binds"]}} =
+                 OpPolicy.validate(add_agent(%{"extra_ro_binds" => bad}), state_with(0))
+      end
+    end
+
+    test "authorization never permits writable mounts, executable overrides or cap bypass" do
+      binds = [{"/app/reply.sh", "/usr/local/bin/reply"}, {"/app/help", "/help"}]
+
+      for key <- ["extra_rw_binds", "extra_path", "subzeroclaw_path"] do
+        assert {:error, {:forbidden_config_keys, [^key]}} =
+                 OpPolicy.validate(
+                   add_agent(%{"extra_ro_binds" => binds, key => binds}),
+                   state_with(0)
+                 )
+      end
+
+      assert {:error, {:agent_cap_exceeded, 2, 1}} =
+               OpPolicy.validate(add_agent(%{"extra_ro_binds" => binds}), state_with(1),
+                 max_agents: 1
+               )
+    end
+
+    test "state options cannot authorize a request" do
+      Application.delete_env(:genswarms, :dynamic_agent_ro_binds)
+      binds = [{"/etc", "/host"}]
+      state = %{state_with(0) | options: %{"dynamic_agent_ro_binds" => %{"s" => binds}}}
+
+      assert {:error, {:forbidden_config_keys, ["extra_ro_binds"]}} =
+               OpPolicy.validate(add_agent(%{"extra_ro_binds" => binds}), state)
+    end
+  end
+
   describe "ops with no policy" do
     test "remove/bump/edges/etc. are allowed by this layer" do
       for op <- [:remove_agent, :remove_object, :bump_package, :add_topology_edges, :set_options] do
