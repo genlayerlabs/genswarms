@@ -56,4 +56,26 @@ inventory observation, not an authorization to install or proof of freshness.
 
 ## PRs and final validation
 
-Pending.
+Core validation on 2026-09-05:
+
+| Component | Revision | Validation |
+| --- | --- | --- |
+| Genswarms | `31c4ed5` | 771 tests, zero failures, five optional/platform skips; seed 968530. All three opted-in real TUI fixtures pass separately; escript build passes. Changed Elixir files pass formatting. |
+| Subzeroclaw | `8684b8b` | 32 unit tests and six real-executable loopback integration tests pass. |
+| Gsp | `58e6d73` | `go test -race ./...`, `go vet ./...`; Windows amd64 and Darwin arm64 cross-builds, Windows vendorer test compilation. |
+| Swarmidx | `f366b49` | Checks and migration drift pass; 45 tests on SQLite (one PostgreSQL-only skip) and all 45 on an isolated PostgreSQL 17 cluster. |
+| Cross-repository | Above revisions | Four complete Go/Elixir IR fixtures in both directions; nine CLI/Django scenarios including body/policy/handler execution and independent BEAM restore after deleting the JSON seed. |
+
+The first broad core run exposed a scale-down assertion racing Registry's
+asynchronous DOWN cleanup. The corrected test checks that the original child
+PIDs are dead immediately after scaling, then waits for Registry removal; it
+does not relax the synchronous child-termination assertion. The same full-suite
+seed passes after the change. Native persistence/package tests also passed a
+fresh 23-test focused run before this final broad check.
+
+The engine and runtime now have PR CI test workflows. Gsp CI runs the race
+detector; swarmidx CI runs both SQLite and PostgreSQL to exercise append locking.
+CI outcomes will be recorded separately from local evidence.
+
+The compatibility manifest pins executable revisions; subsequent documentation
+commits do not change those tested source bytes. Core PR URLs pending creation.

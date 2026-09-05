@@ -5,6 +5,12 @@ Working branch: `codex/ecosystem-hardening` in genswarms, subzeroclaw,
 subzero-sim, phylogenesis, opencode-unhardcoded, and genswarms-packages. Existing review changes
 in genswarms and phylogenesis are preserved on these branches.
 
+This is a chronological work log; the initial checkboxes below are historical.
+Current stabilization status, acceptance and PR delivery order are tracked in
+[ecosystem-stabilization.md](ecosystem-stabilization.md). Later commits have
+implemented and tested the native package/database restart gate described as
+pending in older entries below.
+
 ## Acceptance gates
 
 - [x] Subzeroclaw compaction survives user turns, failure, and normal shutdown; tool-call

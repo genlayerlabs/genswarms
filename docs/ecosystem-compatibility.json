@@ -1,53 +1,101 @@
 {
   "version": 1,
   "verified_on": "2026-09-05",
-  "status": "local-verification-in-progress",
+  "status": "core-verified-consumer-integration-pending",
   "branch": "codex/ecosystem-hardening",
   "source_revisions": {
-    "genswarms": "594757087b27601cc31e75caca7f50c902d9d1c2",
+    "genswarms": "31c4ed513edbc3e947068d9e6e418b57f7b1c180",
     "subzero-sim": "bccd8430f2f15187128c877cd0f71429adc2807b",
     "phylogenesis": "3a6f1250f37e2430e00980be6b6c22287cdc71bd",
-    "subzeroclaw": "ce1dbfb3e35ed6bbb76f9f19e1ce2f8370175995",
+    "subzeroclaw": "8684b8b86569f16ff15bcc67ace7f34943967867",
     "opencode-unhardcoded": "6476b0859cdc7cc2fce8d1dad05e3083fec88beb",
-    "genswarms-packages": "d00b75a3a6720205cee58e14196dcaa1564ec200",
-    "swarmidx": "80f572b816ff9f09659b355bf6f4c7b8c27bb28a"
+    "genswarms-packages": "58e6d738f7b43731e5ff5d1f4204566ad999febc",
+    "swarmidx": "f366b499e5951824fb2e28058cec9b653caa0d03"
   },
   "consumers": {
     "wingston-rally-bot": {
       "revision": "780d1c9844d4c09ce4f8f0cf7d9609ac393e56e2",
       "verification": "passed-offline-harness-and-sender-recovery-seams",
-      "not_verified": ["Postgres durability", "live Telegram delivery", "rebuilt agent image"]
+      "not_verified": [
+        "Postgres durability",
+        "live Telegram delivery",
+        "rebuilt agent image"
+      ]
     },
-    "micromarkets": {"verification": "pending"}
+    "micromarkets": {
+      "verification": "pending"
+    }
   },
   "open_regressions": [],
   "tui_clients": {
-    "opencode": {"version": "1.18.28", "two_turns_and_reconnect": "passed-local-provider-fixture"},
-    "codex": {"version": "0.153.4", "two_turns_and_reconnect": "passed-local-provider-fixture"},
-    "claude": {"version": "2.1.260", "two_turns_and_reconnect": "passed-local-provider-fixture"}
+    "opencode": {
+      "version": "1.18.28",
+      "two_turns_and_reconnect": "passed-local-provider-fixture"
+    },
+    "codex": {
+      "version": "0.153.4",
+      "two_turns_and_reconnect": "passed-local-provider-fixture"
+    },
+    "claude": {
+      "version": "2.1.260",
+      "two_turns_and_reconnect": "passed-local-provider-fixture"
+    }
   },
   "contracts": {
     "package_ir": "bidirectional-public-JSON-Go-Elixir-conformance-four-fixtures",
-    "ir_runtime_translation": "provider-and-native-handler-metadata-preserved-with-preflight-before-effects",
-    "package_integrity_and_database_restart": "end-to-end-verification-pending",
+    "ir_runtime_translation": "verified-snapshot-body-policy-handler-with-native-identity-and-runtime-preflight",
+    "package_integrity_and_database_restart": "nine-loopback-notary-scenarios-including-native-execution-and-independent-BEAM-restore-without-seed-file",
     "notary_log": "all-returned-pages-verified-with-optional-independent-public-key-pin",
     "notary_resolution": "required-independent-key-signed-log-replay-and-IR-pin-slot-validation",
-    "vendoring": "confined-directory-handles-regular-files-staged-packages-and-no-automatic-repair",
+    "vendoring": "confined-files-staged-batches-writer-exclusion-lock-commit-and-explicit-process-exit-recovery",
     "sqlite_payload_codec": "term-v1-with-legacy-read-support",
     "object_startup": "async-readiness-barriers-and-fail-closed-overlay-replay",
     "candidate": "bounded-json-patch-v1",
     "evaluation": "operator-owned-training-and-frozen-holdout",
     "port_runtime": "szc-wrapper-fifo",
     "tui_runtime": "typed-completion-and-explicit-receipt-ack",
-    "delivery": "at-least-once-not-exactly-once"
+    "delivery": "at-least-once-not-exactly-once",
+    "notary_concurrency": "full-45-test-suite-on-isolated-PostgreSQL-17-including-16-concurrent-publications"
   },
   "limits": [
-    "No product deployment is implied; hardened revisions and consumer gitlinks are local only.",
-    "Authenticated package resolution does not prove log freshness, absence of split views, or concurrent notary append safety.",
-    "Vendoring confines filesystem access and preserves existing packages, but multi-package transactions, concurrent writers and power-loss recovery remain unverified.",
-    "Consumer pins have not yet moved to the term-v1 SQLite codec; CLI/API/daemons sharing a database must upgrade together.",
+    "No deployment or merge is implied. Consumer pins and suites are still being integrated.",
+    "Authenticated package resolution does not prove log freshness or absence of split views.",
+    "Vendoring recovery tests cover process exit before/after lock commit and preservation of edited packages, not power-loss durability.",
+    "A missing or interrupted recovery journal and unsupported process-liveness checks fail closed and may require operator inspection.",
+    "CLI/API/daemons sharing a database must upgrade together for the term-v1 SQLite codec; old binaries cannot decode new payloads.",
+    "Native IR recovery requires referenced packages, images, skills and credentials; external effects and SQLite commits are not one atomic transaction.",
+    "Package code is trusted host code. Verified compilation is not a sandbox.",
+    "Simulation/evolution revisions below retain earlier verification until their final integration stage.",
     "Wall time, agent count and output limits are not token or dollar caps.",
-    "The deterministic benchmark is a contract check, not product-quality evidence.",
-    "Abrupt process or host loss requires reconciliation of external work."
-  ]
+    "The deterministic benchmark checks the evaluator contract, not product-quality improvement."
+  ],
+  "validation": {
+    "core": {
+      "tests": 771,
+      "failures": 0,
+      "skipped": 5,
+      "seed": 968530
+    },
+    "real_tui_fixtures": {
+      "tests": 3,
+      "failures": 0
+    },
+    "notary_sqlite": {
+      "tests": 45,
+      "failures": 0,
+      "skipped": 1
+    },
+    "notary_postgresql": {
+      "tests": 45,
+      "failures": 0,
+      "skipped": 0
+    },
+    "cross_repository_notary_runtime": {
+      "tests": 9,
+      "failures": 0
+    },
+    "ir_conformance": "four-fixtures-both-directions",
+    "gsp": "go-test-race-and-vet-pass; windows-amd64-and-darwin-arm64-cross-build-pass",
+    "subzeroclaw": "32-unit-and-six-loopback-runtime-tests-pass"
+  }
 }
