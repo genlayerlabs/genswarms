@@ -43,6 +43,28 @@ After the tree is up, `Genswarms.Observability.TelemetryBridge.attach/0` wires t
 
 `Genswarms.SwarmManager` is the lifecycle GenServer. It loads configs, tracks per-swarm status (`:starting | :running | :stopping | :stopped | :error`), and starts agents and objects via thin helper modules that delegate to the shared dynamic supervisor.
 
+Startup waits for object initialization before acknowledging success. The manager
+uses asynchronous OTP status requests: an object's `init` callback can query the
+manager without deadlocking it. Seed objects are checked before overlay replay;
+objects added or reconfigured by an overlay are checked before the next event.
+Unknown overlay operations and malformed updates are rejected before boot.
+An unsuccessful replay stops, cleans the swarm's started children/topology and
+returns an error without clearing the persisted log. Errors identify the
+one-based event position, not an assumed SQLite sequence number.
+
+`config :genswarms, :startup_timeout_ms` sets the readiness/replay deadline
+(default 30,000 ms; positive values up to 50,000 ms). Child shutdown time is
+additional; a stuck handler can consume its supervisor shutdown grace period.
+Stopping a starting swarm cancels its outstanding request and startup caller.
+While starting, status returns `runtime_pending: true` and does not synchronously
+query child processes; empty runtime lists at this stage are not evidence that
+the configured nodes are absent. Native init exceptions, throws and exits become
+queryable error states rather than restart loops; their opaque error values are
+not copied into logs.
+
+This is object initialization and replay verification, not proof that an LLM
+client has accepted its first task, nor exactly-once recovery after host loss.
+
 Every swarm definition and dynamic mutation passes through the [IR](intermediate-representation.md) gate (`Genswarms.IR.Gate`): a config must translate to a valid `swarm.state` before any agent is spawned, and `add_agent`/`scale_agent_group` are bounded by the per-swarm policy. The IR is the pure-data model that validates, mutates, and can drive a swarm.
 
 ```text

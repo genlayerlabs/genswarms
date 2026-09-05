@@ -18,7 +18,7 @@ defmodule Genswarms.SwarmManager do
   alias Genswarms.Objects.ObjectSupervisor
   alias Genswarms.Routing.Router
 
-  defstruct swarms: %{}
+  defstruct swarms: %{}, starts: %{}
 
   @type swarm_info :: %{
           config: SwarmConfig.t(),
@@ -28,7 +28,8 @@ defmodule Genswarms.SwarmManager do
         }
 
   @type t :: %__MODULE__{
-          swarms: %{String.t() => swarm_info()}
+          swarms: %{String.t() => swarm_info()},
+          starts: map()
         }
 
   # Client API
@@ -58,7 +59,8 @@ defmodule Genswarms.SwarmManager do
   """
   @spec stop(String.t()) :: {:ok, String.t() | nil} | {:error, term()}
   def stop(swarm_name) do
-    GenServer.call(__MODULE__, {:stop, swarm_name})
+    # Supervisor shutdown may itself allow five seconds for a blocked child.
+    GenServer.call(__MODULE__, {:stop, swarm_name}, 60_000)
   end
 
   @doc """
@@ -251,10 +253,10 @@ defmodule Genswarms.SwarmManager do
   end
 
   @impl true
-  def handle_call({:start_swarm, config_path}, _from, state) do
+  def handle_call({:start_swarm, config_path}, from, state) do
     case Loader.load(config_path) do
       {:ok, config} ->
-        do_start_swarm(config, config_path, state)
+        do_start_swarm(config, config_path, state, from)
 
       {:error, reason} ->
         LogStore.log(
@@ -269,10 +271,10 @@ defmodule Genswarms.SwarmManager do
     end
   end
 
-  def handle_call({:start_from_config, config_map}, _from, state) do
+  def handle_call({:start_from_config, config_map}, from, state) do
     case SwarmConfig.parse(config_map) do
       {:ok, config} ->
-        do_start_swarm(config, nil, state)
+        do_start_swarm(config, nil, state, from)
 
       {:error, reason} ->
         LogStore.log(
@@ -285,6 +287,13 @@ defmodule Genswarms.SwarmManager do
 
         {:reply, {:error, reason}, state}
     end
+  end
+
+  def handle_call({:stop, swarm_name}, _from, %{starts: starts} = state)
+      when is_map_key(starts, swarm_name) do
+    config_path = state.swarms[swarm_name].config_path
+    state = finish_start(swarm_name, {:error, :start_cancelled}, state)
+    {:reply, {:ok, config_path}, state}
   end
 
   def handle_call({:stop, swarm_name}, _from, state) do
@@ -331,13 +340,20 @@ defmodule Genswarms.SwarmManager do
         {:reply, {:error, :not_found}, state}
 
       swarm_info ->
-        agents = AgentSupervisor.list_agents(swarm_name)
-        agent_counts = AgentSupervisor.count_by_state(swarm_name)
-        objects = ObjectSupervisor.list_objects(swarm_name)
+        # A status request must not synchronously wait on an init callback;
+        # that callback may itself be waiting for this manager.
+        {agents, agent_counts, objects} =
+          if swarm_info.status == :starting do
+            {[], %{}, []}
+          else
+            {AgentSupervisor.list_agents(swarm_name), AgentSupervisor.count_by_state(swarm_name),
+             ObjectSupervisor.list_objects(swarm_name)}
+          end
 
         status = %{
           name: swarm_name,
           status: swarm_info.status,
+          runtime_pending: swarm_info.status == :starting,
           started_at: swarm_info.started_at,
           config_path: Map.get(swarm_info, :config_path),
           agents: agents,
@@ -606,9 +622,51 @@ defmodule Genswarms.SwarmManager do
     end
   end
 
+  @impl true
+  def handle_info({:startup_timeout, swarm, token}, state) do
+    case state.starts[swarm] do
+      %{token: ^token} = pending ->
+        {:noreply, finish_start(swarm, startup_error(pending, :timeout), state)}
+
+      _ ->
+        {:noreply, state}
+    end
+  end
+
+  def handle_info(message, state) do
+    response =
+      Enum.find_value(state.starts, fn
+        {swarm, %{request: {request, name}}} ->
+          case :gen_server.check_response(message, request) do
+            :no_reply -> nil
+            response -> {swarm, name, response}
+          end
+
+        _ ->
+          nil
+      end)
+
+    case response do
+      nil ->
+        {:noreply, state}
+
+      {swarm, name, response} ->
+        state = put_in(state.starts[swarm].request, nil)
+
+        case response do
+          {:reply, %{state: status}} when status in [:idle, :working] ->
+            {:noreply, advance_start(swarm, state)}
+
+          _ ->
+            error = startup_error(state.starts[swarm], {:object_not_ready, name})
+            {:noreply, finish_start(swarm, error, state)}
+        end
+    end
+  end
+
   # Private functions
 
-  defp do_start_swarm(config, config_path, state) do
+  defp do_start_swarm(config, config_path, state, from) do
     swarm_name = config.name
 
     case Genswarms.IR.Gate.validate_start(config) do
@@ -625,11 +683,16 @@ defmodule Genswarms.SwarmManager do
         {:reply, {:error, reason}, state}
 
       :ok ->
-        start_validated_swarm(config, config_path, state, swarm_name)
+        events = Genswarms.CLI.SwarmRegistry.load_overlay(swarm_name) |> Enum.with_index()
+
+        case validate_replay_events(events) do
+          :ok -> start_validated_swarm(config, config_path, state, swarm_name, events, from)
+          {:error, reason} -> {:reply, {:error, reason}, state}
+        end
     end
   end
 
-  defp start_validated_swarm(config, config_path, state, swarm_name) do
+  defp start_validated_swarm(config, config_path, state, swarm_name, overlay_events, from) do
     if Map.has_key?(state.swarms, swarm_name) do
       LogStore.log(
         :error,
@@ -651,7 +714,6 @@ defmodule Genswarms.SwarmManager do
       # manager's spec, the runtime object, and the overlay disagreeing.
       # Events are loaded ONCE and indexed so the fold and the replay agree
       # on exactly which events were consumed.
-      overlay_events = Genswarms.CLI.SwarmRegistry.load_overlay(swarm_name) |> Enum.with_index()
       {config, consumed} = prefold_update_config_events(config, overlay_events)
 
       object_count = length(config.objects || [])
@@ -725,39 +787,40 @@ defmodule Genswarms.SwarmManager do
       all_results = agent_results ++ object_results
       errors = Enum.filter(all_results, &match?({:error, _}, &1))
 
-      final_status = if Enum.empty?(errors), do: :running, else: :error
+      events =
+        for {{op, payload}, index} <- overlay_events,
+            not MapSet.member?(consumed, index),
+            do: {op, payload, index}
 
-      updated_info = %{swarm_info | status: final_status}
-      final_state = %{new_state | swarms: Map.put(new_state.swarms, swarm_name, updated_info)}
+      token = make_ref()
 
-      # Broadcast start event
-      Phoenix.PubSub.broadcast(
-        Genswarms.PubSub,
-        "swarm:#{swarm_name}",
-        {:swarm_started, swarm_name, final_status}
-      )
+      timeout =
+        case Application.get_env(:genswarms, :startup_timeout_ms, 30_000) do
+          n when is_integer(n) and n > 0 and n <= 50_000 -> n
+          _ -> 30_000
+        end
 
-      error_details = Enum.map(errors, fn {:error, reason} -> inspect(reason) end)
+      timer = Process.send_after(self(), {:startup_timeout, swarm_name, token}, timeout)
 
-      emit_telemetry(:swarm_started, %{
-        swarm: swarm_name,
-        agent_count: length(config.agents),
-        object_count: object_count,
-        status: final_status,
-        error_count: length(errors),
-        errors: error_details,
-        level: if(errors == [], do: :info, else: :error)
-      })
+      pending = %{
+        from: from,
+        events: events,
+        objects: Enum.map(config.objects || [], & &1.name),
+        request: nil,
+        event: nil,
+        timer: timer,
+        token: token,
+        deadline: System.monotonic_time(:millisecond) + timeout
+      }
 
-      if Enum.empty?(errors) do
-        # Replay overlay events on top of the freshly started seed (the
-        # :update_config events already folded above are skipped)
-        replayed_state = replay_overlay(swarm_name, final_state, overlay_events, consumed)
+      new_state = %{new_state | starts: Map.put(new_state.starts, swarm_name, pending)}
 
-        {:reply, {:ok, swarm_name}, replayed_state}
-      else
-        {:reply, {:error, {:partial_start, errors}}, final_state}
-      end
+      state =
+        if errors == [],
+          do: advance_start(swarm_name, new_state),
+          else: finish_start(swarm_name, {:error, {:partial_start, errors}}, new_state)
+
+      {:noreply, state}
     end
   end
 
@@ -843,21 +906,144 @@ defmodule Genswarms.SwarmManager do
 
   # -- Overlay replay --
 
-  defp replay_overlay(swarm_name, state, indexed_events, consumed) do
-    events =
-      for {{op, payload}, idx} <- indexed_events,
-          not MapSet.member?(consumed, idx),
-          do: {op, payload}
+  @replay_ops ~w(add_agent remove_agent add_object remove_object update_config add_topology_edges remove_topology_edges scale_agent_group)a
 
-    if events == [] do
-      state
+  defp validate_replay_events(events) do
+    Enum.reduce_while(events, :ok, fn {{op, payload}, index}, :ok ->
+      reason =
+        cond do
+          op not in @replay_ops -> :unknown_operation
+          not is_map(payload) -> :invalid_payload
+          op == :update_config and not is_map(payload[:config]) -> :invalid_payload
+          true -> nil
+        end
+
+      if reason,
+        do: {:halt, {:error, {:overlay_replay_failed, index + 1, op, reason}}},
+        else: {:cont, :ok}
+    end)
+  end
+
+  # Asynchronous gen_server requests let init callbacks query this manager.
+  # Each object is checked before applying the next persisted operation.
+  defp advance_start(swarm, state) do
+    if System.monotonic_time(:millisecond) >= state.starts[swarm].deadline do
+      finish_start(swarm, startup_error(state.starts[swarm], :timeout), state)
     else
-      Logger.info("Replaying #{length(events)} overlay events for swarm #{swarm_name}")
-
-      Enum.reduce(events, state, fn {op, payload}, acc_state ->
-        apply_overlay_event(swarm_name, op, payload, acc_state)
-      end)
+      do_advance_start(swarm, state)
     end
+  end
+
+  defp do_advance_start(swarm, state) do
+    pending = state.starts[swarm]
+
+    case {pending.objects, pending.events} do
+      {[name | rest], _} ->
+        server = {:via, Registry, {Genswarms.AgentRegistry, {swarm, name}}}
+        request = :gen_server.send_request(server, :get_status)
+        put_in(state.starts[swarm], %{pending | objects: rest, request: {request, name}})
+
+      {[], [{op, payload, index} | rest]} ->
+        pending = %{pending | events: rest, event: {index + 1, op}}
+        state = put_in(state.starts[swarm], pending)
+
+        case replay_event(swarm, op, payload, state.swarms[swarm]) do
+          {:ok, info} ->
+            objects = if op in [:add_object, :update_config], do: [payload.name], else: []
+
+            state =
+              state
+              |> put_swarm(swarm, info)
+              |> put_in([Access.key(:starts), swarm, :objects], objects)
+
+            advance_start(swarm, state)
+
+          {:error, reason} ->
+            finish_start(swarm, startup_error(pending, reason), state)
+        end
+
+      {[], []} ->
+        finish_start(swarm, :ok, state)
+    end
+  end
+
+  defp startup_error(%{event: nil}, reason), do: {:error, {:startup_failed, reason}}
+
+  defp startup_error(%{event: {index, op}}, reason),
+    do: {:error, {:overlay_replay_failed, index, op, reason}}
+
+  defp finish_start(swarm, result, state) do
+    {pending, starts} = Map.pop(state.starts, swarm)
+    Process.cancel_timer(pending.timer)
+
+    if pending.request do
+      {request, _name} = pending.request
+      :gen_server.receive_response(request, 0)
+    end
+
+    info = state.swarms[swarm]
+    state = %{state | starts: starts}
+
+    {reply, status, state} =
+      case result do
+        :ok ->
+          {{:ok, swarm}, :running, put_swarm(state, swarm, %{info | status: :running})}
+
+        {:error, _} = error ->
+          cleanup_failed_start(swarm, info)
+          {error, :error, %{state | swarms: Map.delete(state.swarms, swarm)}}
+      end
+
+    Phoenix.PubSub.broadcast(Genswarms.PubSub, "swarm:#{swarm}", {:swarm_started, swarm, status})
+
+    emit_telemetry(:swarm_started, %{
+      swarm: swarm,
+      status: status,
+      agent_count: length(info.config.agents),
+      object_count: length(info.config.objects || []),
+      error_count: if(status == :running, do: 0, else: 1),
+      level: if(status == :running, do: :info, else: :error)
+    })
+
+    GenServer.reply(pending.from, reply)
+    state
+  end
+
+  defp cleanup_failed_start(swarm, info) do
+    objects = MapSet.new(info.config.objects || [], & &1.name)
+
+    entries =
+      Registry.select(Genswarms.AgentRegistry, [
+        {{{swarm, :"$1"}, :"$2", :_}, [], [{{:"$1", :"$2"}}]}
+      ])
+
+    for {name, pid} <- entries do
+      # Do not query object status: the callback may be blocked in init.
+      if MapSet.member?(objects, name) do
+        DynamicSupervisor.terminate_child(Genswarms.AgentSupervisor, pid)
+      else
+        case AgentSupervisor.stop_agent(swarm, name) do
+          :ok -> :ok
+          _ -> DynamicSupervisor.terminate_child(Genswarms.AgentSupervisor, pid)
+        end
+      end
+
+      await_unregistered(swarm, name)
+    end
+
+    Router.unregister_topology(swarm)
+  end
+
+  defp replay_event(swarm, op, payload, info) do
+    case apply_overlay_event(swarm, op, payload, info) do
+      {:ok, %{failed: [_ | _] = failed}, _new_info} -> {:error, {:partial_scale, failed}}
+      {:ok, _result, new_info} -> {:ok, new_info}
+      result -> result
+    end
+  rescue
+    _ -> {:error, :invalid_replay_operation}
+  catch
+    :exit, _ -> {:error, :replay_operation_exited}
   end
 
   # Pure pre-start fold of :update_config overlay events into the seed config
@@ -924,141 +1110,40 @@ defmodule Genswarms.SwarmManager do
     end
   end
 
-  defp apply_overlay_event(swarm_name, :add_agent, payload, state) do
+  defp apply_overlay_event(swarm_name, :add_agent, payload, info) do
     {connections, payload} = Map.pop(payload, :_connections, [])
     {incoming, spec} = Map.pop(payload, :_incoming, [])
-
-    case Map.get(state.swarms, swarm_name) do
-      nil ->
-        state
-
-      swarm_info ->
-        case do_add_agent(swarm_name, swarm_info, spec,
-               connections: connections,
-               incoming: incoming
-             ) do
-          {:ok, _name, new_info} ->
-            put_swarm(state, swarm_name, new_info)
-
-          {:error, reason} ->
-            Logger.warning(
-              "Overlay replay: failed to apply add_agent #{inspect(spec[:name])}: #{inspect(reason)}"
-            )
-
-            state
-        end
-    end
+    do_add_agent(swarm_name, info, spec, connections: connections, incoming: incoming)
   end
 
-  defp apply_overlay_event(swarm_name, :remove_agent, %{name: name}, state) do
-    case Map.get(state.swarms, swarm_name) do
-      nil ->
-        state
+  defp apply_overlay_event(swarm_name, :remove_agent, %{name: name}, info),
+    do: do_remove_agent(swarm_name, info, name)
 
-      swarm_info ->
-        case do_remove_agent(swarm_name, swarm_info, name) do
-          {:ok, new_info} -> put_swarm(state, swarm_name, new_info)
-          _ -> state
-        end
-    end
-  end
-
-  defp apply_overlay_event(swarm_name, :add_object, payload, state) do
+  defp apply_overlay_event(swarm_name, :add_object, payload, info) do
     {connections, payload} = Map.pop(payload, :_connections, [])
     {incoming, spec} = Map.pop(payload, :_incoming, [])
+    do_add_object(swarm_name, info, spec, connections: connections, incoming: incoming)
+  end
 
-    case Map.get(state.swarms, swarm_name) do
-      nil ->
-        state
+  defp apply_overlay_event(swarm_name, :update_config, %{name: name, config: patch}, info),
+    do: do_update_object_config(swarm_name, info, name, patch)
 
-      swarm_info ->
-        case do_add_object(swarm_name, swarm_info, spec,
-               connections: connections,
-               incoming: incoming
-             ) do
-          {:ok, _name, new_info} ->
-            put_swarm(state, swarm_name, new_info)
+  defp apply_overlay_event(swarm_name, :remove_object, %{name: name}, info),
+    do: do_remove_object(swarm_name, info, name)
 
-          {:error, reason} ->
-            Logger.warning(
-              "Overlay replay: failed to apply add_object #{inspect(spec[:name])}: #{inspect(reason)}"
-            )
+  defp apply_overlay_event(swarm_name, :add_topology_edges, %{edges: edges}, info) do
+    edges = replay_edges(edges)
 
-            state
-        end
+    with :ok <- Router.add_edges(swarm_name, edges) do
+      {:ok, %{info | config: update_in_config_topology(info.config, edges, nil)}}
     end
   end
 
-  defp apply_overlay_event(swarm_name, :update_config, %{name: name, config: patch}, state) do
-    case Map.get(state.swarms, swarm_name) do
-      nil ->
-        state
+  defp apply_overlay_event(swarm_name, :remove_topology_edges, %{edges: edges}, info) do
+    edges = replay_edges(edges)
 
-      swarm_info ->
-        case do_update_object_config(swarm_name, swarm_info, name, patch) do
-          {:ok, _name, new_info} ->
-            put_swarm(state, swarm_name, new_info)
-
-          {:error, reason} ->
-            Logger.warning(
-              "Overlay replay: failed to apply update_config on #{inspect(name)}: #{inspect(reason)}"
-            )
-
-            state
-        end
-    end
-  end
-
-  defp apply_overlay_event(swarm_name, :remove_object, %{name: name}, state) do
-    case Map.get(state.swarms, swarm_name) do
-      nil ->
-        state
-
-      swarm_info ->
-        case do_remove_object(swarm_name, swarm_info, name) do
-          {:ok, new_info} -> put_swarm(state, swarm_name, new_info)
-          _ -> state
-        end
-    end
-  end
-
-  defp apply_overlay_event(swarm_name, :add_topology_edges, %{edges: edges}, state) do
-    case Map.get(state.swarms, swarm_name) do
-      nil ->
-        state
-
-      swarm_info ->
-        edges_tuples =
-          Enum.map(edges, fn
-            [f, t] -> {f, t}
-            {f, t} -> {f, t}
-          end)
-
-        Router.add_edges(swarm_name, edges_tuples)
-        new_config = update_in_config_topology(swarm_info.config, edges_tuples, nil)
-        put_swarm(state, swarm_name, %{swarm_info | config: new_config})
-    end
-  end
-
-  defp apply_overlay_event(swarm_name, :remove_topology_edges, %{edges: edges}, state) do
-    case Map.get(state.swarms, swarm_name) do
-      nil ->
-        state
-
-      swarm_info ->
-        edges_tuples =
-          Enum.map(edges, fn
-            [f, t] -> {f, t}
-            {f, t} -> {f, t}
-          end)
-
-        Router.remove_edges(swarm_name, edges_tuples)
-        new_topology = swarm_info.config.topology -- edges_tuples
-
-        put_swarm(state, swarm_name, %{
-          swarm_info
-          | config: %{swarm_info.config | topology: new_topology}
-        })
+    with :ok <- Router.remove_edges(swarm_name, edges) do
+      {:ok, %{info | config: %{info.config | topology: info.config.topology -- edges}}}
     end
   end
 
@@ -1066,27 +1151,18 @@ defmodule Genswarms.SwarmManager do
          swarm_name,
          :scale_agent_group,
          %{base_name: base, target_count: n},
-         state
-       ) do
-    case Map.get(state.swarms, swarm_name) do
-      nil ->
-        state
+         info
+       ),
+       do: do_scale_agent_group(swarm_name, info, base, n, [])
 
-      swarm_info ->
-        case do_scale_agent_group(swarm_name, swarm_info, base, n, []) do
-          {:ok, _result, new_info} -> put_swarm(state, swarm_name, new_info)
-          _ -> state
-        end
-    end
-  end
+  defp apply_overlay_event(_swarm, _op, _payload, _info), do: {:error, :invalid_payload}
 
-  defp apply_overlay_event(swarm_name, op, payload, state) do
-    Logger.warning(
-      "Overlay replay: unknown op #{inspect(op)} for swarm #{swarm_name}: #{inspect(payload)}"
-    )
-
-    state
-  end
+  defp replay_edges(edges),
+    do:
+      Enum.map(edges, fn
+        [from, to] -> {from, to}
+        {from, to} -> {from, to}
+      end)
 
   # -- Dynamic mutation helpers --
 

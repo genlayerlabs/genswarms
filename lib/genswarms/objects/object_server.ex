@@ -236,8 +236,7 @@ defmodule Genswarms.Objects.ObjectServer do
     {:native, nil, %{}}
   end
 
-  @impl true
-  def handle_info(:init_object, %{mode: :native} = state) do
+  defp initialize_native(state) do
     Logger.info(
       "[#{state.swarm_name}/#{state.name}] Initializing native object handler #{state.handler}"
     )
@@ -309,13 +308,8 @@ defmodule Genswarms.Objects.ObjectServer do
                last_activity: DateTime.utc_now()
            }}
 
-        {:error, reason} ->
-          Logger.error(
-            "[#{state.swarm_name}/#{state.name}] Failed to initialize handler: #{inspect(reason)}"
-          )
-
-          emit_telemetry(:object_error, state, %{reason: inspect(reason), phase: :init})
-          {:noreply, %{state | state: :error}}
+        {:error, _reason} ->
+          initialization_failed(state, :rejected)
       end
     else
       Logger.error("[#{state.swarm_name}/#{state.name}] No handler specified for native object")
@@ -327,6 +321,15 @@ defmodule Genswarms.Objects.ObjectServer do
 
       {:noreply, %{state | state: :error}}
     end
+  end
+
+  @impl true
+  def handle_info(:init_object, %{mode: :native} = state) do
+    initialize_native(state)
+  rescue
+    _ -> initialization_failed(state, :exception)
+  catch
+    kind, _ -> initialization_failed(state, kind)
   end
 
   def handle_info(:init_object, %{mode: :process} = state) do
@@ -952,6 +955,14 @@ defmodule Genswarms.Objects.ObjectServer do
 
     # Route is now async (cast), always returns :ok
     Router.route(swarm_name, from, to, content)
+  end
+
+  defp initialization_failed(state, kind) do
+    # Keep a failed init queryable instead of repeatedly restarting the handler.
+    # Exception/throw values may contain credentials or full domain config.
+    Logger.error("[#{state.swarm_name}/#{state.name}] Object initialization failed (#{kind})")
+    emit_telemetry(:object_error, state, %{phase: :init, failure_kind: kind})
+    {:noreply, %{state | state: :error}}
   end
 
   defp emit_telemetry(event, state, metadata) do

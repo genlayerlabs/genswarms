@@ -297,3 +297,31 @@ opencode-unhardcoded 6476b08; subzero-sim bccd843; phylogenesis 3a6f125.
   values (e.g. bind tuples after JSON serialization) need end-to-end coverage.
   These results prove the tested execution options and policy correction, not
   the outstanding complete native IR-to-runtime/persistence acceptance gate.
+
+## Replay failure and object readiness (2026-09-05)
+
+- SwarmManager changes replace repeated log-and-ignore branches
+  with one error-returning replay path, validate unknown operations/malformed
+  updates before boot, and clean started runtime nodes after a replay error.
+  Start-success notification is no longer emitted before structural replay.
+- New `overlay_replay_failure_test.exs` reproduced a readiness bug:
+  ObjectServer acknowledges process creation before asynchronous handler init;
+  an init returning `{:error, :fixture_rejected}` let recovery advance and startup
+  return success. The failing assertion was preserved until implementation
+  fixed it; it was not skipped or changed to accept the broken outcome.
+- Recovery now uses OTP asynchronous status requests, without introducing a
+  worker process per startup. Each seed object is checked before replay and each
+  added/updated object before the next event. Pending startup callers receive
+  success only at the end; callback failure, request failure and deadline expiry
+  clean the runtime and return an error. Init callbacks can query the manager.
+- Stop cancels pending readiness; stale timeout tokens cannot affect a later
+  swarm incarnation. Cleanup does not query blocked object handlers. The stop
+  call allows supervisor shutdown time instead of timing out at the same five
+  seconds as a child's shutdown grace period. Native init exceptions/throws/exits
+  become queryable error states, with opaque failure values omitted from logs.
+- Focused recovery/dynamic/crash-containment run: 42 tests passed before adding
+  the final log-redaction check. Final full suite: 748 tests, zero failures,
+  five optional/platform skips; log `/tmp/genswarms-ecosystem-readiness-suite.log`.
+  Changed Elixir files pass formatting and diff checks.
+  The independent persisted-IR gate remains open:
+  neither object readiness nor successful replay removes the seed-file dependency.
