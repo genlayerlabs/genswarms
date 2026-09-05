@@ -2,7 +2,7 @@
 
 Local implementation of the ecosystem review, started 2026-09-05.
 Working branch: `codex/ecosystem-hardening` in genswarms, subzeroclaw,
-subzero-sim, phylogenesis, and opencode-unhardcoded. Existing review changes
+subzero-sim, phylogenesis, opencode-unhardcoded, and genswarms-packages. Existing review changes
 in genswarms and phylogenesis are preserved on these branches.
 
 ## Acceptance gates
@@ -26,6 +26,10 @@ in genswarms and phylogenesis are preserved on these branches.
       simple baseline, a fixed architecture, and candidates at equal budgets.
 - [ ] Consumer contracts and documentation agree; only demonstrated duplication
       or unused machinery is removed.
+- [ ] Package/IR integrity: verified package bytes, complete Go/Elixir state
+      conformance, and rejection of tampered digests/transparency records.
+- [ ] Persistence contract: materialized desired IR survives an isolated database
+      restart and reconstructs equivalent execution, not merely a config path.
 
 ## Verification already established in review
 
@@ -84,6 +88,9 @@ its stated result; scaffolding or an unavailable live service is not completion.
   Final holdout comparisons must not feed back into the evolution loop.
 
 ## Remaining integration work
+
+The package/IR/persistence gates are central ecosystem requirements, explicitly
+confirmed by the user; they are not optional follow-up work.
 
 1. Migrate Phylogenesis's historical dashboard/reporting consumers from generated
    .sim paths and fixer stages to retained candidate reports. README/CLAUDE now
@@ -215,3 +222,27 @@ opencode-unhardcoded 6476b08; subzero-sim bccd843; phylogenesis 3a6f125.
   branch at `/home/jm/docs/genlayer/micromarkets-ecosystem-hardening`.
   Core/runtime pins there are staged as working changes; product tests and a
   consumer commit are pending. The original dirty submodules were not changed.
+
+## Package IR conformance (2026-09-05)
+
+- Both `/home/jm/docs/genlayer/genswarms-packages` and
+  `/home/jm/docs/genlayer/swarmidx` are present and inspected. The former owns
+  the Go authoring/materialization client; the latter is the name-to-digest
+  notary and signed transparency log, not a package blob store.
+- Confirmed a compatibility bug: Go rejected bare `tmux`/`apple_container`
+  references and silently dropped backend `opts`, `image` and `client` data.
+  Losing options can change execution/isolation semantics. New table-driven
+  tests failed before the fix. Commit `9c805ab` in genswarms-packages preserves
+  the fields and mirrors Elixir execution-metadata validation, including
+  explicit null versus absent options.
+- Replaced the three-field conformance summary with complete parsed-state
+  equality. Removed jq and the pipeline that suppressed Elixir failures.
+  Four offline fixture runs now cover CLI-authored add/bump, group scaling,
+  backend metadata, policies, object/agent config updates and swarm options.
+  All pass, as do `go test ./...`, `go vet ./...`, and the Elixir script format
+  check. This is semantic equality, not canonical JSON byte equality, and not
+  a claim of exhaustive parity on every malformed input or overlay sequence.
+- SQLite currently records `config_path` and `swarm_overlays`; executor
+  `observed` is reconstructed from config. Full verified-package-to-database
+  restart equivalence remains an explicit acceptance gate, not inferred from
+  those tables or from successful pure folds. Swarmidx remains unmodified.

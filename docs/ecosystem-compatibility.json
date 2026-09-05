@@ -8,7 +8,8 @@
     "subzero-sim": "bccd8430f2f15187128c877cd0f71429adc2807b",
     "phylogenesis": "3a6f1250f37e2430e00980be6b6c22287cdc71bd",
     "subzeroclaw": "ce1dbfb3e35ed6bbb76f9f19e1ce2f8370175995",
-    "opencode-unhardcoded": "6476b0859cdc7cc2fce8d1dad05e3083fec88beb"
+    "opencode-unhardcoded": "6476b0859cdc7cc2fce8d1dad05e3083fec88beb",
+    "genswarms-packages": "9c805abeb1ebe2ebbeda7ca7720c9acd0ebdd1a3"
   },
   "consumers": {
     "wingston-rally-bot": {
@@ -25,6 +26,8 @@
     "claude": {"version": "2.1.260", "two_turns_and_reconnect": "passed-local-provider-fixture"}
   },
   "contracts": {
+    "package_ir": "complete-parsed-Go-Elixir-state-conformance-four-offline-fixture-runs",
+    "package_integrity_and_database_restart": "end-to-end-verification-pending",
     "candidate": "bounded-json-patch-v1",
     "evaluation": "operator-owned-training-and-frozen-holdout",
     "port_runtime": "szc-wrapper-fifo",
