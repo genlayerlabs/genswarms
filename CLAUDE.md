@@ -95,31 +95,11 @@ mix genswarms.test --steps 3          # Steps for .sim examples
 
 ## Architecture
 
-```
-Application
-    │
-    ├── SwarmManager (GenServer) ─── manages swarm lifecycle
-    │       │
-    │       ├── Registry ─── tracks agent/object processes
-    │       ├── Router ─── inter-agent message routing via topology
-    │       ├── SkillsManager ─── ETS-backed skill file management
-    │       └── AgentDynamicSupervisor
-    │               │
-    │               └── AgentServer (per agent)
-    │                       ├── Backend (Local / Tmux TUI / Docker / Apple container / SSH / Bwrap / Mock)
-    │                       └── LogWatcher (polls logs + .outbox/ for routing)
-    │
-    ├── ObjectSupervisor ─── manages non-agentic Elixir objects
-    │       └── ObjectServer (per object)
-    │
-    ├── Phoenix (REST API + WebSocket only, no HTML)
-    │
-    ├── SwarmRegistry (SQLite) ─── cross-process state & task queue
-    │
-    ├── LogStore (ETS) ─── centralized event logging
-    │
-    └── Telemetry
-```
+See [`docs/architecture.md`](docs/architecture.md) for the supervision tree.
+`SwarmManager`, `Router`, `SkillsManager`, and the registry are application-level
+siblings. All swarms' agents and objects share one dynamic supervisor, keyed by
+`{swarm_name, name}`. The Phoenix endpoint is optional and starts dynamically;
+`SwarmRegistry` is a stateless SQLite helper, not a supervised process.
 
 ### API-First Architecture
 

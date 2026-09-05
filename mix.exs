@@ -37,8 +37,6 @@ defmodule Genswarms.MixProject do
     [
       # Phoenix core (API only)
       {:phoenix, "~> 1.7.10"},
-      {:phoenix_live_reload, "~> 1.4", only: :dev},
-      {:phoenix_live_dashboard, "~> 0.8.2", only: :dev},
 
       # CORS support
       {:corsica, "~> 2.1"},

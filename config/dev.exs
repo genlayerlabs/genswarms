@@ -8,14 +8,8 @@ config :genswarms, GenswarmsWeb.Endpoint,
   debug_errors: true,
   secret_key_base: "dev_secret_key_base_that_is_at_least_64_bytes_long_for_development_only"
 
-# Enable dev routes for dashboard
-config :genswarms, dev_routes: true
-
 # Do not include metadata nor timestamps in development logs
 config :logger, :console, format: "[$level] $message\n"
-
-# Suppress noisy warnings from file_system (inotify-tools not needed for CLI)
-config :logger, handle_otp_reports: false
 
 # Set a higher stacktrace during development
 config :phoenix, :stacktrace_depth, 20

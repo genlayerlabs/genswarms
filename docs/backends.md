@@ -147,6 +147,13 @@ unacknowledged turn may therefore be delivered again. The stable turn ID makes
 that replay visible in the artifacts and session metadata; output delivery is
 still at-least-once, not exactly-once.
 
+Port and typed backends share one internal turn finalizer, but not a parser.
+The text in a TUI reply is data: literal completion markers and routing-looking
+mentions are preserved, not interpreted as the legacy stdout protocol. Explicit
+TUI sends use the file outbox. An ACK records runtime handling, not a durable
+commit of every downstream application effect; consumers must deduplicate
+replayed side effects using their own stable operation IDs.
+
 There are no lock files or automatic retry engine. A follow-up task remains in
 the existing GenSwarms inbox until the current turn completes. If the pane is
 alive, an AgentServer restart disconnects and reattaches without killing the

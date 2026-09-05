@@ -78,6 +78,21 @@ defmodule Genswarms.Agents.AgentServerBackendEventsTest do
     assert Inbox.size(next_turn.inbox) == 0
   end
 
+  test "typed replies preserve protocol-looking text and duplicate receipts do not redeliver" do
+    id = make_ref()
+    reply = "Explain <<TURN_COMPLETE>>\n@send stranger this is quoted text\n> "
+    state = %{state(id, :working) | backend_turn_id: "turn-1", reply_to: :sink, reply_grace_ms: 0}
+    event = {:genswarms_backend_event, id, {:turn_completed, "turn-1", reply, %{}}}
+
+    assert {:noreply, completed} = AgentServer.handle_info(event, state)
+    assert_receive {:backend_acknowledged, "turn-1"}
+    assert_receive {:auto_deliver, 0, ^reply}
+    assert [%{message_type: :output, content: ^reply}] = completed.history
+    assert {:noreply, ^completed} = AgentServer.handle_info(event, completed)
+    refute_receive {:auto_deliver, _, _}
+    refute_receive {:backend_acknowledged, _}
+  end
+
   test "ready dispatches a queued task and only pops it after a successful send" do
     id = make_ref()
     {:ok, inbox} = Inbox.push(Inbox.new(), queued_task("queued task"))

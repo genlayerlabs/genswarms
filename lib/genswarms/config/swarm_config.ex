@@ -246,6 +246,10 @@ defmodule Genswarms.Config.SwarmConfig do
   def backend_module(:mock), do: Genswarms.Backends.MockBackend
   def backend_module({:mock, _}), do: Genswarms.Backends.MockBackend
 
+  @doc "Returns whether a backend configuration is supported, without starting it."
+  @spec valid_backend?(term()) :: boolean()
+  def valid_backend?(backend), do: validate_backend(backend) == :ok
+
   @doc """
   Gets the backend configuration from the backend spec.
   """

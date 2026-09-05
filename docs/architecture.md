@@ -39,18 +39,6 @@ Before the children start, `Genswarms.Application.start/2` also calls `Genswarms
 
 After the tree is up, `Genswarms.Observability.TelemetryBridge.attach/0` wires the telemetry event stream into `LogStore` so events are durable, queryable, and streamable over WebSocket.
 
-### How the real tree differs from the README diagram
-
-The diagrams in `README.md` and `CLAUDE.md` are conceptual and do not match the actual process layout. Notable differences, verified against `application.ex`:
-
-| README/CLAUDE diagram says | Actual tree |
-|----------------------------|-------------|
-| `Registry`, `Router`, `SkillsManager`, `AgentDynSup` are children of `SwarmManager` | They are direct children of the top-level `Genswarms.Supervisor`, siblings of `SwarmManager` |
-| Each swarm has its own supervisor subtree | One shared `Genswarms.AgentSupervisor` and one shared `Genswarms.AgentRegistry` serve all swarms |
-| Agents and objects have separate supervisors | Objects run under the **same** `Genswarms.AgentSupervisor` as agents (see `objects/object_supervisor.ex`) |
-| `SwarmRegistry (SQLite)` is a child of the tree | `SwarmRegistry` is a stateless SQLite helper module, not a supervised process |
-| Phoenix is a static child | Phoenix endpoint is started dynamically, not part of the static tree |
-
 ## Per-swarm processes
 
 `Genswarms.SwarmManager` is the lifecycle GenServer. It loads configs, tracks per-swarm status (`:starting | :running | :stopping | :stopped | :error`), and starts agents and objects via thin helper modules that delegate to the shared dynamic supervisor.

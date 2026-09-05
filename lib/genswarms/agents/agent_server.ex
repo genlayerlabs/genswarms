@@ -574,13 +574,7 @@ defmodule Genswarms.Agents.AgentServer do
           backend_metadata: merge_backend_metadata(state, metadata)
       }
 
-      # Reuse the existing, well-tested turn-finalization path. Typed backends
-      # never put protocol sentinels on their terminal; this marker exists only
-      # inside AgentServer as a compatibility bridge while Port backends retain
-      # their current stdout grammar.
-      safe_reply = String.replace(reply, "<<TURN_COMPLETE>>", "<<TURN_COMPLETE_ESCAPED>>")
-
-      case handle_agent_output(safe_reply <> "\n<<TURN_COMPLETE>>", state, false) do
+      case finalize_turn(reply, reply, [%{type: :output, content: reply}], state, true, false) do
         {:noreply, new_state} ->
           case backend_acknowledge(state.backend_module, state.backend_ref, turn_id) do
             :ok ->
@@ -1094,9 +1088,7 @@ defmodule Genswarms.Agents.AgentServer do
 
   defp safe_skill_name?(_), do: false
 
-  defp handle_agent_output(data, state), do: handle_agent_output(data, state, true)
-
-  defp handle_agent_output(data, state, process_inbox?) do
+  defp handle_agent_output(data, state) do
     full_data = state.buffer <> data
 
     # Check for API errors in output
@@ -1121,117 +1113,119 @@ defmodule Genswarms.Agents.AgentServer do
       (String.ends_with?(full_data, "> ") or full_data == "> ") and state.state == :starting
 
     if turn_complete or initial_idle do
-      # Keep the raw turn output: reply-text derivation (G2) does its own
-      # marker/prompt stripping (AgentProtocol owns the stdout grammar).
-      raw_turn = full_data
-      working_turn? = turn_complete and state.state == :working
+      output = AgentProtocol.strip_turn_markers(full_data)
 
-      # Remove markers from output before processing
-      full_data = AgentProtocol.strip_turn_markers(full_data)
-
-      # Log stdout output to LogStore
-      unless full_data == "" or String.trim(full_data) == "" do
-        output_preview =
-          if String.length(full_data) > 200 do
-            String.slice(full_data, 0, 200) <> "..."
-          else
-            full_data
-          end
-
-        LogStore.log(
-          :info,
-          :agent,
-          :stdout,
-          "Agent output: #{String.replace(output_preview, "\n", " ")}",
-          swarm: state.swarm_name,
-          agent: state.name,
-          metadata: %{
-            output: full_data,
-            output_length: String.length(full_data)
-          }
-        )
-      end
-
-      # Agent finished output - now parse for @mentions and route messages
-      # This ensures we capture the COMPLETE message before routing
-      messages = AgentProtocol.parse_output(full_data)
-
-      # Route messages
-      Logger.debug("[#{state.swarm_name}/#{state.name}] Parsed #{length(messages)} messages")
-
-      Enum.each(messages, fn msg ->
-        Logger.debug("[#{state.swarm_name}/#{state.name}] Routing: #{inspect(msg)}")
-        route_message(msg, state)
-      end)
-
-      # Add to history
-      history_entries =
-        Enum.map(messages, fn msg ->
-          %{
-            type: :outgoing,
-            message_type: msg.type,
-            to: Map.get(msg, :to),
-            content: msg.content,
-            timestamp: DateTime.utc_now()
-          }
-        end)
-
-      # This turn's explicit sends, with EXACT attribution to this turn's seq:
-      #   - legacy stdout-protocol sends parsed above;
-      #   - outbox sends, ALL of them via the synchronous sweep: targets the
-      #     watcher's 500ms poll routed mid-turn (its accumulator) plus files
-      #     still on disk, drained right now. The agent cannot write more
-      #     files after emitting <<TURN_COMPLETE>> (it is blocked at the
-      #     prompt), so everything the sweep returns belongs to this turn —
-      #     attribution is independent of poll timing and involves no async
-      #     cast that could be processed after the next turn began and stamp
-      #     the wrong seq (review round 3 finding 1).
-      #
-      # Marks exist solely to suppress auto-delivery, so with reply_to off
-      # (the default) NOTHING ever consumes them — recording any would leak
-      # unboundedly (review round 3 finding 2). Same for non-working turns
-      # (startup banner / stale output): they never schedule a delivery.
-      new_marks =
-        if working_turn? and state.reply_to != nil do
-          legacy = for %{type: :send, to: to} <- messages, do: {to, state.turn_seq}
-          swept = for to <- sweep_outbox(state), do: {to, state.turn_seq}
-          MapSet.new(legacy ++ swept)
-        else
-          MapSet.new()
-        end
-
-      # The turn ended — its wall clock (if any) is done.
-      if state.turn_timer_ref, do: Process.cancel_timer(state.turn_timer_ref)
-
-      new_state = %{
-        state
-        | buffer: "",
-          state: :idle,
-          message_count: state.message_count + length(messages),
-          history: history_entries ++ state.history,
-          last_activity: DateTime.utc_now(),
-          turn_sends: MapSet.union(state.turn_sends, new_marks),
-          turn_timer_ref: nil,
-          backend_turn_id: nil
-      }
-
-      # G2: schedule auto-delivery of this turn's reply text (only for a real
-      # completed working turn — never for the startup banner).
-      new_state =
-        if working_turn? do
-          schedule_auto_deliver(new_state, raw_turn)
-        else
-          new_state
-        end
-
-      # Typed backends defer this until their durable completion receipt has
-      # been acknowledged. Port backends retain the original immediate path.
-      new_state = if process_inbox?, do: maybe_process_inbox(new_state), else: new_state
-      {:noreply, new_state}
+      finalize_turn(
+        output,
+        AgentProtocol.reply_text(full_data),
+        AgentProtocol.parse_output(output),
+        state,
+        turn_complete and state.state == :working,
+        true
+      )
     else
-      # Still receiving output - just accumulate in buffer
       {:noreply, %{state | buffer: full_data, last_activity: DateTime.utc_now()}}
     end
+  end
+
+  # Both transports converge here AFTER decoding their own framing. Typed replies
+  # are plain data: sentinel strings and @mentions must not become routing instructions.
+  defp finalize_turn(full_data, reply, messages, state, working_turn?, process_inbox?) do
+    # Log stdout output to LogStore
+    unless full_data == "" or String.trim(full_data) == "" do
+      output_preview =
+        if String.length(full_data) > 200 do
+          String.slice(full_data, 0, 200) <> "..."
+        else
+          full_data
+        end
+
+      LogStore.log(
+        :info,
+        :agent,
+        :stdout,
+        "Agent output: #{String.replace(output_preview, "\n", " ")}",
+        swarm: state.swarm_name,
+        agent: state.name,
+        metadata: %{
+          output: full_data,
+          output_length: String.length(full_data)
+        }
+      )
+    end
+
+    # Route messages
+    Logger.debug("[#{state.swarm_name}/#{state.name}] Parsed #{length(messages)} messages")
+
+    Enum.each(messages, fn msg ->
+      Logger.debug("[#{state.swarm_name}/#{state.name}] Routing: #{inspect(msg)}")
+      route_message(msg, state)
+    end)
+
+    # Add to history
+    history_entries =
+      Enum.map(messages, fn msg ->
+        %{
+          type: :outgoing,
+          message_type: msg.type,
+          to: Map.get(msg, :to),
+          content: msg.content,
+          timestamp: DateTime.utc_now()
+        }
+      end)
+
+    # This turn's explicit sends, with EXACT attribution to this turn's seq:
+    #   - legacy stdout-protocol sends parsed above;
+    #   - outbox sends, ALL of them via the synchronous sweep: targets the
+    #     watcher's 500ms poll routed mid-turn (its accumulator) plus files
+    #     still on disk, drained right now. The agent cannot write more
+    #     files after emitting <<TURN_COMPLETE>> (it is blocked at the
+    #     prompt), so everything the sweep returns belongs to this turn —
+    #     attribution is independent of poll timing and involves no async
+    #     cast that could be processed after the next turn began and stamp
+    #     the wrong seq (review round 3 finding 1).
+    #
+    # Marks exist solely to suppress auto-delivery, so with reply_to off
+    # (the default) NOTHING ever consumes them — recording any would leak
+    # unboundedly (review round 3 finding 2). Same for non-working turns
+    # (startup banner / stale output): they never schedule a delivery.
+    new_marks =
+      if working_turn? and state.reply_to != nil do
+        legacy = for %{type: :send, to: to} <- messages, do: {to, state.turn_seq}
+        swept = for to <- sweep_outbox(state), do: {to, state.turn_seq}
+        MapSet.new(legacy ++ swept)
+      else
+        MapSet.new()
+      end
+
+    # The turn ended — its wall clock (if any) is done.
+    if state.turn_timer_ref, do: Process.cancel_timer(state.turn_timer_ref)
+
+    new_state = %{
+      state
+      | buffer: "",
+        state: :idle,
+        message_count: state.message_count + length(messages),
+        history: history_entries ++ state.history,
+        last_activity: DateTime.utc_now(),
+        turn_sends: MapSet.union(state.turn_sends, new_marks),
+        turn_timer_ref: nil,
+        backend_turn_id: nil
+    }
+
+    # G2: schedule auto-delivery of this turn's reply text (only for a real
+    # completed working turn — never for the startup banner).
+    new_state =
+      if working_turn? do
+        schedule_auto_deliver(new_state, reply)
+      else
+        new_state
+      end
+
+    # Typed backends defer this until their durable completion receipt has
+    # been acknowledged. Port backends retain the original immediate path.
+    new_state = if process_inbox?, do: maybe_process_inbox(new_state), else: new_state
+    {:noreply, new_state}
   end
 
   # ── G2 reply auto-delivery helpers ──────────────────────────────────────────
@@ -1346,8 +1340,8 @@ defmodule Genswarms.Agents.AgentServer do
     drop_own_turn_marks(state)
   end
 
-  defp schedule_auto_deliver(state, raw_turn) do
-    case AgentProtocol.reply_text(raw_turn) do
+  defp schedule_auto_deliver(state, reply) do
+    case reply do
       "" ->
         emit_telemetry(:no_final_text, state, %{turn: state.turn_seq})
         drop_own_turn_marks(state)
