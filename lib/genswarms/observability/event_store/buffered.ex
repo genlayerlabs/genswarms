@@ -62,8 +62,11 @@ defmodule Genswarms.Observability.EventStore.Buffered do
   @impl true
   def child_specs do
     inner = inner()
+    Code.ensure_loaded!(inner)
     inner_specs = if function_exported?(inner, :child_specs, 0), do: inner.child_specs(), else: []
-    [__MODULE__.Writer | inner_specs]
+    # Start the inner store first; the supervisor then stops the writer first,
+    # so its final flush still has a live backend.
+    inner_specs ++ [__MODULE__.Writer]
   end
 
   defmodule Writer do
@@ -77,6 +80,7 @@ defmodule Genswarms.Observability.EventStore.Buffered do
 
     @impl true
     def init(_) do
+      Process.flag(:trap_exit, true)
       cfg = Application.get_env(:genswarms, Buffered, [])
 
       state = %{

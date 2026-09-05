@@ -47,6 +47,22 @@ defmodule Genswarms.Observability.EventStoreTest do
   end
 
   describe "swappable backend" do
+    test "a cold configured backend contributes its supervised writer" do
+      alias Genswarms.Observability.EventStore.Buffered
+      previous = Application.get_env(:genswarms, :event_store)
+      Application.put_env(:genswarms, :event_store, Buffered)
+
+      on_exit(fn ->
+        Application.put_env(:genswarms, :event_store, previous)
+        Code.ensure_loaded!(Buffered)
+      end)
+
+      :code.purge(Buffered)
+      :code.delete(Buffered)
+      refute :code.is_loaded(Buffered)
+      assert Buffered.Writer in EventStore.child_specs()
+    end
+
     defmodule StubBackend do
       @behaviour Genswarms.Observability.EventStore
 

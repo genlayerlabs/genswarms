@@ -91,6 +91,7 @@ defmodule Genswarms.Observability.EventStore do
   @spec persist_many([event()]) :: :ok
   def persist_many(events) do
     mod = backend()
+    Code.ensure_loaded!(mod)
 
     if function_exported?(mod, :persist_many, 1) do
       mod.persist_many(events)
@@ -113,6 +114,7 @@ defmodule Genswarms.Observability.EventStore do
   @spec child_specs() :: [term()]
   def child_specs do
     mod = backend()
+    Code.ensure_loaded!(mod)
 
     if function_exported?(mod, :child_specs, 0) do
       mod.child_specs()

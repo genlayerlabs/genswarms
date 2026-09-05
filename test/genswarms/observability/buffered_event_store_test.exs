@@ -101,5 +101,14 @@ defmodule Genswarms.Observability.BufferedEventStoreTest do
       types = Enum.map(rows, & &1.event_type)
       assert :over_1 in types and :over_2 in types and :over_3 in types
     end
+
+    test "supervisor shutdown flushes the pending tail" do
+      configure_writer(interval_ms: 60_000, max_buffer: 1_000)
+      swarm = "shutdown-#{System.unique_integer([:positive])}"
+      Buffered.persist(ev(:shutdown_tail, swarm))
+      assert :sys.get_state(Buffered.Writer).count == 1
+      stop_supervised!(Buffered.Writer)
+      assert [%{event_type: :shutdown_tail}] = SwarmRegistry.query_events(swarm: swarm)
+    end
   end
 end
