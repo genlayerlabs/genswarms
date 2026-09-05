@@ -148,3 +148,20 @@ opencode-unhardcoded 6476b08; subzero-sim bccd843; phylogenesis 3a6f125.
 - Private fixture homes, no inherited provider credentials, integrations disabled
   and loopback-only model providers. Proxy configuration is not a claim of OS
   isolation; this is transport evidence, not model-quality or sandbox evidence.
+
+## Consumer verification in progress (2026-09-05)
+
+- Wingston has its own `codex/ecosystem-hardening` branch in the separate
+  `../.. /genlayer/wingston-ecosystem-hardening` worktree (without the space).
+  The original checkout and its dirty engine submodule remain untouched.
+- Loading a swarm still imported `.env` despite `load_dotenv: false` at startup.
+  A two-case regression demonstrates disabled loading and the enabled default;
+  the loader now honors the same setting as the application. Focused loader
+  suite: 10 tests passed.
+- Latest broad core reruns: 726 tests, five skips, respectively two and one
+  cgroup-start failures in `BwrapBackendTest`. All 36 backend tests passed alone.
+  This intermittent full-suite failure is not declared fixed or hidden by skips.
+- Wingston's original mock config attested Telegram 0.4.3 while its dependency
+  and live config pinned 0.4.5. The harness reproduced a digest rejection;
+  aligning the test pin restored all checks with the corrected engine.
+  Offline sender/replay tests and reproducible dependency selection are ongoing.

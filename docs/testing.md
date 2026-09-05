@@ -26,7 +26,11 @@ Tests run with the synchronous `EventStore.Sqlite` backend (set in `config/test.
 via `config :genswarms, :event_store, Genswarms.Observability.EventStore.Sqlite`) so
 that persist→query is deterministic, rather than the buffered default. The same
 config disables the Phoenix endpoint (`server: false`) and lowers the log level to
-`:warning`. Key test files include:
+`:warning`. It also sets `config :genswarms, :load_dotenv, false`, preventing
+automatic `.env` imports both at application startup and when loading a swarm
+configuration. Embedded callers can use the same setting; explicit
+`Genswarms.CLI.EnvManager.load/1` calls remain explicit imports.
+Key test files include:
 
 | File | Covers |
 |---|---|

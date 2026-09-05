@@ -19,9 +19,10 @@ defmodule Genswarms.Config.Loader do
   def load(path) do
     expanded_path = Path.expand(path)
 
-    # Load .env from the config file's directory
-    config_dir = Path.dirname(expanded_path)
-    Genswarms.CLI.EnvManager.auto_load(config_dir)
+    # Match application startup: tests and embedded callers can disable dotenv.
+    if Application.get_env(:genswarms, :load_dotenv, true) do
+      Genswarms.CLI.EnvManager.auto_load(Path.dirname(expanded_path))
+    end
 
     with {:ok, _} <- check_file_exists(expanded_path),
          {:ok, config} <- load_file(expanded_path) do
