@@ -123,9 +123,18 @@ defmodule Genswarms.Packages.Loader do
   defp require_entry(path, digest, %{module: module} = entry, snapshot) do
     case existing_module(module) do
       {:ok, mod} when not is_nil(mod) ->
-        if Code.ensure_loaded?(mod),
-          do: verify_entry(digest, entry),
-          else: compile_entry(path, digest, entry, snapshot)
+        cond do
+          not Code.ensure_loaded?(mod) ->
+            compile_entry(path, digest, entry, snapshot)
+
+          :persistent_term.get({__MODULE__, mod}, nil) == nil and entry.files != [] ->
+            # Explicit require mode recompiles the snapshot, even if Mix has
+            # previously loaded this module. Never borrow its existing identity.
+            compile_entry(path, digest, entry, snapshot)
+
+          true ->
+            verify_entry(digest, entry)
+        end
 
       :error ->
         compile_entry(path, digest, entry, snapshot)

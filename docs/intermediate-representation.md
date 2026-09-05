@@ -173,7 +173,10 @@ provenance, or a signed `beams` map in `swarm-object.json` containing module-nam
 to `sha256:<compiled-BEAM-hash>` mappings. It checks the active code as well as
 the BEAM artifact. An unrelated loaded module is refused. Existing verify-mode
 packages without such evidence must add a build attestation or use require mode
-in a fresh runtime; this deliberately tightens the previous insufficient check.
+at boot; this deliberately tightens the previous insufficient check. Explicit
+require mode recompiles a preloaded, unproven entry from the verified snapshot;
+it never borrows that entry's existing identity. Modules already bound by this
+loader cannot silently change digest or code while another swarm uses them.
 
 Native data refs also use explicit `opts.path`: body packages contain UTF-8
 `body.md`, deployed as `package-body.md` with skill template substitution; policy

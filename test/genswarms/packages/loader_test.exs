@@ -213,6 +213,17 @@ defmodule Genswarms.Packages.LoaderTest do
     assert {:error, :loaded_package_changed} = Loader.resolve_handler(spec)
   end
 
+  test "explicit require recompiles preloaded code from the verified snapshot" do
+    dir = Path.join(System.tmp_dir!(), "pkg-precompiled-#{System.unique_integer([:positive])}")
+    on_exit(fn -> File.rm_rf!(dir) end)
+    {name, digest} = fixture_package!(dir, "Precompiled#{System.unique_integer([:positive])}")
+    Code.compile_string("defmodule #{name} do def ping, do: :different end")
+    spec = %{ref: "r", digest: digest, path: dir, mode: :require}
+    assert {:ok, mod} = Loader.resolve_handler(spec)
+    assert mod.ping() == :pong
+    assert {:ok, ^mod} = Loader.resolve_handler(%{spec | mode: :verify})
+  end
+
   test "compilation consumes the hashed snapshot even if an earlier entry rewrites a later source" do
     dir = Path.join(System.tmp_dir!(), "pkg-snapshot-#{System.unique_integer([:positive])}")
     on_exit(fn -> File.rm_rf!(dir) end)
