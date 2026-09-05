@@ -1,0 +1,27 @@
+name: engine tests
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      MIX_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "27.3"
+          elixir-version: "1.18.4"
+      - name: Install local transport tools
+        run: sudo apt-get update && sudo apt-get install -y jq socat tmux
+      - run: mix local.hex --force && mix local.rebar --force
+      - run: mix deps.get
+      - run: mix test
+      - run: mix escript.build

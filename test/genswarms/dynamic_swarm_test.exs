@@ -255,19 +255,29 @@ defmodule Genswarms.DynamicSwarmTest do
       end
 
       # Bare :alpha is gone
+      assert :ok = wait_unregistered(swarm, :alpha)
       assert [] = Registry.lookup(Genswarms.AgentRegistry, {swarm, :alpha})
     end
 
     test "scales down by removing extras", %{swarm: swarm} do
       {:ok, _} = SwarmManager.scale_agent_group(swarm, :alpha, 5)
 
+      removed_pids =
+        for name <- [:alpha_3, :alpha_4, :alpha_5] do
+          [{pid, _}] = Registry.lookup(Genswarms.AgentRegistry, {swarm, name})
+          pid
+        end
+
       {:ok, %{added: added, removed: removed}} =
         SwarmManager.scale_agent_group(swarm, :alpha, 2)
 
       assert added == []
       assert Enum.sort(removed) == [:alpha_3, :alpha_4, :alpha_5]
+      assert Enum.all?(removed_pids, &(not Process.alive?(&1)))
 
       for name <- [:alpha_3, :alpha_4, :alpha_5] do
+        # Child termination is synchronous; Registry processes its DOWN separately.
+        assert :ok = wait_unregistered(swarm, name)
         assert [] = Registry.lookup(Genswarms.AgentRegistry, {swarm, name})
       end
     end
