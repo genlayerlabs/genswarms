@@ -1,0 +1,205 @@
+{
+  "scope": "Pre-stabilization local worktrees; origin/main values are cached refs, not deployment state. Dirty entries are preserved, not automatically included in PRs.",
+  "version": 1,
+  "captured_at": "2026-09-05T16:47:58.990874Z",
+  "repositories": [
+    {
+      "name": "genswarms",
+      "status": "?? docs/ecosystem-stabilization.md",
+      "path": "/home/jm/docs/personal/genswarms",
+      "head": "f6103d7247c2789cae9fcda0d7e99097444713a7",
+      "branch": "codex/ecosystem-hardening",
+      "origin_main": "ef74fde1f06bd50ee604522828bd1e500ce95522",
+      "worktrees": "worktree /home/jm/docs/personal/genswarms\nHEAD f6103d7247c2789cae9fcda0d7e99097444713a7\nbranch refs/heads/codex/ecosystem-hardening\n\nworktree /tmp/opencode/genswarms-pr58\nHEAD 83c2c5401383d50457621e1742b737710c9023b4\ndetached\nprunable gitdir file points to non-existent location"
+    },
+    {
+      "name": "subzeroclaw",
+      "status": "?? test/__pycache__/",
+      "path": "/home/jm/docs/personal/subzeroclaw",
+      "head": "097a4edd99378d0fbe5b77991e8088c34faafbbc",
+      "branch": "codex/ecosystem-hardening",
+      "origin_main": "3dc21c766d29ab96e413d6dbca1b30c03ada2319",
+      "worktrees": "worktree /home/jm/docs/personal/subzeroclaw\nHEAD 097a4edd99378d0fbe5b77991e8088c34faafbbc\nbranch refs/heads/codex/ecosystem-hardening"
+    },
+    {
+      "name": "subzero-sim",
+      "status": "",
+      "path": "/home/jm/docs/personal/subzero-sim",
+      "head": "06224ee7b465ac2e35d6d6735e80f5731a15930c",
+      "branch": "codex/ecosystem-hardening",
+      "origin_main": "af20bf11469fed1646334bff192aad20c41ba3a6",
+      "worktrees": "worktree /home/jm/docs/personal/subzero-sim\nHEAD 06224ee7b465ac2e35d6d6735e80f5731a15930c\nbranch refs/heads/codex/ecosystem-hardening"
+    },
+    {
+      "name": "phylogenesis",
+      "status": "",
+      "path": "/home/jm/docs/personal/phylogenesis",
+      "head": "98fe64c1a4ddfe5bd68bc5f30be2bd604c5c933f",
+      "branch": "codex/ecosystem-hardening",
+      "origin_main": "be133a0d1597431cc80139e406b4ec33d7945dac",
+      "worktrees": "worktree /home/jm/docs/personal/phylogenesis\nHEAD 98fe64c1a4ddfe5bd68bc5f30be2bd604c5c933f\nbranch refs/heads/codex/ecosystem-hardening"
+    },
+    {
+      "name": "opencode-unhardcoded",
+      "status": "",
+      "path": "/home/jm/docs/genlayer/opencode-unhardcoded",
+      "head": "f6218f34118f6be5935a94afa3df8d3aea8cf3a8",
+      "branch": "codex/ecosystem-hardening",
+      "origin_main": "13636b2fb67c0399d4ca8712f0855c2144fcc016",
+      "worktrees": "worktree /home/jm/docs/genlayer/opencode-unhardcoded\nHEAD f6218f34118f6be5935a94afa3df8d3aea8cf3a8\nbranch refs/heads/codex/ecosystem-hardening"
+    },
+    {
+      "name": "genswarms-packages",
+      "status": " M README.md\n M cli/internal/vendorer/vendorer.go\n M cli/main.go\n M conformance/notary.py\n?? cli/internal/vendorer/git_test.go\n?? cli/internal/vendorer/transaction.go\n?? cli/internal/vendorer/transaction_test.go",
+      "path": "/home/jm/docs/genlayer/genswarms-packages",
+      "head": "d00b75a3a6720205cee58e14196dcaa1564ec200",
+      "branch": "codex/ecosystem-hardening",
+      "origin_main": "0139454f4b647f9dd50c143ecc3cc0d45f8efafb",
+      "worktrees": "worktree /home/jm/docs/genlayer/genswarms-packages\nHEAD d00b75a3a6720205cee58e14196dcaa1564ec200\nbranch refs/heads/codex/ecosystem-hardening"
+    },
+    {
+      "name": "swarmidx",
+      "status": " M README.md\n M backend/config/settings/base.py\n M backend/registry/dirhash.py\n M backend/registry/services.py\n M backend/registry/sources.py\n M backend/registry/tests.py\n?? backend/registry/test_hardening.py",
+      "path": "/home/jm/docs/genlayer/swarmidx",
+      "head": "80f572b816ff9f09659b355bf6f4c7b8c27bb28a",
+      "branch": "codex/ecosystem-hardening",
+      "origin_main": "fb06caf7515d7381b6fbb5083fbd1e144cbcc9e2",
+      "worktrees": "worktree /home/jm/docs/genlayer/swarmidx\nHEAD 80f572b816ff9f09659b355bf6f4c7b8c27bb28a\nbranch refs/heads/codex/ecosystem-hardening"
+    },
+    {
+      "name": "wingston-ecosystem-current",
+      "status": " M checks/rev4_composition_check.exs\n M mix.exs\n M mix.lock\n M tests/package_attestation_test.exs\n M tests/support/attested_pins.exs\n M tests/swarm_config_llm_proxy_test.exs\n M tests/swarm_config_tips_test.exs\n M tests/wingston.test.exs\n M vendor/subzero-swarm\n M vendor/subzeroclaw\n M wingston.swarm.exs\n?? tests/dependency_pins_test.exs",
+      "path": "/home/jm/docs/genlayer/wingston-ecosystem-current",
+      "head": "914ddc74a92432aef9c95d06fa96a5d5802efba4",
+      "branch": "codex/ecosystem-integration",
+      "origin_main": "914ddc74a92432aef9c95d06fa96a5d5802efba4",
+      "worktrees": "worktree /home/jm/docs/genlayer/wingston-rally-bot\nHEAD 995b29d6af1f77f577989ad1e3e0740e34165e3d\nbranch refs/heads/main\n\nworktree /home/jm/docs/genlayer/wingston-ecosystem-current\nHEAD 914ddc74a92432aef9c95d06fa96a5d5802efba4\nbranch refs/heads/codex/ecosystem-integration\n\nworktree /home/jm/docs/genlayer/wingston-ecosystem-hardening\nHEAD 780d1c9844d4c09ce4f8f0cf7d9609ac393e56e2\nbranch refs/heads/codex/ecosystem-hardening\n\nworktree /home/jm/docs/genlayer/wingston-router-agent-profile\nHEAD a0c7b5caad0af6d6513711b1184868b09a35db3d\nbranch refs/heads/fix/shared-router-agent-profile"
+    },
+    {
+      "name": "wingston-ecosystem-hardening",
+      "status": "",
+      "path": "/home/jm/docs/genlayer/wingston-ecosystem-hardening",
+      "head": "780d1c9844d4c09ce4f8f0cf7d9609ac393e56e2",
+      "branch": "codex/ecosystem-hardening",
+      "origin_main": "914ddc74a92432aef9c95d06fa96a5d5802efba4",
+      "worktrees": "worktree /home/jm/docs/genlayer/wingston-rally-bot\nHEAD 995b29d6af1f77f577989ad1e3e0740e34165e3d\nbranch refs/heads/main\n\nworktree /home/jm/docs/genlayer/wingston-ecosystem-current\nHEAD 914ddc74a92432aef9c95d06fa96a5d5802efba4\nbranch refs/heads/codex/ecosystem-integration\n\nworktree /home/jm/docs/genlayer/wingston-ecosystem-hardening\nHEAD 780d1c9844d4c09ce4f8f0cf7d9609ac393e56e2\nbranch refs/heads/codex/ecosystem-hardening\n\nworktree /home/jm/docs/genlayer/wingston-router-agent-profile\nHEAD a0c7b5caad0af6d6513711b1184868b09a35db3d\nbranch refs/heads/fix/shared-router-agent-profile"
+    },
+    {
+      "name": "wingston-rally-bot",
+      "status": " M vendor/subzero-swarm",
+      "path": "/home/jm/docs/genlayer/wingston-rally-bot",
+      "head": "995b29d6af1f77f577989ad1e3e0740e34165e3d",
+      "branch": "main",
+      "origin_main": "914ddc74a92432aef9c95d06fa96a5d5802efba4",
+      "worktrees": "worktree /home/jm/docs/genlayer/wingston-rally-bot\nHEAD 995b29d6af1f77f577989ad1e3e0740e34165e3d\nbranch refs/heads/main\n\nworktree /home/jm/docs/genlayer/wingston-ecosystem-current\nHEAD 914ddc74a92432aef9c95d06fa96a5d5802efba4\nbranch refs/heads/codex/ecosystem-integration\n\nworktree /home/jm/docs/genlayer/wingston-ecosystem-hardening\nHEAD 780d1c9844d4c09ce4f8f0cf7d9609ac393e56e2\nbranch refs/heads/codex/ecosystem-hardening\n\nworktree /home/jm/docs/genlayer/wingston-router-agent-profile\nHEAD a0c7b5caad0af6d6513711b1184868b09a35db3d\nbranch refs/heads/fix/shared-router-agent-profile"
+    },
+    {
+      "name": "micromarkets-ecosystem-hardening",
+      "status": " M tests/ops/docker_env_bridge_behavior_test.exs\n M vendor/genswarms\n M vendor/subzeroclaw",
+      "path": "/home/jm/docs/genlayer/micromarkets-ecosystem-hardening",
+      "head": "fd4b8e2362372eb3e02df51499ede1e6adf0a9c8",
+      "branch": "codex/ecosystem-hardening",
+      "origin_main": "37686bf66bb7e668ef0b8ef916e13f37fb6be004",
+      "worktrees": "worktree /home/jm/docs/genlayer/micromarkets\nHEAD 37686bf66bb7e668ef0b8ef916e13f37fb6be004\nbranch refs/heads/main\n\nworktree /home/jm/docs/genlayer/micromarkets-ecosystem-hardening\nHEAD fd4b8e2362372eb3e02df51499ede1e6adf0a9c8\nbranch refs/heads/codex/ecosystem-hardening\n\nworktree /home/jm/docs/genlayer/micromarkets-full-stack\nHEAD b35f24655127d590ae93d2ec73de88c99987f789\nbranch refs/heads/codex/micromarkets-full-stack\n\nworktree /home/jm/docs/genlayer/micromarkets-genswarms-rootless\nHEAD 26b3a43ba10711c6d6a23ed5dc61db731f3e55fa\nbranch refs/heads/fix/bump-genswarms-rootless\n\nworktree /home/jm/docs/genlayer/micromarkets-router-agent-profile\nHEAD 67072d552516526fd3a6bcdc4cadcd762293288a\nbranch refs/heads/fix/router-agent-profile\n\nworktree /home/jm/docs/genlayer/micromarkets-wallet-eks\nHEAD 446c59984c4f63694d193810ffede96083d2067d\nbranch refs/heads/feat/eks-wallet-image"
+    },
+    {
+      "name": "micromarkets",
+      "status": " M vendor/genswarms\n M vendor/genswarms-dashboard\n M vendor/subzeroclaw",
+      "path": "/home/jm/docs/genlayer/micromarkets",
+      "head": "37686bf66bb7e668ef0b8ef916e13f37fb6be004",
+      "branch": "main",
+      "origin_main": "37686bf66bb7e668ef0b8ef916e13f37fb6be004",
+      "worktrees": "worktree /home/jm/docs/genlayer/micromarkets\nHEAD 37686bf66bb7e668ef0b8ef916e13f37fb6be004\nbranch refs/heads/main\n\nworktree /home/jm/docs/genlayer/micromarkets-ecosystem-hardening\nHEAD fd4b8e2362372eb3e02df51499ede1e6adf0a9c8\nbranch refs/heads/codex/ecosystem-hardening\n\nworktree /home/jm/docs/genlayer/micromarkets-full-stack\nHEAD b35f24655127d590ae93d2ec73de88c99987f789\nbranch refs/heads/codex/micromarkets-full-stack\n\nworktree /home/jm/docs/genlayer/micromarkets-genswarms-rootless\nHEAD 26b3a43ba10711c6d6a23ed5dc61db731f3e55fa\nbranch refs/heads/fix/bump-genswarms-rootless\n\nworktree /home/jm/docs/genlayer/micromarkets-router-agent-profile\nHEAD 67072d552516526fd3a6bcdc4cadcd762293288a\nbranch refs/heads/fix/router-agent-profile\n\nworktree /home/jm/docs/genlayer/micromarkets-wallet-eks\nHEAD 446c59984c4f63694d193810ffede96083d2067d\nbranch refs/heads/feat/eks-wallet-image"
+    },
+    {
+      "name": "genswarms-telegram",
+      "status": " M lib/genswarms/telegram/client/curl.ex\n?? test/client_curl_test.exs",
+      "path": "/home/jm/docs/genlayer/genswarms-telegram",
+      "head": "09209f3dd71b3c4ac00fa76d22296bf4354f9e29",
+      "branch": "fix/curl-temp-cleanup",
+      "origin_main": "09209f3dd71b3c4ac00fa76d22296bf4354f9e29",
+      "worktrees": "worktree /home/jm/docs/genlayer/genswarms-telegram\nHEAD 09209f3dd71b3c4ac00fa76d22296bf4354f9e29\nbranch refs/heads/fix/curl-temp-cleanup\n\nworktree /tmp/genswarms-telegram-auto-reply.vFCEaP\nHEAD e74efa22bbccdd04154ae649beeff465121e5a63\nbranch refs/heads/fix/bound-slot-plain-reply-fallback\nprunable gitdir file points to non-existent location"
+    },
+    {
+      "name": "genswarms-dashboard",
+      "status": " M backend/mix.lock\n M frontend/mix.lock\n?? frontend/bin/",
+      "path": "/home/jm/docs/genlayer/genswarms-dashboard",
+      "head": "a83e31f4288a1dbbf477c7b8da6787b9d49f4ee8",
+      "branch": "feat/multi-swarm-observability",
+      "origin_main": "d3f9b900681812d7f490ebdc5c2e287c083d6a44",
+      "worktrees": "worktree /home/jm/docs/genlayer/genswarms-dashboard\nHEAD a83e31f4288a1dbbf477c7b8da6787b9d49f4ee8\nbranch refs/heads/feat/multi-swarm-observability"
+    },
+    {
+      "name": "genswarms-objects",
+      "status": "",
+      "path": "/home/jm/docs/genlayer/genswarms-objects",
+      "head": "34816f03897efe2ac4d8de56aada6b3c5725dbb2",
+      "branch": "main",
+      "origin_main": "34816f03897efe2ac4d8de56aada6b3c5725dbb2",
+      "worktrees": "worktree /home/jm/docs/genlayer/genswarms-objects\nHEAD 34816f03897efe2ac4d8de56aada6b3c5725dbb2\nbranch refs/heads/main"
+    },
+    {
+      "name": "genswarms-observer",
+      "status": "",
+      "path": "/home/jm/docs/genlayer/genswarms-observer",
+      "head": "066bf3e5f8076ea6ca99030e9782e53246915d65",
+      "branch": "main",
+      "origin_main": "066bf3e5f8076ea6ca99030e9782e53246915d65",
+      "worktrees": "worktree /home/jm/docs/genlayer/genswarms-observer\nHEAD 066bf3e5f8076ea6ca99030e9782e53246915d65\nbranch refs/heads/main"
+    },
+    {
+      "name": "genswarms-payments",
+      "status": "",
+      "path": "/home/jm/docs/genlayer/genswarms-payments",
+      "head": "4976ce59201b5c7eab17e2f29508f6bfa3403d9e",
+      "branch": "main",
+      "origin_main": "4976ce59201b5c7eab17e2f29508f6bfa3403d9e",
+      "worktrees": "worktree /home/jm/docs/genlayer/genswarms-payments\nHEAD 4976ce59201b5c7eab17e2f29508f6bfa3403d9e\nbranch refs/heads/main"
+    },
+    {
+      "name": "genswarms-llm-proxy",
+      "status": "",
+      "path": "/home/jm/docs/genlayer/genswarms-llm-proxy",
+      "head": "e78cbe639bfabc09c9d9094b3ad78e6acd413146",
+      "branch": "main",
+      "origin_main": "e78cbe639bfabc09c9d9094b3ad78e6acd413146",
+      "worktrees": "worktree /home/jm/docs/genlayer/genswarms-llm-proxy\nHEAD e78cbe639bfabc09c9d9094b3ad78e6acd413146\nbranch refs/heads/main"
+    },
+    {
+      "name": "genswarms-mcp-gateway",
+      "status": "",
+      "path": "/home/jm/docs/genlayer/genswarms-mcp-gateway",
+      "head": "163a277963f72db686fbbdb128ba7db45e389b10",
+      "branch": "main",
+      "origin_main": "163a277963f72db686fbbdb128ba7db45e389b10",
+      "worktrees": "worktree /home/jm/docs/genlayer/genswarms-mcp-gateway\nHEAD 163a277963f72db686fbbdb128ba7db45e389b10\nbranch refs/heads/main"
+    },
+    {
+      "name": "genswarms-fleet-mcp",
+      "status": " M README.md\n M fleet.json.example\n M package-lock.json\n M package.json\n M src/config.ts\n M src/index.ts\n M test/e2e.test.mjs\n M test/fake-fleet.mjs\n?? bin/",
+      "path": "/home/jm/docs/genlayer/genswarms-fleet-mcp",
+      "head": "5d9ec0f4e88555930b98717e888b99f287ca82ee",
+      "branch": "feat/read-only-multi-swarm",
+      "origin_main": "5d9ec0f4e88555930b98717e888b99f287ca82ee",
+      "worktrees": "worktree /home/jm/docs/genlayer/genswarms-fleet-mcp\nHEAD 5d9ec0f4e88555930b98717e888b99f287ca82ee\nbranch refs/heads/feat/read-only-multi-swarm"
+    },
+    {
+      "name": "genswarms-email",
+      "status": "",
+      "path": "/home/jm/docs/personal/genswarms-email",
+      "head": "95034888ac5ac406e96b71f2d6eedd0f3f98ac97",
+      "branch": "main",
+      "origin_main": "95034888ac5ac406e96b71f2d6eedd0f3f98ac97",
+      "worktrees": "worktree /home/jm/docs/personal/genswarms-email\nHEAD 95034888ac5ac406e96b71f2d6eedd0f3f98ac97\nbranch refs/heads/main"
+    },
+    {
+      "name": "genswarms-whatsapp",
+      "status": "",
+      "path": "/home/jm/docs/personal/genswarms-whatsapp",
+      "head": "648a002781fe7cce23719853c7be8fc59aedb7fd",
+      "branch": "main",
+      "origin_main": "648a002781fe7cce23719853c7be8fc59aedb7fd",
+      "worktrees": "worktree /home/jm/docs/personal/genswarms-whatsapp\nHEAD 648a002781fe7cce23719853c7be8fc59aedb7fd\nbranch refs/heads/main"
+    }
+  ]
+}
