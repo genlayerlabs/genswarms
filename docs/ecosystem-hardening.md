@@ -69,3 +69,9 @@ its stated result; scaffolding or an unavailable live service is not completion.
   explicitly mutable roles. Backend, paths, budgets, metrics and immutable judge
   roles cannot be changed. **Not yet wired into the evolution runner**: the legacy
   generated-Elixir execution path must still be replaced before using evolution.
+- Real OpenCode 1.18.28: the installed executable completes two tool-using turns
+  through tmux, with disconnect/reattach between turns, using a local SSE provider
+  fixture and an allowlisted environment/private HOME. The original readiness
+  detector fails this test; recognition of the actual input+footer fixes it.
+  This verifies runtime transport, not model quality. Claude/Codex full-turn
+  executions remain unverified.

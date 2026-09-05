@@ -188,3 +188,19 @@ genswarms events --follow                                     # watch the event 
 - [backends.md](backends.md) — backend types including the mock backend
 - [cli.md](cli.md) — `genswarms` command reference
 - [configuration.md](configuration.md) — swarm config DSL and validation
+
+## Real-client TUI regression
+
+The opt-in OpenCode test pins version 1.18.28 and runs the installed executable,
+not a simulated terminal. It completes two turns with a disconnect/reattach
+between them. A loopback SSE provider returns deterministic tool calls; the
+real client's tool executor reads the task and writes its completion receipt.
+It uses a private HOME and allowlisted environment, with no live model spend.
+
+    GENSWARMS_REAL_TUI=1 mix test test/genswarms/backends/real_tui_opencode_test.exs
+
+Normal runs skip this test. Opted-in runs fail if tmux/OpenCode is missing or
+the version differs: review the fixture and adapter before updating the pin.
+The fixture explicitly enables tool permissions for its own temporary workspace;
+it is not evidence that host execution is a sandbox. Claude/Codex version smoke
+tests do not establish equivalent full-turn compatibility.

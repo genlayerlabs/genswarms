@@ -72,4 +72,14 @@ defmodule Genswarms.Backends.Tmux.AdaptersTest do
     assert AdapterHelpers.prompt_visible?("› Ask Codex to review this repo\n  model: gpt-test")
     refute AdapterHelpers.prompt_visible?("still working\nordinary output")
   end
+
+  test "OpenCode recognizes its actual empty input plus mode footer" do
+    screen =
+      "OpenCode\nAsk anything... \"Fix a TODO in the codebase\"\n BUILD    Fixture · ctrl+p cmd\n"
+
+    assert OpenCode.ready?(screen, %{})
+    refute OpenCode.ready?("Ask anything... quoted output without the UI footer", %{})
+    refute OpenCode.ready?("OpenCode\n BUILD    Fixture · ctrl+p cmd\n", %{})
+    refute OpenCode.ready?("Generating...\n", %{})
+  end
 end

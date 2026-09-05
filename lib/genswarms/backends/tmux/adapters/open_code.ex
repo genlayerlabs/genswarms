@@ -26,7 +26,11 @@ defmodule Genswarms.Backends.Tmux.Adapters.OpenCode do
   end
 
   @impl true
-  def ready?(snapshot, _config), do: Helpers.prompt_visible?(snapshot)
+  def ready?(snapshot, _config) do
+    Helpers.prompt_visible?(snapshot) or
+      (Regex.match?(~r/(?:^|\n)\s*Ask anything\.\.\.[^\n]*(?:\n|$)/u, snapshot) and
+         Regex.match?(~r/(?:^|\n)\s*(?:BUILD|PLAN)\s+[^\n]*ctrl\+p cmd\s*(?:\n|$)/u, snapshot))
+  end
 
   @impl true
   def blocked?(snapshot, _config), do: Helpers.blocked?(snapshot)
