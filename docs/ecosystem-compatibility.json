@@ -1,15 +1,26 @@
 {
   "version": 1,
   "verified_on": "2026-09-05",
-  "status": "local-core-verified-consumers-pending",
+  "status": "local-verification-in-progress",
   "branch": "codex/ecosystem-hardening",
   "source_revisions": {
-    "genswarms": "3b30131830d1f809801734625ce70d3039ebb066",
+    "genswarms": "9c4f9a4d585ff981eca088aee35f8b3805b1d517",
     "subzero-sim": "bccd8430f2f15187128c877cd0f71429adc2807b",
     "phylogenesis": "3a6f1250f37e2430e00980be6b6c22287cdc71bd",
     "subzeroclaw": "ce1dbfb3e35ed6bbb76f9f19e1ce2f8370175995",
     "opencode-unhardcoded": "6476b0859cdc7cc2fce8d1dad05e3083fec88beb"
   },
+  "consumers": {
+    "wingston-rally-bot": {
+      "revision": "780d1c9844d4c09ce4f8f0cf7d9609ac393e56e2",
+      "verification": "passed-offline-harness-and-sender-recovery-seams",
+      "not_verified": ["Postgres durability", "live Telegram delivery", "rebuilt agent image"]
+    },
+    "micromarkets": {"verification": "pending"}
+  },
+  "open_regressions": [
+    "Bwrap cgroup startup intermittently fails in the full suite; focused backend suite passes."
+  ],
   "tui_clients": {
     "opencode": {"version": "1.18.28", "two_turns_and_reconnect": "passed-local-provider-fixture"},
     "codex": {"version": "0.153.4", "two_turns_and_reconnect": "passed-local-provider-fixture"},
@@ -23,7 +34,7 @@
     "delivery": "at-least-once-not-exactly-once"
   },
   "limits": [
-    "No product deployment or consumer pin update is implied by this manifest.",
+    "No product deployment is implied; hardened revisions and consumer gitlinks are local only.",
     "Wall time, agent count and output limits are not token or dollar caps.",
     "The deterministic benchmark is a contract check, not product-quality evidence.",
     "Abrupt process or host loss requires reconciliation of external work."

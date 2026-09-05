@@ -152,7 +152,7 @@ opencode-unhardcoded 6476b08; subzero-sim bccd843; phylogenesis 3a6f125.
 ## Consumer verification in progress (2026-09-05)
 
 - Wingston has its own `codex/ecosystem-hardening` branch in the separate
-  `../.. /genlayer/wingston-ecosystem-hardening` worktree (without the space).
+  `/home/jm/docs/genlayer/wingston-ecosystem-hardening` worktree.
   The original checkout and its dirty engine submodule remain untouched.
 - Loading a swarm still imported `.env` despite `load_dotenv: false` at startup.
   A two-case regression demonstrates disabled loading and the enabled default;
@@ -164,4 +164,12 @@ opencode-unhardcoded 6476b08; subzero-sim bccd843; phylogenesis 3a6f125.
 - Wingston's original mock config attested Telegram 0.4.3 while its dependency
   and live config pinned 0.4.5. The harness reproduced a digest rejection;
   aligning the test pin restored all checks with the corrected engine.
-  Offline sender/replay tests and reproducible dependency selection are ongoing.
+  Removing implicit sibling selection and obsolete browser hot-loading made
+  dependency resolution reproducible. Two dependency tests reproduce the old
+  behavior and pass after the change. Seven focused scripts passed (real-DB
+  dedup assertion explicitly skipped); sender rebind and slot-notice seams
+  each passed four checks. The final harness also passes with the dotenv fix.
+- Wingston implementation: `780d1c9`, engine gitlink `9c4f9a4`, runtime gitlink
+  `ce1dbfb`. Full detail and runnable offline commands live in the consumer's
+  `docs/ecosystem-hardening.md`. No paid provider, Telegram, Postgres service,
+  dashboard upgrade, rebuilt image or deployment was exercised by this gate.
