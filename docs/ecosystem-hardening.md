@@ -17,7 +17,7 @@ in genswarms and phylogenesis are preserved on these branches.
       objectives and held-out cases are owned by the evaluator.
 - [x] Runtime task completion has one internal finalization route, documented
       at-least-once delivery, and recovery tests.
-- [ ] A real-client TUI harness covers two turns and reconnect with pinned
+- [x] A real-client TUI harness covers two turns and reconnect with pinned
       client versions; unavailable credentials/services are reported distinctly
       from successful execution.
 - [ ] Conversation and fake-chain product flows have repeatable failure/recovery
@@ -73,8 +73,8 @@ its stated result; scaffolding or an unavailable live service is not completion.
   through tmux, with disconnect/reattach between turns, using a local SSE provider
   fixture and an allowlisted environment/private HOME. The original readiness
   detector fails this test; recognition of the actual input+footer fixes it.
-  This verifies runtime transport, not model quality. Claude/Codex full-turn
-  executions remain unverified.
+  This verifies runtime transport, not model quality. Claude/Codex now have the
+  equivalent full-turn fixtures described below.
 - Evaluator API added in Phylogenesis (three focused tests): compares bounded
   baseline/fixed/candidate JSON patches using an operator-owned runner and scorer.
   Expected answers reach only the scorer, reported candidate fitness is ignored,
@@ -91,11 +91,8 @@ its stated result; scaffolding or an unavailable live service is not completion.
 2. Verify a full supervised evolution cycle with deterministic generators, beyond
    the separately verified object pipeline and actual child-swarm/Gateway cycle.
    Abrupt BEAM loss can leave external work: report replay is not exactly-once.
-3. Extend real-client fixtures to Claude/Codex. Codex custom-provider docs were
-   checked at https://learn.chatgpt.com/docs/config-file/config-reference:
-   custom providers support a base_url, wire_api=responses and
-   requires_openai_auth=false. Use private fixture config, never user credentials.
-   No Codex configuration was changed and no Codex full-turn fixture exists yet.
+3. Keep pinned real-client fixtures in the verification matrix when upgrading
+   clients. All three now pass; no user login/configuration was changed.
 4. Read product-specific instructions before changes; test conversation/fake-chain
    recovery without live bot polling or funds. Preserve dirty product submodules.
 5. Validate consumer pin changes in branches against ecosystem-compatibility.json.
@@ -132,3 +129,22 @@ its stated result; scaffolding or an unavailable live service is not completion.
 
 Latest implementation commits: genswarms 8446460; subzeroclaw ce1dbfb;
 opencode-unhardcoded 6476b08; subzero-sim bccd843; phylogenesis 3a6f125.
+
+## Complete TUI transport fixture (2026-09-05)
+
+- Codex 0.153.4 and Claude Code 2.1.260 each complete two actual tool-using turns
+  and disconnect/reattach to the same client through the real tmux adapter.
+  Codex uses local Responses SSE; Claude local Messages SSE. Receipts are written
+  by the client's shell executor, never directly by the fixture server.
+- Claude's forced screen-reader mode displays `$`; the previous generic prompt
+  recognizer never considered it ready. The unit reproducer and real-client test
+  failed before the adapter fix and pass after it. Bare shells still do not match.
+- Codex's obsolete `untrusted` approval option is rejected before launch,
+  matching the pinned executable's supported `on-request`/`never` flags.
+- Shared workspace/environment/receipt/reconnect assertions replace duplicated
+  harness logic. Combined adapter + three real-client tests: 9 passed.
+- Full opted-in suite: 724 tests, zero failures, two platform skips. TUI source
+  revision: 3b30131830d1f809801734625ce70d3039ebb066.
+- Private fixture homes, no inherited provider credentials, integrations disabled
+  and loopback-only model providers. Proxy configuration is not a claim of OS
+  isolation; this is transport evidence, not model-quality or sandbox evidence.

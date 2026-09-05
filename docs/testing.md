@@ -191,16 +191,31 @@ genswarms events --follow                                     # watch the event 
 
 ## Real-client TUI regression
 
-The opt-in OpenCode test pins version 1.18.28 and runs the installed executable,
-not a simulated terminal. It completes two turns with a disconnect/reattach
-between them. A loopback SSE provider returns deterministic tool calls; the
-real client's tool executor reads the task and writes its completion receipt.
-It uses a private HOME and allowlisted environment, with no live model spend.
+The opt-in tests pin OpenCode 1.18.28, Codex 0.153.4 and Claude Code 2.1.260.
+They run installed executables, not simulated terminals. Each completes two
+turns with a disconnect/reattach between them. Loopback SSE providers return
+deterministic tool calls; the real client's tool executor reads the task and
+writes its completion receipt. A shared harness checks completion, explicit ACK,
+readiness and reattachment for all three clients.
 
-    GENSWARMS_REAL_TUI=1 mix test test/genswarms/backends/real_tui_opencode_test.exs
+    GENSWARMS_REAL_TUI=1 mix test test/genswarms/backends/real_tui_*_test.exs
 
-Normal runs skip this test. Opted-in runs fail if tmux/OpenCode is missing or
-the version differs: review the fixture and adapter before updating the pin.
-The fixture explicitly enables tool permissions for its own temporary workspace;
-it is not evidence that host execution is a sandbox. Claude/Codex version smoke
-tests do not establish equivalent full-turn compatibility.
+Normal runs skip these tests. Opted-in runs fail if tmux/a client is missing or
+its version differs: review the fixture and adapter before updating the pin.
+The fixtures use private homes and allowlisted environments, disable optional
+client integrations/telemetry, and send model traffic to loopback with no live
+model spend. External proxy traffic points at a closed local port; this is not
+OS-level network isolation. Tool permissions are explicit for controlled fixture
+commands. These checks prove transport compatibility, not model quality or that
+host execution is a sandbox.
+
+Codex uses an unauthenticated custom Responses provider in its private config,
+following [OpenAI configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference).
+Claude uses a local Messages gateway and a dummy fixture-only token, following
+[Claude environment variables](https://code.claude.com/docs/en/env-vars).
+Neither fixture reads or modifies the user's login/configuration.
+
+The pinned Codex CLI accepts approval policies `on-request` and `never`;
+`untrusted` is rejected before launch. Claude's screen-reader mode renders `$`,
+which the adapter recognizes only together with its screen-reader and client
+banner, not as a generic host-shell prompt.

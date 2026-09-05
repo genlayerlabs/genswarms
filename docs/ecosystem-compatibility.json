@@ -4,7 +4,7 @@
   "status": "local-core-verified-consumers-pending",
   "branch": "codex/ecosystem-hardening",
   "source_revisions": {
-    "genswarms": "8446460dd537122531931b50aba93c181b8c12c8",
+    "genswarms": "3b30131830d1f809801734625ce70d3039ebb066",
     "subzero-sim": "bccd8430f2f15187128c877cd0f71429adc2807b",
     "phylogenesis": "3a6f1250f37e2430e00980be6b6c22287cdc71bd",
     "subzeroclaw": "ce1dbfb3e35ed6bbb76f9f19e1ce2f8370175995",
@@ -12,8 +12,8 @@
   },
   "tui_clients": {
     "opencode": {"version": "1.18.28", "two_turns_and_reconnect": "passed-local-provider-fixture"},
-    "codex": {"version": "0.153.4", "two_turns_and_reconnect": "not-yet-verified"},
-    "claude": {"version": "2.1.260", "two_turns_and_reconnect": "not-yet-verified"}
+    "codex": {"version": "0.153.4", "two_turns_and_reconnect": "passed-local-provider-fixture"},
+    "claude": {"version": "2.1.260", "two_turns_and_reconnect": "passed-local-provider-fixture"}
   },
   "contracts": {
     "candidate": "bounded-json-patch-v1",
