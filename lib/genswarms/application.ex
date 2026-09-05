@@ -14,9 +14,11 @@ defmodule Genswarms.Application do
   @impl true
   def start(_type, _args) do
     # Load .env file if present
-    case Genswarms.CLI.EnvManager.auto_load() do
-      {:ok, path} -> IO.puts("[Genswarms] Loaded environment from #{path}")
-      {:error, :not_found} -> :ok
+    if Application.get_env(:genswarms, :load_dotenv, true) do
+      case Genswarms.CLI.EnvManager.auto_load() do
+        {:ok, path} -> IO.puts("[Genswarms] Loaded environment from #{path}")
+        {:error, :not_found} -> :ok
+      end
     end
 
     children = [

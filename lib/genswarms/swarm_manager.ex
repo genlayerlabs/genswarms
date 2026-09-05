@@ -56,7 +56,7 @@ defmodule Genswarms.SwarmManager do
   @doc """
   Stops a running swarm.
   """
-  @spec stop(String.t()) :: :ok | {:error, term()}
+  @spec stop(String.t()) :: {:ok, String.t() | nil} | {:error, term()}
   def stop(swarm_name) do
     GenServer.call(__MODULE__, {:stop, swarm_name})
   end

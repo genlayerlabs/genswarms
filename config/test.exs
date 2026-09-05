@@ -1,5 +1,8 @@
 import Config
 
+# Deterministic tests must not import the developer's provider credentials.
+config :genswarms, :load_dotenv, false
+
 # We don't run a server during test
 config :genswarms, GenswarmsWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
