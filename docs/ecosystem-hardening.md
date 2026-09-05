@@ -325,3 +325,32 @@ opencode-unhardcoded 6476b08; subzero-sim bccd843; phylogenesis 3a6f125.
   Changed Elixir files pass formatting and diff checks.
   The independent persisted-IR gate remains open:
   neither object readiness nor successful replay removes the seed-file dependency.
+
+## Notary client trust and wire compatibility (2026-09-05)
+
+- Worked directly in `/home/jm/docs/genlayer/genswarms-packages` and
+  `/home/jm/docs/genlayer/swarmidx`, both on `codex/ecosystem-hardening`.
+  New regressions reproduced malformed HTTP success bodies being accepted as
+  an empty verified log, valid Python Unicode signatures rejected by Go,
+  duplicate/zero sequence numbers accepted, and invalid public keys panicking.
+- Gsp now rejects malformed/trailing/non-object JSON and invalid log envelopes,
+  preserves signed JSON numbers, bounds HTTP responses and total fetched logs,
+  and omits opaque server error bodies from CLI errors. Unicode escaping now
+  matches Python's existing canonical representation, including DEL and
+  non-BMP surrogate pairs. Server canonical bytes and historical entries were
+  not changed. Both languages pin an identical public-fixture hash/signature.
+- The log command fetches from genesis through every returned page, refusing
+  non-progressing pagination; `--since` only filters display after successful
+  verification. `--public-key HEX` verifies against an independently supplied
+  key without fetching one from the endpoint. Without it, output explicitly
+  identifies the server-advertised key as unauthenticated. Neither mode claims
+  freshness or protection against split views/truncated signed prefixes.
+- Verification: all Go packages pass `go test -race ./...` and `go vet ./...`;
+  Django system checks and migration-drift check pass, and 41 tests pass using
+  an isolated test SQLite database. A missing local `staticfiles/` warning is
+  non-fatal. No live notary calls, signing keys, production DBs or deployments.
+- Commits: gsp `675cc53`, swarmidx `80f572b`. This is not the complete package
+  integrity gate: resolve/materialize/vendor still need authenticated binding
+  of metadata to signed releases, and runtime package loading and self-contained
+  persisted IR still need end-to-end verification. Concurrent notary appends
+  also need a PostgreSQL-backed audit; SQLite tests do not prove that safety.

@@ -9,7 +9,8 @@
     "phylogenesis": "3a6f1250f37e2430e00980be6b6c22287cdc71bd",
     "subzeroclaw": "ce1dbfb3e35ed6bbb76f9f19e1ce2f8370175995",
     "opencode-unhardcoded": "6476b0859cdc7cc2fce8d1dad05e3083fec88beb",
-    "genswarms-packages": "9c805abeb1ebe2ebbeda7ca7720c9acd0ebdd1a3"
+    "genswarms-packages": "675cc53f34ac1c7ba19e2a27dd1e850e59a240a3",
+    "swarmidx": "80f572b816ff9f09659b355bf6f4c7b8c27bb28a"
   },
   "consumers": {
     "wingston-rally-bot": {
@@ -28,6 +29,7 @@
   "contracts": {
     "package_ir": "complete-parsed-Go-Elixir-state-conformance-four-offline-fixture-runs",
     "package_integrity_and_database_restart": "end-to-end-verification-pending",
+    "notary_log": "all-returned-pages-verified-with-optional-independent-public-key-pin",
     "sqlite_payload_codec": "term-v1-with-legacy-read-support",
     "object_startup": "async-readiness-barriers-and-fail-closed-overlay-replay",
     "candidate": "bounded-json-patch-v1",
@@ -38,6 +40,7 @@
   },
   "limits": [
     "No product deployment is implied; hardened revisions and consumer gitlinks are local only.",
+    "Notary log verification does not yet authenticate resolve/vendor responses or prove freshness, absence of split views, or concurrent append safety.",
     "Consumer pins have not yet moved to the term-v1 SQLite codec; CLI/API/daemons sharing a database must upgrade together.",
     "Wall time, agent count and output limits are not token or dollar caps.",
     "The deterministic benchmark is a contract check, not product-quality evidence.",
