@@ -13,7 +13,7 @@ in genswarms and phylogenesis are preserved on these branches.
       and has regression tests for duplicate events and concurrent triggers.
 - [x] SubzeroSim and Phylogenesis compile against the current engine; normal
       deterministic tests cannot accidentally invoke a live LLM.
-- [ ] Generated candidates cannot execute Elixir on the trusted host; evaluation
+- [x] Generated candidates cannot execute Elixir on the trusted host; evaluation
       objectives and held-out cases are owned by the evaluator.
 - [x] Runtime task completion has one internal finalization route, documented
       at-least-once delivery, and recovery tests.
@@ -67,8 +67,8 @@ its stated result; scaffolding or an unavailable live service is not completion.
   objective distances rather than evenly spaced scalar fitness.
 - Candidate data decoder: four focused tests pass for bounded JSON patches to
   explicitly mutable roles. Backend, paths, budgets, metrics and immutable judge
-  roles cannot be changed. **Not yet wired into the evolution runner**: the legacy
-  generated-Elixir execution path must still be replaced before using evolution.
+  roles cannot be changed. Now wired into the default evolution runner; generated
+  Elixir loading, file polling, fixer stages and memory-agent stages were removed.
 - Real OpenCode 1.18.28: the installed executable completes two tool-using turns
   through tmux, with disconnect/reattach between turns, using a local SSE provider
   fixture and an allowlisted environment/private HOME. The original readiness
@@ -85,13 +85,12 @@ its stated result; scaffolding or an unavailable live service is not completion.
 
 ## Remaining integration work
 
-1. Replace the legacy generated-.sim runner path with Candidate + evaluator.
-   Prefer candidates delivered as JSON messages: no host reads of agent-chosen
-   paths, no generated Elixir evaluation. Keep evaluator code/held-out answers
-   out of generator mounts. Reduce the LLM fixer stage to deterministic schema
-   validation once the data format is wired in; do not leave two competing paths.
-2. Bound whole generations and per-run resources, classify timeouts as failures,
-   retain generation artifacts, and test duplicate/stale generation messages.
+1. Migrate Phylogenesis's historical dashboard/reporting consumers from generated
+   .sim paths and fixer stages to retained candidate reports. README/CLAUDE now
+   state this limitation; the new evolution/prepare/init entry points are wired.
+2. Verify a full supervised evolution cycle with deterministic generators, beyond
+   the separately verified object pipeline and actual child-swarm/Gateway cycle.
+   Abrupt BEAM loss can leave external work: report replay is not exactly-once.
 3. Extend real-client fixtures to Claude/Codex. Codex custom-provider docs were
    checked at https://learn.chatgpt.com/docs/config-file/config-reference:
    custom providers support a base_url, wire_api=responses and
@@ -99,8 +98,37 @@ its stated result; scaffolding or an unavailable live service is not completion.
    No Codex configuration was changed and no Codex full-turn fixture exists yet.
 4. Read product-specific instructions before changes; test conversation/fake-chain
    recovery without live bot polling or funds. Preserve dirty product submodules.
-5. Record exact local compatibility revisions, validate consumer pin changes in
-   branches, and provide a repeatable bounded benchmark command.
+5. Validate consumer pin changes in branches against ecosystem-compatibility.json.
+   The bounded benchmark command is now executable, but only a deterministic
+   contract fixture; independent product-quality comparisons remain necessary.
 
-Local commits so far: genswarms 552de3e + a4721c0; subzeroclaw ce1dbfb;
-opencode-unhardcoded 6476b08; subzero-sim 17a703a; phylogenesis eae7711.
+## Data-only pipeline verification (2026-09-05)
+
+- Genswarms: 721 tests, zero failures, three skips. Normal test application
+  startup no longer auto-loads the developer's .env. Stop typespec now matches
+  its existing {:ok, config_path_or_nil} return, discovered by the real child test.
+- SubzeroSim: 126 tests pass. Deadline returns an error; Gateway accepts only
+  Tick's start and the first valid final result, including null. A supervised
+  owner prevents short-lived evaluator processes from closing shared DETS tables.
+  This fixes an observed flaky table-write failure, not just a hypothetical race.
+- Phylogenesis: 22 tests pass. Operator-owned evaluation config is required before
+  startup. Generators send bounded JSON patches; the runner sees training cases
+  only. Coordinator checkpoints restore missing slots/exact pending batches;
+  completed report replay does not reevaluate, conflicts halt visibly, stale and
+  duplicate messages do not advance generations. Generation/evaluation deadlines
+  are bounded. Cleanup runs outside case tasks, including after timeout.
+- The actual child runtime test starts local OTP components with mock agents,
+  routes a deterministic object's final result through Gateway and stops the
+  child. It verifies step caps, timeout errors, cleanup and unsafe-ID/backend
+  rejection without credentials, providers, containers or a web listener.
+- Removed 2,131 net lines in the Phylogenesis pipeline commit, including unused
+  fixers/memory and the old phylo.test command whose missing mock fixture could
+  fall back to a paid API. No experiment data was deleted.
+- Reproducible no-provider check from Phylogenesis:
+  `mix run --no-start examples/evaluator-contract/compare.exs -- /tmp/new-report.json`.
+  The output must be new; it retains candidates, equal limits and train/holdout
+  aggregates. Observed baseline=0, fixed=1, self-grading candidate=0 on held-out
+  exact-match scoring. This demonstrates evaluator separation, not product gains.
+
+Latest implementation commits: genswarms 8446460; subzeroclaw ce1dbfb;
+opencode-unhardcoded 6476b08; subzero-sim bccd843; phylogenesis 3a6f125.
