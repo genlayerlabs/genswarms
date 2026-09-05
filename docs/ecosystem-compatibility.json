@@ -4,12 +4,12 @@
   "status": "local-verification-in-progress",
   "branch": "codex/ecosystem-hardening",
   "source_revisions": {
-    "genswarms": "aa0c4f062876f106ebecb918ed514591a894eef0",
+    "genswarms": "594757087b27601cc31e75caca7f50c902d9d1c2",
     "subzero-sim": "bccd8430f2f15187128c877cd0f71429adc2807b",
     "phylogenesis": "3a6f1250f37e2430e00980be6b6c22287cdc71bd",
     "subzeroclaw": "ce1dbfb3e35ed6bbb76f9f19e1ce2f8370175995",
     "opencode-unhardcoded": "6476b0859cdc7cc2fce8d1dad05e3083fec88beb",
-    "genswarms-packages": "08c79f8415905ae065bf286021849663e02156ce",
+    "genswarms-packages": "d00b75a3a6720205cee58e14196dcaa1564ec200",
     "swarmidx": "80f572b816ff9f09659b355bf6f4c7b8c27bb28a"
   },
   "consumers": {
@@ -27,7 +27,8 @@
     "claude": {"version": "2.1.260", "two_turns_and_reconnect": "passed-local-provider-fixture"}
   },
   "contracts": {
-    "package_ir": "complete-parsed-Go-Elixir-state-conformance-four-offline-fixture-runs",
+    "package_ir": "bidirectional-public-JSON-Go-Elixir-conformance-four-fixtures",
+    "ir_runtime_translation": "provider-and-native-handler-metadata-preserved-with-preflight-before-effects",
     "package_integrity_and_database_restart": "end-to-end-verification-pending",
     "notary_log": "all-returned-pages-verified-with-optional-independent-public-key-pin",
     "notary_resolution": "required-independent-key-signed-log-replay-and-IR-pin-slot-validation",

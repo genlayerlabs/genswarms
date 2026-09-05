@@ -422,3 +422,41 @@ opencode-unhardcoded 6476b08; subzero-sim bccd843; phylogenesis 3a6f125.
   Server-side local-source authority and concurrent log appends also remain
   to audit. Package-to-BEAM binding and self-contained IR/DB restart are still
   explicit acceptance gates, not inferred from these filesystem tests.
+
+## Public IR serialization and runtime translation (2026-09-05)
+
+- Rechecked the actual DB/start path before attempting persistence. SQLite
+  still stores `config_path` plus legacy overlays, not the native seed or a
+  self-contained desired-state checkpoint. Current restart re-evaluates the
+  config file. Persisting FromConfig's old output would have lost provider
+  settings and turned a handler package map into a bogus `module:%{...}` ref.
+  Two regressions reproduced those losses before implementation.
+- FromConfig/ToConfig now retain `endpoint`, `request_extra`, `compact_extra`
+  through agent overrides and preserve package handler ref/digest plus explicit
+  `handler.opts.path/mode`. Default verify mode remains explicit on translation;
+  unsupported load modes fail. A real object-runtime test converts through
+  public JSON, invokes the loader, receives the actual handler init probe and
+  observes the same native package identity afterward.
+- `State.to_map/1` and `Ref.to_map/1` serialize the public JSON shape, preserving
+  all parsed state fields, policy wrappers, native refs and null ref options.
+  This is not the internal term-v1 codec and does not pretend arbitrary DSL
+  tuples, functions or typed domain values are portable JSON checkpoints.
+- Removed silent fallback of unsupported body/policy slots to empty skills or
+  default models. Those translations now fail explicitly until real package
+  data loading is wired. Executor translates every agent/object spec before
+  any plan effect, reports only the failing action position, and stops a
+  restart if removal fails. Preset conversion no longer creates unknown atoms.
+  Preflight is not a transaction over failures after valid actions start.
+- Final full suite: 757 tests, zero failures, five optional/platform skips;
+  `/tmp/genswarms-ecosystem-ir-serialization-suite.log`. The first broad run
+  lacked jq and failed 12 wrapper setup checks; rerunning with jq/socat supplied
+  passed without skipping those checks. Changed Elixir files pass formatting.
+- Extended gsp conformance to serialize Elixir's fold, round-trip it through
+  the actual Go CLI, and compare every parsed field again. All four fixtures
+  pass in both directions, including provider and handler-loader metadata.
+  Engine commit `5947570`, gsp harness commit `d00b75a`.
+- No seed/checkpoint table or file-independent restart entry point has been
+  added yet. Next persistence work must wire actual startup/recovery and prove
+  a fresh process can restore the same desired swarm without its original
+  config file. Native body/policy loading, typed option transport, runtime
+  package/BEAM provenance and durable mutation acknowledgements remain open.
