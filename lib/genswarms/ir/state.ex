@@ -95,6 +95,44 @@ defmodule Genswarms.IR.State do
 
   def parse(_), do: {:error, :state_not_a_map}
 
+  @doc """
+  Serializes a parsed state to the public JSON-shaped IR, not a BEAM term dump.
+  Metadata maps must contain JSON-compatible values when encoded with Jason.
+  This does not claim that every arbitrary Elixir DSL value is portable JSON.
+  """
+  @spec to_map(t()) :: map()
+  def to_map(%__MODULE__{} = state) do
+    %{
+      "v" => state.v,
+      "kind" => state.kind,
+      "name" => state.name,
+      "phase" => Atom.to_string(state.phase),
+      "agents" =>
+        Enum.map(state.agents, fn a ->
+          model =
+            case a.model do
+              {:service, ref} -> Ref.to_map(ref)
+              {:policy, ref} -> %{"policy" => Ref.to_map(ref)}
+            end
+
+          %{
+            "name" => a.name,
+            "body" => Ref.to_map(a.body),
+            "model" => model,
+            "backend" => Ref.to_map(a.backend),
+            "overrides" => a.overrides,
+            "config" => a.config
+          }
+        end),
+      "objects" =>
+        Enum.map(state.objects, fn o ->
+          %{"name" => o.name, "handler" => Ref.to_map(o.handler), "config" => o.config}
+        end),
+      "topology" => Enum.map(state.topology, &Tuple.to_list/1),
+      "options" => state.options
+    }
+  end
+
   @doc "Runs the data-level §6 invariants (unique names, valid edges)."
   @spec validate(t()) :: :ok | {:error, term()}
   def validate(%__MODULE__{} = state) do

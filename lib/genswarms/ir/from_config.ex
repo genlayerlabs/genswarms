@@ -4,7 +4,7 @@ defmodule Genswarms.IR.FromConfig do
   into a `swarm.state` IR document (phase `desired`).
 
   The DSL describes *local, inline* things; the IR is built for content-addressed
-  *packages*. Until the registry (`swarmidx`) exists, local things become
+  *packages*. Local things become
   non-package `<other>` refs (§2.1) and the agent persona becomes an *inline*
   body — when a config is later published with `gsp`, those `inline:`/`local:`/…
   refs become real `swarmidx:`/`oci:` packages with digests.
@@ -74,6 +74,14 @@ defmodule Genswarms.IR.FromConfig do
       "skills" => Map.get(a, :skills, []),
       "presets" => a |> Map.get(:presets, []) |> Enum.map(&to_string/1)
     }
+    |> Map.merge(
+      Map.new(
+        for key <- [:endpoint, :request_extra, :compact_extra],
+            value = Map.get(a, key),
+            not is_nil(value),
+            do: {Atom.to_string(key), value}
+      )
+    )
   end
 
   # A model string ("provider/model", OpenRouter format) -> a service ref.
@@ -120,7 +128,30 @@ defmodule Genswarms.IR.FromConfig do
 
   # ── objects ─────────────────────────────────────────────────────────────────
 
-  defp object(%{handler: handler} = o) when not is_nil(handler) do
+  defp object(%{handler: handler} = o) when is_map(handler) do
+    # Loader options are execution metadata, not a module-name string. Keep
+    # the package identity/digest intact across JSON and runtime translation.
+    get = fn key -> Map.get(handler, key, Map.get(handler, Atom.to_string(key))) end
+    mode = get.(:mode) || :verify
+
+    if mode in [:require, :verify, "require", "verify"] do
+      {:ok,
+       %{
+         "name" => to_string(Map.get(o, :name)),
+         "handler" => %{
+           "ref" => get.(:ref),
+           "digest" => get.(:digest),
+           "kind" => "code",
+           "opts" => %{"path" => get.(:path), "mode" => to_string(mode)}
+         },
+         "config" => stringify_keys(Map.get(o, :config, %{}))
+       }}
+    else
+      {:error, :invalid_handler_load_mode}
+    end
+  end
+
+  defp object(%{handler: handler} = o) when is_atom(handler) and not is_nil(handler) do
     {:ok,
      %{
        "name" => to_string(Map.get(o, :name)),

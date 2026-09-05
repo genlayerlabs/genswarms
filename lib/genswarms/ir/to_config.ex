@@ -20,20 +20,32 @@ defmodule Genswarms.IR.ToConfig do
   @doc "IR agent -> runtime agent spec map."
   @spec agent_spec(Agent.t()) :: map()
   def agent_spec(%Agent{} = a) do
+    unless a.body.scheme == "inline" do
+      raise ArgumentError, "package body loading is not implemented"
+    end
+
     %{
       name: a.name,
       backend: backend(a.backend),
       model: model(a.model),
       skills: Map.get(a.overrides, "skills", []),
-      presets: a.overrides |> Map.get("presets", []) |> Enum.map(&String.to_atom/1),
+      presets: a.overrides |> Map.get("presets", []) |> Enum.map(&String.to_existing_atom/1),
       config: a.config |> SwarmConfig.atomize_known_backend_opts() |> normalize_option_values()
     }
+    |> Map.merge(
+      Map.new(
+        for key <- [:endpoint, :request_extra, :compact_extra],
+            value = Map.get(a.overrides, Atom.to_string(key)),
+            not is_nil(value),
+            do: {key, value}
+      )
+    )
   end
 
   @doc "IR object -> runtime object spec map."
   @spec object_spec(Object.t()) :: map()
   def object_spec(%Object{} = o) do
-    %{name: o.name, handler: handler_module(o.handler), config: o.config}
+    %{name: o.name, handler: handler_spec(o.handler), config: o.config}
   end
 
   # ── backend ──────────────────────────────────────────────────────────────────
@@ -85,13 +97,32 @@ defmodule Genswarms.IR.ToConfig do
   # The translated default (`openrouter:default`) means "no explicit model".
   defp model({:service, %{ref: "openrouter:default"}}), do: nil
   defp model({:service, %{ref: ref}}), do: String.replace_prefix(ref, "openrouter:", "")
-  # A policy slot has no config-format model-string equivalent yet.
-  defp model({:policy, _ref}), do: nil
+  # Never silently replace an unresolved policy with the runtime default.
+  defp model({:policy, _ref}),
+    do: raise(ArgumentError, "package policy loading is not implemented")
 
   # ── handler ──────────────────────────────────────────────────────────────────
 
   # `module:<Mod>` -> the existing module atom (safe_concat never mints — #22).
-  defp handler_module(%{ref: ref}) do
+  defp handler_spec(%{scheme: "module", ref: ref}) do
     ref |> String.replace_prefix("module:", "") |> String.split(".") |> Module.safe_concat()
   end
+
+  defp handler_spec(%{scheme: "swarmidx", ref: ref, digest: digest, opts: opts}) do
+    unless Genswarms.IR.Ref.valid_digest?(digest) and is_map(opts) and
+             is_binary(opts["path"]) and opts["path"] != "" do
+      raise ArgumentError, "package handler requires a digest and explicit opts.path"
+    end
+
+    mode =
+      case Map.get(opts, "mode", "verify") do
+        "require" -> :require
+        "verify" -> :verify
+        _ -> raise ArgumentError, "invalid package handler load mode"
+      end
+
+    %{ref: ref, digest: digest, path: opts["path"], mode: mode}
+  end
+
+  defp handler_spec(_), do: raise(ArgumentError, "unsupported handler reference")
 end

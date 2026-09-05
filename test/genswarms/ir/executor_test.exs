@@ -21,6 +21,13 @@ defmodule Genswarms.IR.ExecutorTest do
       do: send(self(), {:remove_edges, edges}) && :ok
   end
 
+  defmodule RefusingStopSM do
+    def remove_agent(_, _), do: {:error, :busy}
+    def remove_object(_, _), do: {:error, :busy}
+    def add_agent(_, _), do: send(self(), :unexpected_add)
+    def add_object(_, _), do: send(self(), :unexpected_add)
+  end
+
   defp agent_cfg(name, extra \\ %{}),
     do:
       Map.merge(%{name: String.to_atom(name), backend: :bwrap, model: "anthropic/claude"}, extra)
@@ -28,6 +35,33 @@ defmodule Genswarms.IR.ExecutorTest do
   defp sm, do: [swarm_manager: StubSM]
 
   describe "ToConfig round-trips FromConfig" do
+    test "provider overrides survive the config to IR round trip" do
+      provider = %{
+        endpoint: "http://127.0.0.1:9999/v1",
+        request_extra: %{"policy_ir" => ["fixture", %{"label" => "~literal"}]},
+        compact_extra: ~s({"keep_recent":4})
+      }
+
+      cfg = %{name: "s", agents: [Map.merge(%{name: :a, backend: :mock}, provider)]}
+      assert {:ok, state} = FromConfig.from_config(cfg)
+      assert Map.take(ToConfig.agent_spec(hd(state.agents)), Map.keys(provider)) == provider
+    end
+
+    test "a package handler retains its reference, digest and loader settings" do
+      handler = %{
+        ref: "swarmidx:fixture/board@1",
+        digest: "sha256:" <> String.duplicate("a", 64),
+        path: "/tmp/fixture-vendor/board",
+        mode: :require
+      }
+
+      cfg = %{name: "s", agents: [], objects: [%{name: :board, handler: handler}]}
+      assert {:ok, state} = FromConfig.from_config(cfg)
+      assert hd(state.objects).handler.ref == handler.ref
+      assert hd(state.objects).handler.digest == handler.digest
+      assert ToConfig.object_spec(hd(state.objects)).handler == handler
+    end
+
     test "agent spec recovers backend / model / skills / presets" do
       cfg = %{
         name: "s",
@@ -162,6 +196,56 @@ defmodule Genswarms.IR.ExecutorTest do
   end
 
   describe "apply/3 maps a plan to orchestrator calls" do
+    test "all runtime translations are checked before the first mutation" do
+      {:ok, state} = FromConfig.from_config(%{name: "s", agents: [agent_cfg("a")]})
+      agent = hd(state.agents)
+
+      {:ok, ref} =
+        Genswarms.IR.Ref.parse(%{
+          "ref" => "swarmidx:fixture/policy@1",
+          "kind" => "data",
+          "digest" => "sha256:aaaa"
+        })
+
+      for invalid <- [
+            %{agent | model: {:policy, ref}},
+            %{agent | body: ref},
+            %{agent | overrides: %{"presets" => ["unregistered_preset_fixture"]}}
+          ] do
+        assert {:error, {:invalid_runtime_spec, 2}} =
+                 Executor.apply_plan(
+                   "s",
+                   [{:start_agent, agent}, {:restart_agent, invalid}],
+                   sm()
+                 )
+
+        refute_received {:add_agent, _}
+        refute_received {:remove_agent, _}
+      end
+
+      assert_raise ArgumentError, fn -> String.to_existing_atom("unregistered_preset_fixture") end
+    end
+
+    test "restart stops on a failed removal without adding a replacement" do
+      {:ok, state} = FromConfig.from_config(%{name: "s", agents: [agent_cfg("a")]})
+      action = {:restart_agent, hd(state.agents)}
+
+      assert {:error, {^action, :busy}} =
+               Executor.apply_plan("s", [action], swarm_manager: RefusingStopSM)
+
+      refute_received :unexpected_add
+
+      {:ok, object_state} =
+        FromConfig.from_config(%{name: "s", agents: [], objects: [%{name: :o, handler: StubSM}]})
+
+      action = {:restart_object, hd(object_state.objects)}
+
+      assert {:error, {^action, :busy}} =
+               Executor.apply_plan("s", [action], swarm_manager: RefusingStopSM)
+
+      refute_received :unexpected_add
+    end
+
     test "each action becomes one call, in order" do
       {:ok, st} = FromConfig.from_config(%{name: "s", agents: [agent_cfg("a")]})
       agent = hd(st.agents)

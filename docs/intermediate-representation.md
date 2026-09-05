@@ -14,10 +14,11 @@ It lives in `Genswarms.IR.*` and is exposed through the `Genswarms.IR` façade.
 !!! note "Status"
     The IR core, the config→IR translator, the op-validation policy, the
     reconcile/actuation layer, and the **default validation gate** are all
-    wired and in use. The package registry (`swarmidx`) and ref `resolve` step
-    (constraints → content digests) are future work; until then, configs map to
-    *inline*/`oci:`/`apple_container`/`ssh` refs rather than published
-    `swarmidx:` packages.
+    wired and in use. `gsp` and `swarmidx` provide authenticated package
+    resolution and vendoring. Runtime translation retains native package
+    handler refs and their explicit loader settings. Package body/policy loading
+    and self-contained database-backed IR restart are not yet wired end to end;
+    unsupported execution translations fail rather than silently using defaults.
 
 ## The two representations
 
@@ -88,6 +89,10 @@ alias Genswarms.IR
 {:ok, desired} = IR.materialize(seed, overlay)
 # checkpoint + log compaction
 {:ok, checkpoint, remaining} = IR.compact(seed, overlay, at_seq)
+
+# public JSON serialization (not a dump of internal structs/BEAM terms)
+json = state |> Genswarms.IR.State.to_map() |> Jason.encode!()
+{:ok, restored} = json |> Jason.decode!() |> IR.state()
 ```
 
 `apply_op/3` is the single choke point where **both** the security policy
@@ -102,6 +107,7 @@ alias Genswarms.IR
 |--------|-----|
 | `skills` / `presets` | `body {ref: "inline:<name>"}` + `overrides` |
 | `model: "x/y"` | `{ref: "openrouter:x/y", attested: true}` |
+| `endpoint` / `request_extra` / `compact_extra` | Same fields in agent `overrides`, restored on runtime translation |
 | `backend: :bwrap` / `:local` / `:mock` | bare refs `{ref: "bwrap"}` … |
 | `backend: {kind, opts}` for local/bwrap/mock | bare refs with `opts` retained |
 | `backend: {:docker, n}` | `{ref: "oci:<n>", kind: data}` |
@@ -114,6 +120,7 @@ alias Genswarms.IR
 | `backend: {:tmux, client}` | `{ref: "tmux", client: client}` |
 | `backend: {:tmux, client, opts}` | `{ref: "tmux", client: client, opts: opts}`; runner options such as `{runner: "docker", image: "coding-tuis:latest", client_source: "runtime"}` round-trip unchanged |
 | `object.handler Mod` | `{ref: "module:<Mod>", kind: code}` |
+| `object.handler %{ref, digest, path, mode}` | Native `swarmidx:` handler ref and digest, with `{path, mode}` in `handler.opts` |
 
 The Apple container ref is intentionally not content-addressable in the current
 IR mapping: it stores the backend choice and optional image/options metadata, but
@@ -130,6 +137,17 @@ Known execution keys are restored to atom keys; JSON selectors such as
 atom selectors. Arbitrary string values are not converted to atoms. An Apple
 ref with nonempty options must declare its image explicitly; `ToConfig` refuses
 an unrepresentable form instead of dropping those options.
+
+Package handlers require an explicit `opts.path` to the installed package and
+`opts.mode: "verify" | "require"` (`"verify"` by default, matching the existing
+config loader). These options describe local execution, not signed registry
+metadata. Unknown load modes are rejected. The loader still checks package
+bytes; a successful config/IR round trip alone is not proof of BEAM provenance.
+
+`State.to_map/1` and `Ref.to_map/1` emit the public JSON shape, retaining native
+refs, model-policy wrappers, execution metadata and explicit null options.
+They do not make arbitrary Elixir values portable: functions, tuples and
+other non-JSON metadata must not be treated as serialized IR checkpoints.
 
 ## The default control-plane gate
 
@@ -159,6 +177,13 @@ edges) — pure, no runtime access.
 live config (`observed`) and translates each action into a `SwarmManager` call.
 `Executor.reconcile(swarm, desired)` does the whole loop — observed → plan →
 apply.
+
+All runtime spec conversions are checked before the first mutation in a plan.
+An unsupported body/policy, missing handler binding or invalid runtime option
+returns `{:error, {:invalid_runtime_spec, one_based_position}}`, without dumping
+configuration values. A restart also stops if removing the old node fails;
+it does not attempt to add the replacement anyway. This preflight is not
+transactional rollback of runtime failures after valid actions have begun.
 
 ## Design spec
 

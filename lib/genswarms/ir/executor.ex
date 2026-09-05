@@ -39,12 +39,16 @@ defmodule Genswarms.IR.Executor do
   def apply_plan(swarm_name, plan, opts \\ []) do
     sm = Keyword.get(opts, :swarm_manager, @default_sm)
 
-    Enum.reduce_while(plan, :ok, fn action, :ok ->
-      case normalize(exec(sm, swarm_name, action)) do
-        :ok -> {:cont, :ok}
-        {:error, reason} -> {:halt, {:error, {action, reason}}}
-      end
-    end)
+    # Translate the whole plan before any effect. An unsupported package/policy
+    # must not be discovered after removing the currently running node.
+    with {:ok, prepared} <- prepare_plan(plan) do
+      Enum.reduce_while(prepared, :ok, fn {original, action}, :ok ->
+        case normalize(exec(sm, swarm_name, action)) do
+          :ok -> {:cont, :ok}
+          {:error, reason} -> {:halt, {:error, {original, reason}}}
+        end
+      end)
+    end
   end
 
   @doc """
@@ -66,20 +70,44 @@ defmodule Genswarms.IR.Executor do
 
   # ── action → orchestrator call ───────────────────────────────────────────────
 
-  defp exec(sm, swarm, {:start_agent, a}), do: sm.add_agent(swarm, ToConfig.agent_spec(a))
+  defp prepare_plan(plan) do
+    plan
+    |> Enum.with_index(1)
+    |> Enum.reduce_while({:ok, []}, fn {action, index}, {:ok, acc} ->
+      try do
+        {:cont, {:ok, [{action, prepare_action(action)} | acc]}}
+      rescue
+        _ -> {:halt, {:error, {:invalid_runtime_spec, index}}}
+      end
+    end)
+    |> case do
+      {:ok, prepared} -> {:ok, Enum.reverse(prepared)}
+      error -> error
+    end
+  end
+
+  defp prepare_action({op, agent}) when op in [:start_agent, :restart_agent],
+    do: {op, ToConfig.agent_spec(agent)}
+
+  defp prepare_action({op, object}) when op in [:start_object, :restart_object],
+    do: {op, ToConfig.object_spec(object)}
+
+  defp prepare_action({op, _} = action)
+       when op in [:stop_agent, :stop_object, :add_edge, :remove_edge],
+       do: action
+
+  defp exec(sm, swarm, {:start_agent, spec}), do: sm.add_agent(swarm, spec)
   defp exec(sm, swarm, {:stop_agent, name}), do: sm.remove_agent(swarm, name)
 
   defp exec(sm, swarm, {:restart_agent, a}) do
-    _ = sm.remove_agent(swarm, a.name)
-    sm.add_agent(swarm, ToConfig.agent_spec(a))
+    with :ok <- normalize(sm.remove_agent(swarm, a.name)), do: sm.add_agent(swarm, a)
   end
 
-  defp exec(sm, swarm, {:start_object, o}), do: sm.add_object(swarm, ToConfig.object_spec(o))
+  defp exec(sm, swarm, {:start_object, spec}), do: sm.add_object(swarm, spec)
   defp exec(sm, swarm, {:stop_object, name}), do: sm.remove_object(swarm, name)
 
   defp exec(sm, swarm, {:restart_object, o}) do
-    _ = sm.remove_object(swarm, o.name)
-    sm.add_object(swarm, ToConfig.object_spec(o))
+    with :ok <- normalize(sm.remove_object(swarm, o.name)), do: sm.add_object(swarm, o)
   end
 
   defp exec(sm, swarm, {:add_edge, e}), do: sm.add_topology_edges(swarm, [edge(e)])

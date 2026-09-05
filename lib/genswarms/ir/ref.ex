@@ -81,6 +81,22 @@ defmodule Genswarms.IR.Ref do
 
   def parse(_), do: {:error, :ref_not_a_map}
 
+  @doc "Serializes a parsed reference to the public, string-keyed IR shape."
+  @spec to_map(t()) :: map()
+  def to_map(%__MODULE__{} = ref) do
+    %{
+      "ref" => ref.ref,
+      "kind" => if(ref.kind, do: Atom.to_string(ref.kind)),
+      "digest" => ref.digest,
+      "attested" => ref.attested,
+      "host" => ref.host,
+      "image" => ref.image,
+      "client" => ref.client,
+      "opts" => ref.opts
+    }
+    |> Map.reject(fn {key, value} -> is_nil(value) and key != "opts" end)
+  end
+
   @doc "Extracts the scheme from a ref string (the part before the first `:`)."
   @spec scheme(String.t()) :: {:ok, String.t()} | {:error, term()}
   def scheme(ref) when is_binary(ref) do
