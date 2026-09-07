@@ -86,10 +86,10 @@ defmodule Genswarms.Agents.AgentServerBackendEventsTest do
 
     assert {:noreply, completed} = AgentServer.handle_info(event, state)
     assert_receive {:backend_acknowledged, "turn-1"}
-    assert_receive {:auto_deliver, 0, ^reply}
+    assert_receive {:auto_deliver, 0, ^reply, nil}
     assert [%{message_type: :output, content: ^reply}] = completed.history
     assert {:noreply, ^completed} = AgentServer.handle_info(event, completed)
-    refute_receive {:auto_deliver, _, _}
+    refute_receive {:auto_deliver, _, _, _}
     refute_receive {:backend_acknowledged, _}
   end
 

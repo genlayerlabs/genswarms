@@ -76,6 +76,26 @@ defmodule Genswarms.Objects.ObjectHandler do
               | {:noreply, new_state :: term()}
 
   @doc """
+  Receives a completed automatic reply with opaque, host-supplied task context.
+
+  Only `AgentServer.send_task/4`'s `:reply_context` opts into this native-only
+  callback. Agent messages and JSON actions cannot invoke it. Context never
+  enters the agent's prompt; sinks may use it to recover the originating turn's
+  delivery binding instead of consulting mutable slot state. Unsupported sinks
+  fail closed rather than dropping the context and sending plain text.
+  """
+  @callback handle_agent_reply(
+              from :: atom(),
+              text :: String.t(),
+              context :: term(),
+              state :: term()
+            ) ::
+              {:reply, response :: String.t(), new_state :: term()}
+              | {:send, to :: atom(), content :: String.t(), new_state :: term()}
+              | {:broadcast, content :: String.t(), new_state :: term()}
+              | {:noreply, new_state :: term()}
+
+  @doc """
   Returns the interface schema for display in swarm-msg and dashboard.
 
   The interface describes what actions/methods the object supports
@@ -108,5 +128,5 @@ defmodule Genswarms.Objects.ObjectHandler do
   """
   @callback terminate(reason :: term(), state :: term()) :: :ok
 
-  @optional_callbacks [terminate: 2, handle_info: 2]
+  @optional_callbacks [terminate: 2, handle_info: 2, handle_agent_reply: 4]
 end

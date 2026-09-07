@@ -166,6 +166,41 @@ defmodule Genswarms.Agents.AutoDeliverTest do
     assert_receive {:sink_got, :writer, "ANSWER to: [From orchestrator] second"}, 8_000
   end
 
+  test "queued tasks retain their own host context through delayed delivery",
+       %{workspace: ws, fixture: fixture} do
+    swarm = start_swarm(ws, fixture, self(), 800)
+    first = %{conversation_id: "topic-one", reply_to_message_id: 10}
+    second = %{conversation_id: "topic-two", reply_to_message_id: 20}
+
+    :ok = AgentServer.send_task(swarm, :writer, "SLOW first", reply_context: first)
+    :ok = AgentServer.send_task(swarm, :writer, "second", reply_context: second)
+
+    assert_receive {:sink_reply, :writer, "ANSWER to: [From orchestrator] SLOW first", ^first},
+                   8_000
+
+    assert_receive {:sink_reply, :writer, "ANSWER to: [From orchestrator] second", ^second},
+                   8_000
+
+    # Context is host-only: the fixture echoes the actual backend input above.
+    # A subsequent task without context must not inherit the previous recipient.
+    :ok = AgentServer.send_task(swarm, :writer, "third")
+    assert_receive {:sink_got, :writer, "ANSWER to: [From orchestrator] third"}, 8_000
+    refute_receive {:sink_reply, _, _, _}, 100
+  end
+
+  test "explicit sends still suppress a context-bearing fallback",
+       %{workspace: ws, fixture: fixture} do
+    swarm = start_swarm(ws, fixture, self(), 100)
+
+    :ok =
+      AgentServer.send_task(swarm, :writer, "SENDLATE",
+        reply_context: %{conversation_id: "topic-one", reply_to_message_id: 10}
+      )
+
+    assert_receive {:sink_got, :writer, "EXPLICIT REPLY"}, 8_000
+    refute_receive {:sink_reply, _, _, _}, 500
+  end
+
   test "a turn with no stdout answer emits no_final_text and delivers nothing",
        %{workspace: ws, fixture: fixture} do
     handler_id = "no-final-text-#{System.unique_integer([:positive])}"

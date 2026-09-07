@@ -93,6 +93,14 @@ defmodule Genswarms.Objects.ObjectServer do
     GenServer.cast(via_tuple(swarm_name, object_name), {:deliver_message, from, content})
   end
 
+  @doc "Delivers an engine-completed reply with host-only task context to a native sink."
+  def deliver_agent_reply(swarm_name, object_name, from, text, context) do
+    GenServer.cast(
+      via_tuple(swarm_name, object_name),
+      {:deliver_agent_reply, from, text, context}
+    )
+  end
+
   @doc """
   Delivers a synchronous ask from an agent (`swarm-msg ask` → `Router.ask/5`).
 
@@ -548,11 +556,34 @@ defmodule Genswarms.Objects.ObjectServer do
     {:reply, {:error, :not_an_agent}, state}
   end
 
+  def handle_call({:send_task, _task, _context}, _from, state) do
+    {:reply, {:error, :not_an_agent}, state}
+  end
+
   def handle_call({:update_skill, _name, _content}, _from, state) do
     {:reply, {:error, :not_an_agent}, state}
   end
 
   @impl true
+  def handle_cast({:deliver_agent_reply, from, text, context}, state) do
+    if state.mode == :native and state.state != :error and
+         function_exported?(state.handler, :handle_agent_reply, 4) do
+      handle_native_message(
+        from,
+        text,
+        %{state | state: :working, last_activity: DateTime.utc_now()},
+        {:agent_reply, context}
+      )
+    else
+      Logger.warning(
+        "[#{state.swarm_name}/#{state.name}] Refused context-bearing agent reply: sink unavailable or unsupported"
+      )
+
+      emit_telemetry(:agent_reply_refused, state, %{from: from})
+      {:noreply, state}
+    end
+  end
+
   def handle_cast({:deliver_message, from, content}, state) do
     if state.state == :error do
       Logger.warning(
@@ -740,12 +771,21 @@ defmodule Genswarms.Objects.ObjectServer do
   # undiagnosable in a container. Contain the crash, log it WITH the
   # stacktrace where operators can query it, and keep the state the failed
   # call never replaced.
-  defp handle_native_message(from, content, state) do
+  defp handle_native_message(from, content, state, delivery \\ :message) do
     result =
       try do
+        returned =
+          case delivery do
+            :message ->
+              state.handler.handle_message(from, content, state.handler_state)
+
+            {:agent_reply, context} ->
+              state.handler.handle_agent_reply(from, content, context, state.handler_state)
+          end
+
         {:ok,
          dispatch_handler_return(
-           state.handler.handle_message(from, content, state.handler_state),
+           returned,
            state
          )}
       rescue

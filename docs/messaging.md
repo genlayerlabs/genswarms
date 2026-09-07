@@ -157,6 +157,19 @@ On timeout (`SWARM_ASK_TIMEOUT` seconds, default 30) it prints an `ok:false`/`ti
 
 **`reply_to` auto-delivery.** An agent can be configured with a `reply_to:` object in its config; each turn's derived reply text is then delivered to that sink object automatically, once per turn — unless the agent already sent to that target during the turn. This is opt-in, for reply-sink topologies.
 
+Host callers that reuse a slot across conversations or topics should supply
+`AgentServer.send_task(swarm, agent, text, reply_context: context)`. The opaque
+context stays out of the backend input and task history, follows queued tasks,
+and is captured with each completed reply before the grace timer starts. The
+native sink receives `handle_agent_reply(from, text, context, state)` instead
+of `handle_message/3`; it can resolve the original delivery binding without
+consulting the slot's newer assignment. This callback is host-only, not a JSON
+action or an agent-callable Router surface. Unsupported/process-mode sinks
+refuse context-bearing delivery; the engine never silently discards context
+to fall back to plain text. Context-free tasks retain the existing plain-text
+delivery and never inherit an earlier task's context. Explicit sends and turn
+timeouts retain the same suppression rules.
+
 > `swarm-msg` JSON-encodes message bodies with `jq` (for `send`) or `python3` (for `broadcast`), falling back to a `sed`/`awk` escaper when those tools are absent — so the preset's available tools affect encoding fidelity for unusual payloads.
 
 ### `SWARM_TOPOLOGY` for `swarm-msg list`

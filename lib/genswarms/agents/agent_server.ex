@@ -58,6 +58,7 @@ defmodule Genswarms.Agents.AgentServer do
     # discarded. nil ⇒ feature off (default).
     reply_to: nil,
     reply_grace_ms: 1_000,
+    reply_context: nil,
     turn_seq: 0,
     # Set of {target, turn_seq} marks: the agent explicitly sent to `target`
     # during turn `turn_seq` ({:__broadcast__, seq} marks a broadcast, which
@@ -142,10 +143,16 @@ defmodule Genswarms.Agents.AgentServer do
   end
 
   @doc """
-  Sends a task to the agent.
+  Sends a task to the agent. Optional `:reply_context` is host-owned opaque data:
+  it is never sent to the backend and travels with this task's automatic reply
+  to the sink's `handle_agent_reply/4` callback, even across queued turns.
+  Omit it to retain the ordinary plain-text `handle_message/3` delivery.
   """
-  def send_task(swarm_name, agent_name, task) do
-    GenServer.call(via_tuple(swarm_name, agent_name), {:send_task, task})
+  def send_task(swarm_name, agent_name, task, opts \\ []) do
+    GenServer.call(
+      via_tuple(swarm_name, agent_name),
+      {:send_task, task, Keyword.get(opts, :reply_context)}
+    )
   end
 
   @doc """
@@ -684,6 +691,10 @@ defmodule Genswarms.Agents.AgentServer do
   # send in one turn can never eat a different turn's answer. Consumed marks
   # are pruned. (Expired turns were never scheduled; see schedule_auto_deliver.)
   def handle_info({:auto_deliver, seq, text}, state) do
+    handle_info({:auto_deliver, seq, text, nil}, state)
+  end
+
+  def handle_info({:auto_deliver, seq, text, context}, state) do
     explicit? =
       MapSet.member?(state.turn_sends, {state.reply_to, seq}) or
         MapSet.member?(state.turn_sends, {:__broadcast__, seq})
@@ -693,7 +704,7 @@ defmodule Genswarms.Agents.AgentServer do
         emit_telemetry(:auto_deliver_skipped, state, %{reason: :explicit_send, turn: seq})
         state
       else
-        deliver_to_sink(state, seq, text)
+        deliver_to_sink(state, seq, text, context)
       end
 
     # Prune everything this turn could still consume — marks for seqs <= this
@@ -712,7 +723,11 @@ defmodule Genswarms.Agents.AgentServer do
   end
 
   @impl true
-  def handle_call({:send_task, task}, _from, state) do
+  def handle_call({:send_task, task}, from, state) do
+    handle_call({:send_task, task, nil}, from, state)
+  end
+
+  def handle_call({:send_task, task, context}, _from, state) do
     case state.state do
       s when s in [:idle, :working, :blocked, :needs_attention] ->
         # Queue the task in the Inbox instead of forwarding it to the backend
@@ -736,6 +751,7 @@ defmodule Genswarms.Agents.AgentServer do
                  from: "orchestrator",
                  content: task,
                  received_at: DateTime.utc_now(),
+                 reply_context: context,
                  task?: true
                }) do
             {:ok, new_inbox} ->
@@ -757,7 +773,7 @@ defmodule Genswarms.Agents.AgentServer do
         else
           message = AgentProtocol.encode_task(task)
 
-          case start_backend_turn(state, message) do
+          case start_backend_turn(state, message, context) do
             {:ok, started_state} ->
               emit_telemetry(:task_sent, started_state, %{task: task})
 
@@ -1235,7 +1251,7 @@ defmodule Genswarms.Agents.AgentServer do
   # reply_to would otherwise silently no-op (while telemetry claimed delivery)
   # or inject the text into another AGENT — bypassing topology entirely and
   # enabling unbounded agent↔agent loops.
-  defp deliver_to_sink(state, seq, text) do
+  defp deliver_to_sink(state, seq, text, context) do
     case Registry.lookup(Genswarms.AgentRegistry, {state.swarm_name, state.reply_to}) do
       [{_pid, :object}] ->
         # Delivered DIRECTLY to the sink object, not via Router.route: the
@@ -1243,7 +1259,18 @@ defmodule Genswarms.Agents.AgentServer do
         # so topology validation adds nothing — and routing would arm the
         # async-reply ordering guard if the sink had a back-edge, gating the
         # agent's inbox for a delivery that expects no reply.
-        ObjectServer.deliver_message(state.swarm_name, state.reply_to, state.name, text)
+        if is_nil(context) do
+          ObjectServer.deliver_message(state.swarm_name, state.reply_to, state.name, text)
+        else
+          ObjectServer.deliver_agent_reply(
+            state.swarm_name,
+            state.reply_to,
+            state.name,
+            text,
+            context
+          )
+        end
+
         emit_telemetry(:auto_delivered, state, %{turn: seq, bytes: byte_size(text)})
         state
 
@@ -1284,7 +1311,7 @@ defmodule Genswarms.Agents.AgentServer do
   # suppression mark must survive this turn starting (see handle_info
   # {:auto_deliver, ...} — suppression compares per-target send seq, not a
   # per-turn flag).
-  defp begin_turn(state) do
+  defp begin_turn(state, context) do
     if state.turn_timer_ref, do: Process.cancel_timer(state.turn_timer_ref)
     seq = state.turn_seq + 1
 
@@ -1297,7 +1324,14 @@ defmodule Genswarms.Agents.AgentServer do
     # idle-time noise) so it can't leak into this turn's derived reply text.
     # Turns are serial (a task arriving mid-turn queues in the Inbox), so
     # nothing in-flight is ever discarded here.
-    %{state | buffer: "", turn_seq: seq, turn_timer_ref: timer_ref, turn_expired: false}
+    %{
+      state
+      | buffer: "",
+        turn_seq: seq,
+        turn_timer_ref: timer_ref,
+        turn_expired: false,
+        reply_context: context
+    }
   end
 
   defp normalize_reply_to(nil), do: nil
@@ -1347,7 +1381,12 @@ defmodule Genswarms.Agents.AgentServer do
         drop_own_turn_marks(state)
 
       text ->
-        Process.send_after(self(), {:auto_deliver, state.turn_seq, text}, state.reply_grace_ms)
+        Process.send_after(
+          self(),
+          {:auto_deliver, state.turn_seq, text, state.reply_context},
+          state.reply_grace_ms
+        )
+
         state
     end
   end
@@ -1406,12 +1445,12 @@ defmodule Genswarms.Agents.AgentServer do
 
   defp maybe_process_inbox(%{state: :idle, inbox: inbox} = state) do
     case Inbox.peek(inbox) do
-      {:ok, %{content: content, task?: true}} ->
+      {:ok, %{content: content, task?: true} = task} ->
         # Queued user task — encode as a task (not a message) so the agent
         # receives it byte-identical to a directly-delivered task.
         message = AgentProtocol.encode_task(content)
 
-        case start_backend_turn(state, message) do
+        case start_backend_turn(state, message, Map.get(task, :reply_context)) do
           {:ok, started_state} ->
             {:ok, _entry, new_inbox} = Inbox.pop(inbox)
             emit_telemetry(:task_sent, started_state, %{task: content})
@@ -1451,8 +1490,8 @@ defmodule Genswarms.Agents.AgentServer do
     end
   end
 
-  defp start_backend_turn(state, message) do
-    started_state = begin_turn(state)
+  defp start_backend_turn(state, message, context \\ nil) do
+    started_state = begin_turn(state, context)
 
     case send_to_backend(started_state, message) do
       {:ok, metadata} ->

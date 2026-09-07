@@ -14,6 +14,12 @@ defmodule Genswarms.Test.SinkHandler do
   end
 
   @impl true
+  def handle_agent_reply(from, text, context, state) do
+    send(state.test_pid, {:sink_reply, from, text, context})
+    {:noreply, state}
+  end
+
+  @impl true
   def interface(), do: %{}
 end
 
