@@ -82,9 +82,16 @@ defmodule Genswarms.Backends.EgressGuard do
           volume: String.t() | nil
         }
 
-  @doc "Whether the agent config requested network isolation."
+  @doc """
+  Whether the agent config requested network isolation.
+
+  Data-only configs (JSON/YAML files, the add-agent API) carry the value as the
+  string `"isolated"`; only the IR path normalizes it to the atom. Both spellings
+  mean isolation here — the same rule the tmux and Apple backends apply — so a
+  string never falls through to "open network".
+  """
   @spec isolated?(map()) :: boolean()
-  def isolated?(config), do: Map.get(config, :network, :open) == :isolated
+  def isolated?(config), do: Map.get(config, :network, :open) in [:isolated, "isolated"]
 
   @doc "Sandbox-side path of the forwarder socket (for `.curlrc`)."
   @spec sandbox_socket() :: String.t()

@@ -62,6 +62,13 @@ defmodule Genswarms.Backends.DockerBackendTest do
       assert "CURL_HOME=/workspace" in isolated_args()
     end
 
+    test "the string spelling from data-only configs isolates the same way" do
+      args = build(%{network: "isolated", workspace: "/tmp/szc-ws/agent"})
+      assert ["--network", "none" | _] = drop_until(args, "--network")
+      refute "isolated" in args
+      assert "CURL_HOME=/workspace" in args
+    end
+
     test "mounts the per-agent workspace at /workspace so .curlrc is visible" do
       assert "/tmp/szc-ws/agent:/workspace" in isolated_args()
     end

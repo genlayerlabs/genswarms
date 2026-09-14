@@ -8,13 +8,21 @@ defmodule Genswarms.Backends.EgressGuardTest do
       assert EgressGuard.isolated?(%{network: :isolated})
       refute EgressGuard.isolated?(%{network: :open})
       refute EgressGuard.isolated?(%{})
-      refute EgressGuard.isolated?(%{network: "isolated"})
+      refute EgressGuard.isolated?(%{network: "open"})
+      refute EgressGuard.isolated?(%{network: "my-net"})
+    end
+
+    test "accepts the JSON/YAML/REST spelling of isolation" do
+      # Data-only configs (`Loader`, `POST /api/swarms/:s/agents`) keep the
+      # value as a string; it must not silently mean "open network".
+      assert EgressGuard.isolated?(%{network: "isolated"})
     end
   end
 
   describe "bwrap_net_args/1" do
     test "drops the net namespace only under isolation" do
       assert EgressGuard.bwrap_net_args(%{network: :isolated}) == ["--unshare-net"]
+      assert EgressGuard.bwrap_net_args(%{network: "isolated"}) == ["--unshare-net"]
       assert EgressGuard.bwrap_net_args(%{network: :open}) == []
       # default (no key) must keep current behavior — network stays available
       assert EgressGuard.bwrap_net_args(%{}) == []
