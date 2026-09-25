@@ -33,6 +33,8 @@ proof sections switch to a calmer, precise register on a deeper sand; the close 
 
 ## 3. Narrative and page structure
 
+> **Copy superseded 2026-09-25:** the page copy now follows `design/2026-09-25-copy-deck.md` (owner-approved, ≈ 430 words, genlayerlabs.com voice). The structure and figures below still apply; where wording differs, the copy deck wins.
+
 Owner's copy, kept in structure and voice. Edits are limited to the honesty rules in §4 ("permissions" becomes
 "boundaries"; "and share context" dropped from the list).
 
