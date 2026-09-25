@@ -1,21 +1,21 @@
 {
  "_about": "Written by `node website/build.mjs` after a successful build; `--check` (CI, deploy) refuses when the English source, a translation or a built file no longer matches it.",
- "source": "fdcd626b32674da8797f59a703ff41c18dcf02b7762253ae2bff0c00af18682f",
+ "source": "0f8407c87a789f7eab04b414d116847beb6150df99ce228e62b5b5d1496b3af4",
  "i18n": {
   "en.json": "008aba17942dc62dd028be23f7d10decd6bcfa45c7c0b5562ad125c7a9b7f167",
-  "es.json": "ec90319d1c432ca6835f6931757260c9e1f0a5d1a88f3886f572068143a2f824",
+  "es.json": "d6f8fb5e40b2b648e84d26797695e4980c06bc93fccd1431e47f78d132f1fa63",
   "ko.json": "539880f87d327c495188a63122bf433cfa7eca9a5ca5f16dc31d924fe7e2af51",
   "zh.json": "0808cb93dc5e2cff7186b401c00675d240122be6cf5c03897bf0ecf73bfdf41e",
   "ru.json": "21324137469d1889f1106f8dfc23c78aa754e027f31f91cfdff6d8586f2736cc",
-  "tr.json": "9880850aad60e18e5f8ebdb48bbe1d118b1814470391764c1091f9cf61ba6bd5"
+  "tr.json": "77ee2eed0207e2d90957107d89b32e8b9227d58a4333476f9cc755819f67c730"
  },
  "outputs": {
-  "index.html": "4eec3055de055e0b1d7bde77fcc34eb6fb260989c3abfad6f62015dcf79d7627",
-  "es/index.html": "cb8ff297d3d589356ec0be402394d096e7d95776e43dbf3b7b271bd83f62ee62",
-  "ko/index.html": "b934f63a8f0f2872f799b7a73decdf6004207f30a9a2651d0a7db6772d85f27b",
-  "zh/index.html": "fa731ff1f405f0fe78189bc4b9ff470863cd3b770c9a24151f7155632dc19ef7",
-  "ru/index.html": "5725a44c7b94ada61647b7277fe27ad57b18b9a36871f55dcd11b728e4239a2f",
-  "tr/index.html": "7301f4197b84770e39cfd46db591a02093d80f000825b2ac655bd07078587ec6",
+  "index.html": "76636356a15af6ff1951c26d4ca77bf3da2296ff877473d21f7772684af13c2d",
+  "es/index.html": "7e7094d3d2308a920ad26803f5cf9c14189335cfd5a98f79d8b412d3ec5ff36c",
+  "ko/index.html": "4070657430e22baaf24775df143b09296a6fc3f9ec788c4a17698216816bb606",
+  "zh/index.html": "08c2614e5778c39dfaa1843de79c00d7092752005511732676b4da67f6aa43ab",
+  "ru/index.html": "b0d0c9b3dd7d7c2ef48d40dd099153da2b04ea6d32b24947cce79ef046b26586",
+  "tr/index.html": "01fdb701d6f41bc3c058793a3fd7fa3fd7b9559fa835281cf474bf53335f7afc",
   "404.html": "15fc02007ec42ca773e6e44b123f566fe993fe6c34ab735a3dddd94125d8e896",
   "sitemap.xml": "29e8962955f2e4fbf244b8f0838f4afeab2d6cefeca905d3f45070e43554f00d",
   "llms.txt": "001fad65364fef111475b284facd760455f0ae2b9d0fcc1a56b11d9a7dc60e6c"

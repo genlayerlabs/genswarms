@@ -14,7 +14,7 @@ Sources read: `README.md`; `docs/architecture.md` (supervision tree); `messaging
 
 | Concept / object | Source term | What it is | Must stay distinct from | RU | Short form | Avoid | Source |
 |---|---|---|---|---|---|---|---|
-| The analogy | operating system | The computer OS, used as a metaphor for the whole product | platform, framework | операционная система | — (the word «ОС» is never used on the page; the full form fits everywhere, see SVG notes) | «платформа», «ОС» in headlines | copy deck v2 "Think of it as an operating system" |
+| The analogy | operating system | The computer OS, used as a metaphor for the whole product | platform, framework | операционная система | — (in full everywhere except figure 3's band label, which is «ОС»: see Layout pass) | «платформа», «ОС» in headlines | copy deck v2 "Think of it as an operating system" |
 | The vision | AI workforce(s) | Many agents working as an organization's staff | a swarm/team; labour-market «рабочая сила» | ИИ-персонал («для ИИ-персонала») | — | «рабочая сила ИИ» (labour statistics), «ИИ-сотрудники» (tried first: the plural breaks into «ИИ-сотрудни-ков» in the h1) | concepts.md "staff/personnel of an organization" |
 | Agent | agent | An LLM-backed worker, run as its own process | object; model | агент; «ИИ-агент» in the meta, the hero lede and the JSON-LD | агент | «бот» | README; Labs «ИИ-агенты» |
 | Object | object | Deterministic code (an Elixir handler) on the same message graph | agent | объект; always glossed as «обычный код» / «детерминированный код» | объект | «сервис» as the noun (the spec row *label* "Services" is «Сервисы», with «объекты: …» after it) | docs/objects.md |
@@ -60,7 +60,7 @@ Sources read: `README.md`; `docs/architecture.md` (supervision tree); `messaging
 
 | Concept | Choice | Why |
 |---|---|---|
-| "operating system" (flagship) | **операционная система**, always in full | This is the computer term, and the metaphor needs it. «ОС» would be shorter, but in a headline it reads as jargon. The h1 hyphenates as «Операцион-ная» at 1440px; that is correct Russian hyphenation. |
+| "operating system" (flagship) | **операционная система**, in full everywhere except figure 3's band label («ОС», see Layout pass) | This is the computer term, and the metaphor needs it. «ОС» would be shorter, but in a headline it reads as jargon. The h1 hyphenates as «Операцион-ная» at 1440px; that is correct Russian hyphenation. |
 | "workforce" | **ИИ-персонал** | «Персонал» is literally the staff of an organization, a collective noun just like "workforce". «Рабочая сила» is labour-market statistics. «ИИ-сотрудники» is warmer, but the plural genitive «ИИ-сотрудников» is too long for the h1 column and broke into five lines with «сотрудни-ков». |
 | "runs" (GenSwarms runs the organization / runs agents) | kicker **управляет**; product sentences **запускает / выполняет** | In Russian OS vocabulary «ОС управляет процессами» is the standard technical verb, so it doesn't turn GenSwarms into a human manager. «Запускает организацию» is wrong ("launches"). «Ведёт» / «держит» are vague or colloquial. For programs and agents the verb is «запускает» (meta) and «выполняет» ("An OS runs programs…" becomes «выполняет чужие программы»). |
 | "control" (lede, control layer, Control row) | lede **контролируйте**; layer / row **управление** | "Deploy, coordinate and control" is three imperatives sharing one accusative object, and «контролировать» keeps the English beat. "Control layer" and the Control row are about driving the system, which is «управление». |
@@ -82,7 +82,7 @@ None. Every catalogue string has a Russian form; `_same_as_english` is not used.
 
 | id | label | chars / max | rendered |
 |---|---|---|---|
-| 2caa6242 | операционная система | 20 / 17 | Over the hint. It fits inside the dark band with room to spare at 1440 and 390 (checked). «ОС» would be the fallback, but the flagship term is worth the 3 characters. |
+| 2caa6242 | операционная система (superseded: «ОС», see Layout pass) | 20 / 17 | Over the hint. It fits inside the dark band with room to spare at 1440 and 390 (checked). «ОС» would be the fallback, but the flagship term is worth the 3 characters. |
 | ad3f9aa5 | отброшено | 9 / 8 | Over by 1. It fits to the left of the ✕ at 1440 and above it at 390, with no collision. «Сброшено» (8) exists but reads as "reset/shed". |
 | 97dfad27 | восстановление: исходное + {n} изм. | 33 (with n=2) / 33 | At the limit. «изм.» avoids number agreement (2 изменения / 5 изменений) and fits the column. |
 | 5fc8b818 | каждый агент — это процесс в своих границах | 43 / 43 | At the limit, one line at 390. |
@@ -107,7 +107,7 @@ I read `/ru/` cold at 1440×900 and 390×844 first, then compared it with the En
 ### Flagship verdicts
 
 - **AI workforce → ИИ-персонал: keep.** «Персонал» is the staff of an organization, a collective noun like "workforce". «ИИ-сотрудники» doesn't fit the h1, and «рабочая сила» is labour statistics. It is not a set phrase yet, but it is immediately clear.
-- **operating system → операционная система: keep, always in full.** It is hyphenated in the h1 at 1440 («Операцион-ная») and in the step 3 h2 at both widths («операци-онная»). The column is narrower than the word at display size and the headline is a hyphens:auto title, so text alone can't avoid it. The breaks are correct Russian hyphenation. «ОС» would read as jargon.
+- **operating system → операционная система: keep, in full everywhere except figure 3's band label («ОС», see Layout pass).** It is hyphenated in the h1 at 1440 («Операцион-ная») and in the step 3 h2 at both widths («операци-онная»). The column is narrower than the word at display size and the headline is a hyphens:auto title, so text alone can't avoid it. The breaks are correct Russian hyphenation. «ОС» would read as jargon.
 - **supervisor → супервизор: keep.** This is the established term in Russian Erlang/Elixir writing, it was already approved in the Labs ledger, and it never reads as a human boss.
 - **runs the organization → управляет организацией: keep.** «Управляет организацией» can mean what a director does. The English "runs the organization" has the same double reading on purpose (an OS runs programs, a CEO runs a company), and the concrete sentences around it use «запускает / выполняет». No verb is closer.
 - **Three-beat kicker → «Модели дают интеллект. Агенты делают работу. GenSwarms управляет организацией.»: keep.** Each beat is subject + verb + object. «Дают интеллект» is plain rather than elegant, but «Модели думают» would anthropomorphize and change the claim.

@@ -44,10 +44,12 @@ const CJK_CSS = `${TITLES}{letter-spacing:0}h1{line-height:1.12}.step h2,.close 
 const TABLE = `.cmp th,.cmp td{overflow-wrap:break-word}@media (min-width:1000px) and (max-width:1279px){.cmp th,.cmp td{hyphens:auto;-webkit-hyphens:auto;overflow-wrap:anywhere}}`;
 const TYPE = {
   es: { fonts: [FONTS_ALL], css: TABLE },
-  ru: { fonts: FONTS_SYS, css: `:root{--fd:${SYS.ru};--ft:${SYS.ru}}${WORDMARK}${LONG}${TABLE}` },
+  // the desktop hero is ~20% smaller in Russian so «Операционная» stays one word at 1000-1440px
+  ru: { fonts: FONTS_SYS, css: `:root{--fd:${SYS.ru};--ft:${SYS.ru}}${WORDMARK}${LONG}${TABLE}@media (min-width:1000px){h1,.cine h1{font-size:4.3vw}}` },
   tr: { fonts: [FONTS_ALL], css: LONG + TABLE },
   ko: { fonts: FONTS_SYS, css: `:root{--fd:${SYS.ko};--ft:${SYS.ko}}${WORDMARK}body{word-break:keep-all;overflow-wrap:break-word}${CJK_CSS}` },
-  'zh-Hans': { fonts: FONTS_SYS, css: `:root{--fd:${SYS['zh-Hans']};--ft:${SYS['zh-Hans']}}${WORDMARK}${CJK_CSS}` },
+  // Chinese wraps between any two characters: keep paragraphs from ending on one stranded character
+  'zh-Hans': { fonts: FONTS_SYS, css: `:root{--fd:${SYS['zh-Hans']};--ft:${SYS['zh-Hans']}}${WORDMARK}${CJK_CSS}.lead,.close p,.sec-col li{text-wrap:pretty}` },
 };
 
 const still = k => `<figure class="still" aria-label="${escAttr(tf('Figure {n}', { n: k + 1 }, 'story figures: accessible name of each drawing ({n} = 1…9)', { kind: 'attr' }))}">

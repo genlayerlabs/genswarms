@@ -108,3 +108,9 @@ Native editor read of `/tr/` at 1440×900 and 390×844, cold first, then against
 | 86d0513d | Organizasyonu GenSwarms işletir. | Organizasyonu GenSwarms&nbsp;işletir. | Line break only. At 1440 and 390 the verb was left alone on the last line. |
 | 8ee1cf08 | Çalıştırmayı; ajanlar hatalarda yeniden dener, akışlar durumunu saklayıp kaldığı yerden sürebilir | Çalıştırmayı; ajanlar hatada yeniden dener, akışlar durumu saklayıp kaldıkları yerden sürebilir | "Kaldığı" didn't agree with the plural "akışlar", and the sentence scans better this way. The facts are unchanged (this cell is sourced), and it is 2 characters shorter. |
 | 4713393e | Tek bir ekiple başlayın. Binlerce ajana ölçeklenin. | Tek bir ekiple başlayın. Binlerce ajana büyüyün. | "Ölçeklenin" is a SaaS calque. "X ile başlayın, Y’ye büyüyün" is the natural Turkish pair (as in "şirket 500 çalışana büyüdü"), and it is not a stronger claim. Shorter. |
+
+## Final review (controller)
+
+| id | before | after | reason |
+|---|---|---|---|
+| 97dfad27 | geri yükle: tanım + {n} değişiklik | geri yükleme: tanım + {n} değişiklik | Final review: the English label is a noun; the spec row already says «geri yükleme». |

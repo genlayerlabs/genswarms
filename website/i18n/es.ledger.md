@@ -137,3 +137,9 @@ Other doubts from the translator: **código convencional** is kept, since "softw
 | 57573a62 | …o se extravió fuera de la topología. | …o se salió de la topología. | "Extraviarse fuera" is redundant. Shorter and more playful. |
 
 Checked and left as they are: the h1 and its break ("fuerza / laboral de IA."), "Instala lo que necesitan tus agentes." (3 lines on desktop with "tus agentes" together, 2 on phones; "lo que tus agentes necesitan" is less natural), "Contrólalo por API o CLI" (the neuter *lo* covers "all of this"), "Leer" in the suggestion bar (the SubZeroClaw precedent), "descartado" (10/8, renders cleanly).
+
+## Final review (controller)
+
+| id | before | after | reason |
+|---|---|---|---|
+| 0991c336 | Leer | Leer en español | Final review: the suggestion-bar link should name the language (the catalogue asks for it, and a bare «Leer» is weak for screen readers). |
