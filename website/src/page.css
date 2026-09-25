@@ -230,7 +230,6 @@ figcaption{font-size:14.5px;line-height:1.45;color:var(--ink-2);margin-top:14px;
   .os-headrow{padding:0 0 10px}
   .os-headrow span:last-child{display:block}
 }
-.draft{display:inline-block;margin-top:6px!important;font:600 13.5px/1 var(--ft);color:var(--clay)!important;border:1px solid var(--clay);border-radius:999px;padding:7px 12px}
 
 .cmp-wrap{min-width:0}
 .cmp{width:100%;border-collapse:collapse;font-size:16px;line-height:1.45}
@@ -285,7 +284,8 @@ figcaption{font-size:14.5px;line-height:1.45;color:var(--ink-2);margin-top:14px;
 .foot-in{max-width:1400px;margin:0 auto;padding:30px var(--g) 76px;display:flex;flex-wrap:wrap;align-items:center;gap:14px 32px;font-size:14.5px}
 .foot .brand{color:var(--sand);font-size:18px}
 .foot p{margin:0;flex:1;min-width:220px}
-.foot nav{display:flex;gap:22px}
+.foot nav{display:flex;flex-wrap:wrap;gap:0 22px}
+.foot .legal{flex-basis:100%;font-size:13.5px}
 .foot nav a{text-decoration:none}
 .foot nav a:hover{color:var(--sand)}
 

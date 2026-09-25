@@ -84,7 +84,6 @@ ${stepsHTML}
   <div class="band-head">
     <h2 id="cmp-h">A runtime, not a library.</h2>
     <p>LangGraph, CrewAI and AutoGen are good ways to write agent logic. GenSwarms is where agents run: as processes it starts, isolates, connects and restarts.</p>
-    <p class="draft">Draft — to be fact-checked</p>
   </div>
   <div class="cmp-wrap">
     <table class="cmp">
@@ -100,17 +99,17 @@ ${stepsHTML}
 <section class="band" id="security" aria-labelledby="sec-h">
   <div class="band-head">
     <h2 id="sec-h">Security and operations.</h2>
-    <p>What the runtime guarantees today, and what it does not do yet. Swarms run up to 100 agents by default; the limit is configurable.</p>
+    <p>What the runtime guarantees today, and what it does not do yet.</p>
   </div>
   <div class="sec-cols">
     <div class="sec-col">
       <h3>What it guarantees</h3>
       <ul class="yes">
-        <li>Every agent is a separate supervised process; a crash restarts that agent, not the swarm.</li>
-        <li>Agents can run in their own sandbox: bwrap with a copy-on-write root and seccomp, Docker or Apple container.</li>
-        <li>Messages move only along the declared topology, and every hop is checked.</li>
-        <li>A bad configuration is refused at boot, before any agent starts.</li>
-        <li>With <code>network: :isolated</code>, an agent reaches its model endpoint and nothing else.</li>
+        <li>Every agent is a separate supervised process and a crash restarts that agent, not the swarm.</li>
+        <li>Agents can run in their own sandbox.</li>
+        <li>Messages move only along the declared topology and every hop is checked.</li>
+        <li>A bad configuration is refused at boot.</li>
+        <li>An isolated agent reaches its model endpoint and nothing else.</li>
         <li>Packages are signed and verified, with a transparency log.</li>
         <li>Every message, crash, restart and output is on one live event stream.</li>
       </ul>
@@ -118,9 +117,10 @@ ${stepsHTML}
     <div class="sec-col">
       <h3>What it doesn’t do yet</h3>
       <ul class="not">
-        <li>There is one operator token. Per-user roles are not built yet.</li>
-        <li>Messages are delivered at least once, not exactly once. Design handlers to tolerate a repeat.</li>
-        <li>The core has no token or dollar caps. Budget packages exist for that.</li>
+        <li>One operator token (no per-user roles yet).</li>
+        <li>Messages are delivered at least once, not exactly once.</li>
+        <li>No token or dollar caps in the core (budget packages exist).</li>
+        <li>Swarms run up to 100 agents by default; the limit is configurable.</li>
       </ul>
     </div>
   </div>
@@ -143,8 +143,9 @@ ${stepsHTML}
 <footer class="foot">
   <div class="foot-in">
     <a class="brand" href="#s0">${mark()}GenSwarms</a>
-    <p>Open source under the MIT license. Version 0.2.0.</p>
-    <nav aria-label="Footer"><a href="/docs/">Docs</a><a href="https://github.com/genlayerlabs/genswarms">GitHub</a><a href="https://github.com/genlayerlabs/genswarms/blob/main/LICENSE">License</a></nav>
+    <p>The operating system for AI workforces.</p>
+    <nav aria-label="Footer"><a href="/docs/">Docs</a><a href="https://github.com/genlayerlabs/genswarms">GitHub</a><a href="https://github.com/genlayerlabs/genswarms/blob/main/LICENSE">License</a><a href="/skill.md">skill.md</a><a href="/llms.txt">llms.txt</a></nav>
+    <p class="legal">© 2026 GenLayer Labs · MIT License</p>
   </div>
 </footer>
 

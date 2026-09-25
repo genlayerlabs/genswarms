@@ -242,7 +242,6 @@ figcaption{font-size:14.5px;line-height:1.45;color:var(--ink-2);margin-top:14px;
   .os-headrow{padding:0 0 10px}
   .os-headrow span:last-child{display:block}
 }
-.draft{display:inline-block;margin-top:6px!important;font:600 13.5px/1 var(--ft);color:var(--clay)!important;border:1px solid var(--clay);border-radius:999px;padding:7px 12px}
 
 .cmp-wrap{min-width:0}
 .cmp{width:100%;border-collapse:collapse;font-size:16px;line-height:1.45}
@@ -297,7 +296,8 @@ figcaption{font-size:14.5px;line-height:1.45;color:var(--ink-2);margin-top:14px;
 .foot-in{max-width:1400px;margin:0 auto;padding:30px var(--g) 76px;display:flex;flex-wrap:wrap;align-items:center;gap:14px 32px;font-size:14.5px}
 .foot .brand{color:var(--sand);font-size:18px}
 .foot p{margin:0;flex:1;min-width:220px}
-.foot nav{display:flex;gap:22px}
+.foot nav{display:flex;flex-wrap:wrap;gap:0 22px}
+.foot .legal{flex-basis:100%;font-size:13.5px}
 .foot nav a{text-decoration:none}
 .foot nav a:hover{color:var(--sand)}
 
@@ -375,7 +375,7 @@ figcaption{font-size:14.5px;line-height:1.45;color:var(--ink-2);margin-top:14px;
     <p>A computer operating system manages the processes, resources and permissions behind the applications you use. GenSwarms does the same for agents. It determines:</p>
     <ul class="determines">
       <li>which agents exist and what their roles are</li>
-      <li>what tools, files and systems each agent can reach</li>
+      <li>what tools, data and systems each agent can access</li>
       <li>how work is delegated between agents</li>
       <li>how agents communicate</li>
       <li>how work is checked and escalated</li>
@@ -469,15 +469,15 @@ figcaption{font-size:14.5px;line-height:1.45;color:var(--ink-2);margin-top:14px;
   </div>
   <div class="os-table" role="table" aria-label="Operating-system concepts and their GenSwarms mechanisms">
     <div class="os-row os-headrow" role="row"><span role="columnheader">In an operating system</span><span role="columnheader">In GenSwarms</span></div>
-    <div class="os-row" role="row"><span class="os-k" role="rowheader"><svg class="gl" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="9" class="gl-r"/><circle cx="16" cy="16" r="4.5" class="gl-f"/></svg>Processes</span><span class="os-v" role="cell">Every agent and object runs as a supervised OTP process. Agent groups scale up and down while the swarm runs.</span></div>
-    <div class="os-row" role="row"><span class="os-k" role="rowheader"><svg class="gl" viewBox="0 0 32 32" aria-hidden="true"><rect x="4.5" y="4.5" width="23" height="23" rx="6" class="gl-d"/><circle cx="16" cy="16" r="4.5" class="gl-f"/></svg>Isolation</span><span class="os-v" role="cell">Each agent can get its own sandbox: bwrap namespaces with a copy-on-write root and seccomp, or a Docker or Apple container.</span></div>
-    <div class="os-row" role="row"><span class="os-k" role="rowheader"><svg class="gl" viewBox="0 0 32 32" aria-hidden="true"><circle cx="6" cy="16" r="3.5" class="gl-f"/><circle cx="27" cy="16" r="3.5" class="gl-f"/><path d="M10 16H20" class="gl-s"/><path d="M23 16l-5-3v6z" class="gl-f"/></svg>Communication</span><span class="os-v" role="cell">A declared topology is the only way messages move. Every hop is checked against it.</span></div>
-    <div class="os-row" role="row"><span class="os-k" role="rowheader"><svg class="gl" viewBox="0 0 32 32" aria-hidden="true"><path d="M21 5V27" class="gl-s gl-w"/><path d="M4 16H14" class="gl-s"/><path d="M17 16l-5-3v6z" class="gl-f"/></svg>Boot</span><span class="os-v" role="cell">The IR gate checks the whole configuration before anything starts, and refuses a bad one. It fails closed.</span></div>
-    <div class="os-row" role="row"><span class="os-k" role="rowheader"><svg class="gl" viewBox="0 0 32 32" aria-hidden="true"><path d="M24.5 12A9 9 0 1 0 25 17" class="gl-s"/><path d="M25.5 6.5v6h-6" class="gl-s"/><circle cx="16" cy="16" r="3.5" class="gl-f"/></svg>Recovery</span><span class="os-v" role="cell">Crashed agents restart under supervision. A swarm can be restored from its database.</span></div>
-    <div class="os-row" role="row"><span class="os-k" role="rowheader"><svg class="gl" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="9" width="7" height="14" rx="2" class="gl-s"/><rect x="12.5" y="9" width="7" height="14" rx="2" class="gl-s"/><rect x="21" y="9" width="7" height="14" rx="2" class="gl-s"/></svg>Drivers</span><span class="os-v" role="cell">Seven backends: Local, Tmux (Codex, Claude Code and OpenCode sessions), Docker, Apple container, SSH, Bwrap and Mock.</span></div>
-    <div class="os-row" role="row"><span class="os-k" role="rowheader"><svg class="gl" viewBox="0 0 32 32" aria-hidden="true"><rect x="3.5" y="8.5" width="15" height="15" rx="4" class="gl-d"/><circle cx="11" cy="16" r="3" class="gl-f"/><path d="M18.5 16H23" class="gl-s"/><path d="M27 11.5l3.9 2.25v4.5L27 20.5l-3.9-2.25v-4.5z" class="gl-s"/></svg>Network</span><span class="os-v" role="cell"><code>network: :isolated</code> lets an agent reach its model endpoint and nothing else, on bwrap and Docker.</span></div>
+    <div class="os-row" role="row"><span class="os-k" role="rowheader"><svg class="gl" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="9" class="gl-r"/><circle cx="16" cy="16" r="4.5" class="gl-f"/></svg>Processes</span><span class="os-v" role="cell">Every agent and object runs as a supervised OTP process; agent groups scale up and down while the swarm runs.</span></div>
+    <div class="os-row" role="row"><span class="os-k" role="rowheader"><svg class="gl" viewBox="0 0 32 32" aria-hidden="true"><rect x="4.5" y="4.5" width="23" height="23" rx="6" class="gl-d"/><circle cx="16" cy="16" r="4.5" class="gl-f"/></svg>Isolation</span><span class="os-v" role="cell">Per-agent sandbox: bwrap namespaces with a copy-on-write root and seccomp, or Docker / Apple container.</span></div>
+    <div class="os-row" role="row"><span class="os-k" role="rowheader"><svg class="gl" viewBox="0 0 32 32" aria-hidden="true"><circle cx="6" cy="16" r="3.5" class="gl-f"/><circle cx="27" cy="16" r="3.5" class="gl-f"/><path d="M10 16H20" class="gl-s"/><path d="M23 16l-5-3v6z" class="gl-f"/></svg>Communication</span><span class="os-v" role="cell">A declared topology is the only way messages move; every hop is checked against it.</span></div>
+    <div class="os-row" role="row"><span class="os-k" role="rowheader"><svg class="gl" viewBox="0 0 32 32" aria-hidden="true"><path d="M21 5V27" class="gl-s gl-w"/><path d="M4 16H14" class="gl-s"/><path d="M17 16l-5-3v6z" class="gl-f"/></svg>Boot</span><span class="os-v" role="cell">The IR gate checks the whole configuration before anything starts and refuses a bad one.</span></div>
+    <div class="os-row" role="row"><span class="os-k" role="rowheader"><svg class="gl" viewBox="0 0 32 32" aria-hidden="true"><path d="M24.5 12A9 9 0 1 0 25 17" class="gl-s"/><path d="M25.5 6.5v6h-6" class="gl-s"/><circle cx="16" cy="16" r="3.5" class="gl-f"/></svg>Recovery</span><span class="os-v" role="cell">Crashed agents restart under supervision; a swarm can be restored from its database.</span></div>
+    <div class="os-row" role="row"><span class="os-k" role="rowheader"><svg class="gl" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="9" width="7" height="14" rx="2" class="gl-s"/><rect x="12.5" y="9" width="7" height="14" rx="2" class="gl-s"/><rect x="21" y="9" width="7" height="14" rx="2" class="gl-s"/></svg>Drivers</span><span class="os-v" role="cell">7 backends: Local, Tmux (Codex, Claude Code and OpenCode sessions), Docker, Apple container, SSH, Bwrap, Mock.</span></div>
+    <div class="os-row" role="row"><span class="os-k" role="rowheader"><svg class="gl" viewBox="0 0 32 32" aria-hidden="true"><rect x="3.5" y="8.5" width="15" height="15" rx="4" class="gl-d"/><circle cx="11" cy="16" r="3" class="gl-f"/><path d="M18.5 16H23" class="gl-s"/><path d="M27 11.5l3.9 2.25v4.5L27 20.5l-3.9-2.25v-4.5z" class="gl-s"/></svg>Network</span><span class="os-v" role="cell">With <code>network: :isolated</code> an agent reaches its model endpoint and nothing else (bwrap and Docker).</span></div>
     <div class="os-row" role="row"><span class="os-k" role="rowheader"><svg class="gl" viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="5" width="22" height="22" rx="4" class="gl-s"/><path d="M10.5 16.5l3.8 3.8 7.2-7.8" class="gl-s"/></svg>Packages</span><span class="os-v" role="cell"><code>gsp</code> and the <code>swarmidx</code> notary: signed, verified packages with a transparency log.</span></div>
-    <div class="os-row" role="row"><span class="os-k" role="rowheader"><svg class="gl" viewBox="0 0 32 32" aria-hidden="true"><path d="M5 9H27M5 16H21M5 23H24" class="gl-s"/></svg>Observability</span><span class="os-v" role="cell">One event stream carries every message, crash, restart and output, live over WebSocket.</span></div>
+    <div class="os-row" role="row"><span class="os-k" role="rowheader"><svg class="gl" viewBox="0 0 32 32" aria-hidden="true"><path d="M5 9H27M5 16H21M5 23H24" class="gl-s"/></svg>Observability</span><span class="os-v" role="cell">One event stream: every message, crash, restart and output, live over WebSocket.</span></div>
     <div class="os-row" role="row"><span class="os-k" role="rowheader"><svg class="gl" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="11" width="26" height="10" rx="5" class="gl-f"/></svg>Control</span><span class="os-v" role="cell">A REST API, a WebSocket and a CLI.</span></div>
   </div>
 </section>
@@ -486,17 +486,16 @@ figcaption{font-size:14.5px;line-height:1.45;color:var(--ink-2);margin-top:14px;
   <div class="band-head">
     <h2 id="cmp-h">A runtime, not a library.</h2>
     <p>LangGraph, CrewAI and AutoGen are good ways to write agent logic. GenSwarms is where agents run: as processes it starts, isolates, connects and restarts.</p>
-    <p class="draft">Draft — to be fact-checked</p>
   </div>
   <div class="cmp-wrap">
     <table class="cmp">
       <caption class="sr">GenSwarms compared with LangGraph, CrewAI and AutoGen</caption>
       <thead><tr><th scope="col"><span class="sr">Question</span></th><th scope="col" class="gs">GenSwarms</th><th scope="col">LangGraph</th><th scope="col">CrewAI</th><th scope="col">AutoGen</th></tr></thead>
       <tbody>
-      <tr><th scope="row">What it is</th><td class="gs" data-l="GenSwarms">A runtime that runs agents as isolated processes</td><td data-l="LangGraph">A library you call from your own program</td><td data-l="CrewAI">A framework you call from your own program</td><td data-l="AutoGen">A framework you call from your own program</td></tr>
-      <tr><th scope="row">Where agents run</th><td class="gs" data-l="GenSwarms">Each in its own supervised process, locally, in a sandbox or container, or over SSH</td><td data-l="LangGraph">Where your program runs them</td><td data-l="CrewAI">Where your program runs them</td><td data-l="AutoGen">Where your program runs them</td></tr>
-      <tr><th scope="row">What a crash affects</th><td class="gs" data-l="GenSwarms">The agent that crashed. Its supervisor restarts it</td><td data-l="LangGraph">Handled by your program</td><td data-l="CrewAI">Handled by your program</td><td data-l="AutoGen">Handled by your program</td></tr>
-      <tr><th scope="row">Control surface</th><td class="gs" data-l="GenSwarms">REST API, WebSocket event stream, CLI</td><td data-l="LangGraph">Its API, from your code</td><td data-l="CrewAI">Its API, from your code</td><td data-l="AutoGen">Its API, from your code</td></tr>
+      <tr><th scope="row">What it is</th><td class="gs" data-l="GenSwarms">A runtime that runs each agent as a supervised process</td><td data-l="LangGraph">Orchestration framework and runtime for stateful agents; LangSmith Deployment hosts them</td><td data-l="CrewAI">Open-source framework for agent crews and flows; AMP deploys them</td><td data-l="AutoGen">Multi-agent framework, now in maintenance mode; Microsoft Agent Framework succeeds it</td></tr>
+      <tr><th scope="row">Where agents run</th><td class="gs" data-l="GenSwarms">Each in its own supervised process: local, sandbox, container or SSH</td><td data-l="LangGraph">In your Python or JS process, or on LangSmith Deployment servers</td><td data-l="CrewAI">In your Python process, or on CrewAI AMP managed infrastructure</td><td data-l="AutoGen">In your process, or across workers via its experimental distributed runtime</td></tr>
+      <tr><th scope="row">What a crash affects</th><td class="gs" data-l="GenSwarms">The agent that crashed. Its supervisor restarts it</td><td data-l="LangGraph">The run; checkpoints let it resume, and nodes can retry</td><td data-l="CrewAI">The run; agents retry errors, and flows can persist and resume</td><td data-l="AutoGen">Your code handles it; team state can be saved and reloaded</td></tr>
+      <tr><th scope="row">Control surface</th><td class="gs" data-l="GenSwarms">REST API, WebSocket event stream, CLI</td><td data-l="LangGraph">Python/JS API; Agent Server REST API and streaming when deployed</td><td data-l="CrewAI">Python API; AMP adds a REST API, traces and logs</td><td data-l="AutoGen">Python and .NET APIs; AutoGen Studio GUI for prototyping</td></tr>
       </tbody>
     </table>
   </div>
@@ -505,17 +504,17 @@ figcaption{font-size:14.5px;line-height:1.45;color:var(--ink-2);margin-top:14px;
 <section class="band" id="security" aria-labelledby="sec-h">
   <div class="band-head">
     <h2 id="sec-h">Security and operations.</h2>
-    <p>What the runtime guarantees today, and what it does not do yet. Swarms run up to 100 agents by default; the limit is configurable.</p>
+    <p>What the runtime guarantees today, and what it does not do yet.</p>
   </div>
   <div class="sec-cols">
     <div class="sec-col">
       <h3>What it guarantees</h3>
       <ul class="yes">
-        <li>Every agent is a separate supervised process; a crash restarts that agent, not the swarm.</li>
-        <li>Agents can run in their own sandbox: bwrap with a copy-on-write root and seccomp, Docker or Apple container.</li>
-        <li>Messages move only along the declared topology, and every hop is checked.</li>
-        <li>A bad configuration is refused at boot, before any agent starts.</li>
-        <li>With <code>network: :isolated</code>, an agent reaches its model endpoint and nothing else.</li>
+        <li>Every agent is a separate supervised process and a crash restarts that agent, not the swarm.</li>
+        <li>Agents can run in their own sandbox.</li>
+        <li>Messages move only along the declared topology and every hop is checked.</li>
+        <li>A bad configuration is refused at boot.</li>
+        <li>An isolated agent reaches its model endpoint and nothing else.</li>
         <li>Packages are signed and verified, with a transparency log.</li>
         <li>Every message, crash, restart and output is on one live event stream.</li>
       </ul>
@@ -523,9 +522,10 @@ figcaption{font-size:14.5px;line-height:1.45;color:var(--ink-2);margin-top:14px;
     <div class="sec-col">
       <h3>What it doesn’t do yet</h3>
       <ul class="not">
-        <li>There is one operator token. Per-user roles are not built yet.</li>
-        <li>Messages are delivered at least once, not exactly once. Design handlers to tolerate a repeat.</li>
-        <li>The core has no token or dollar caps. Budget packages exist for that.</li>
+        <li>One operator token (no per-user roles yet).</li>
+        <li>Messages are delivered at least once, not exactly once.</li>
+        <li>No token or dollar caps in the core (budget packages exist).</li>
+        <li>Swarms run up to 100 agents by default; the limit is configurable.</li>
       </ul>
     </div>
   </div>
@@ -548,8 +548,9 @@ figcaption{font-size:14.5px;line-height:1.45;color:var(--ink-2);margin-top:14px;
 <footer class="foot">
   <div class="foot-in">
     <a class="brand" href="#s0"><svg class="mark " viewBox="0 0 26 26" aria-hidden="true"><g stroke="currentColor" stroke-width="1.3"><line x1="6" y1="6" x2="20" y2="9"/><line x1="6" y1="6" x2="9" y2="20"/><line x1="20" y1="9" x2="20" y2="20"/><line x1="9" y1="20" x2="20" y2="20"/><line x1="6" y1="6" x2="20" y2="20"/></g><g fill="currentColor"><circle cx="6" cy="6" r="2.6"/><circle cx="20" cy="9" r="2.6"/><circle cx="9" cy="20" r="2.6"/><circle cx="20" cy="20" r="2.6"/></g></svg>GenSwarms</a>
-    <p>Open source under the MIT license. Version 0.2.0.</p>
-    <nav aria-label="Footer"><a href="/docs/">Docs</a><a href="https://github.com/genlayerlabs/genswarms">GitHub</a><a href="https://github.com/genlayerlabs/genswarms/blob/main/LICENSE">License</a></nav>
+    <p>The operating system for AI workforces.</p>
+    <nav aria-label="Footer"><a href="/docs/">Docs</a><a href="https://github.com/genlayerlabs/genswarms">GitHub</a><a href="https://github.com/genlayerlabs/genswarms/blob/main/LICENSE">License</a><a href="/skill.md">skill.md</a><a href="/llms.txt">llms.txt</a></nav>
+    <p class="legal">© 2026 GenLayer Labs · MIT License</p>
   </div>
 </footer>
 

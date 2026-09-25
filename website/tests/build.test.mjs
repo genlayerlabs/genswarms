@@ -34,3 +34,29 @@ test('no copy lives in the script', () => {
   assert.doesNotMatch(script, /CAPS|ARIA/);
   for (const phrase of ['One agent', 'supervisor restarts', 'Seven teams', 'Copy', 'Copied', 'Select and copy']) assert.ok(!script.includes(phrase), phrase);
 });
+
+const text = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
+
+test('banned claims are absent', () => {
+  assert.doesNotMatch(text, /GenLayer(?! Labs)|unhardcoded|blockchain/i);
+  assert.doesNotMatch(text, /\bRBAC\b|per-user permission|approval workflow|sandboxed packages/i);
+  assert.doesNotMatch(text, /(?<!not )exactly once/i);
+  assert.doesNotMatch(text, /\bmemory\b/i);
+});
+
+test('owner copy edits are applied', () => {
+  assert.match(text, /their roles, tools, boundaries, communication, workflows and supervision/);
+  assert.match(text, /what tools, data and systems each agent can access/);
+  assert.match(text, /how agents communicate(?! and share)/);
+});
+
+test('facts match v0.2.0', () => {
+  assert.match(text, /0\.2\.0/);
+  for (const b of ['Local', 'Tmux', 'Docker', 'Apple container', 'SSH', 'Bwrap', 'Mock']) assert.ok(text.includes(b), b);
+  assert.match(text, /100 agents/);
+  assert.match(text, /illustration/i);
+});
+
+test('comparison has no Draft stamp once sourced', () => {
+  assert.doesNotMatch(text, /Draft/);
+});

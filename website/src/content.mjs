@@ -44,7 +44,7 @@ export const STEPS = [
     <p>A computer operating system manages the processes, resources and permissions behind the applications you use. GenSwarms does the same for agents. It determines:</p>
     <ul class="determines">
       <li>which agents exist and what their roles are</li>
-      <li>what tools, files and systems each agent can reach</li>
+      <li>what tools, data and systems each agent can access</li>
       <li>how work is delegated between agents</li>
       <li>how agents communicate</li>
       <li>how work is checked and escalated</li>
@@ -78,15 +78,15 @@ export const STEPS = [
 ];
 
 export const OS = [
-  ['Processes', 'Every agent and object runs as a supervised OTP process. Agent groups scale up and down while the swarm runs.'],
-  ['Isolation', 'Each agent can get its own sandbox: bwrap namespaces with a copy-on-write root and seccomp, or a Docker or Apple container.'],
-  ['Communication', 'A declared topology is the only way messages move. Every hop is checked against it.'],
-  ['Boot', 'The IR gate checks the whole configuration before anything starts, and refuses a bad one. It fails closed.'],
-  ['Recovery', 'Crashed agents restart under supervision. A swarm can be restored from its database.'],
-  ['Drivers', 'Seven backends: Local, Tmux (Codex, Claude Code and OpenCode sessions), Docker, Apple container, SSH, Bwrap and Mock.'],
-  ['Network', '<code>network: :isolated</code> lets an agent reach its model endpoint and nothing else, on bwrap and Docker.'],
+  ['Processes', 'Every agent and object runs as a supervised OTP process; agent groups scale up and down while the swarm runs.'],
+  ['Isolation', 'Per-agent sandbox: bwrap namespaces with a copy-on-write root and seccomp, or Docker / Apple container.'],
+  ['Communication', 'A declared topology is the only way messages move; every hop is checked against it.'],
+  ['Boot', 'The IR gate checks the whole configuration before anything starts and refuses a bad one.'],
+  ['Recovery', 'Crashed agents restart under supervision; a swarm can be restored from its database.'],
+  ['Drivers', '7 backends: Local, Tmux (Codex, Claude Code and OpenCode sessions), Docker, Apple container, SSH, Bwrap, Mock.'],
+  ['Network', 'With <code>network: :isolated</code> an agent reaches its model endpoint and nothing else (bwrap and Docker).'],
   ['Packages', '<code>gsp</code> and the <code>swarmidx</code> notary: signed, verified packages with a transparency log.'],
-  ['Observability', 'One event stream carries every message, crash, restart and output, live over WebSocket.'],
+  ['Observability', 'One event stream: every message, crash, restart and output, live over WebSocket.'],
   ['Control', 'A REST API, a WebSocket and a CLI.'],
 ];
 
@@ -102,9 +102,10 @@ export const GLY = {
   Observability: '<path d="M5 9H27M5 16H21M5 23H24" class="gl-s"/>',
   Control: '<rect x="3" y="11" width="26" height="10" rx="5" class="gl-f"/>',
 };
+// Competitor cells are sourced in design/comparison-sources.md (accessed 2026-09-25).
 export const CMP = [
-  ['What it is', 'A runtime that runs agents as isolated processes', 'A library you call from your own program', 'A framework you call from your own program', 'A framework you call from your own program'],
-  ['Where agents run', 'Each in its own supervised process, locally, in a sandbox or container, or over SSH', 'Where your program runs them', 'Where your program runs them', 'Where your program runs them'],
-  ['What a crash affects', 'The agent that crashed. Its supervisor restarts it', 'Handled by your program', 'Handled by your program', 'Handled by your program'],
-  ['Control surface', 'REST API, WebSocket event stream, CLI', 'Its API, from your code', 'Its API, from your code', 'Its API, from your code'],
+  ['What it is', 'A runtime that runs each agent as a supervised process', 'Orchestration framework and runtime for stateful agents; LangSmith Deployment hosts them', 'Open-source framework for agent crews and flows; AMP deploys them', 'Multi-agent framework, now in maintenance mode; Microsoft Agent Framework succeeds it'],
+  ['Where agents run', 'Each in its own supervised process: local, sandbox, container or SSH', 'In your Python or JS process, or on LangSmith Deployment servers', 'In your Python process, or on CrewAI AMP managed infrastructure', 'In your process, or across workers via its experimental distributed runtime'],
+  ['What a crash affects', 'The agent that crashed. Its supervisor restarts it', 'The run; checkpoints let it resume, and nodes can retry', 'The run; agents retry errors, and flows can persist and resume', 'Your code handles it; team state can be saved and reloaded'],
+  ['Control surface', 'REST API, WebSocket event stream, CLI', 'Python/JS API; Agent Server REST API and streaming when deployed', 'Python API; AMP adds a REST API, traces and logs', 'Python and .NET APIs; AutoGen Studio GUI for prototyping'],
 ];
