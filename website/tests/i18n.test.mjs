@@ -1,0 +1,316 @@
+// The translation pipeline (website/src/i18n.mjs, site.mjs), exercised with pseudo-locales written to a temp dir.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { createHash } from 'node:crypto';
+import { LANGS, ORIGIN, PROTECT, sid, textRuns } from '../src/i18n.mjs';
+import { catalogue, catalogueFile, build, check, verify, ogSource, ogFile } from '../src/site.mjs';
+import { createServer } from 'node:http';
+import { renderPage } from '../src/page.mjs';
+import { system, L, P } from '../src/figures.mjs';
+import { pseudo, writePseudo } from '../tools/pseudo.mjs';
+
+const WEB = new URL('../', import.meta.url);
+const tmp = () => mkdtempSync(join(tmpdir(), 'gs-i18n-test-'));
+const url = d => pathToFileURL(d + '/');
+const entries = catalogue();
+const byEn = en => entries.find(e => e.en === en);
+
+// a pseudo-locale set for `codes`, optionally edited, built in memory
+function pseudoBuild(codes, edit = () => {}) {
+  const d = tmp();
+  writePseudo(d, codes);
+  for (const l of LANGS.filter(l => codes.includes(l.code))) {
+    const f = join(d, `${l.file}.json`), tx = JSON.parse(readFileSync(f, 'utf8'));
+    edit(l.code, tx);
+    writeFileSync(f, JSON.stringify(tx));
+  }
+  const r = build({ i18nDir: url(d), outDir: WEB });
+  rmSync(d, { recursive: true, force: true });
+  return r;
+}
+const refused = (r, re) => { assert.ok(r.errors.length, 'the build should refuse'); assert.ok(r.errors.some(e => re.test(e)), r.errors.join('\n')); assert.equal(r.outputs, undefined, 'nothing to write'); };
+
+test('extraction is deterministic and matches the committed catalogue', () => {
+  assert.deepEqual(catalogue(), entries);
+  assert.equal(catalogueFile(entries), readFileSync(new URL('i18n/en.json', WEB), 'utf8'), 'run `node website/build.mjs --extract`');
+});
+
+test('ids are a hash of the English, so an edited sentence gets a new id', () => {
+  for (const e of entries) assert.equal(e.id, sid(e.en));
+  assert.equal(new Set(entries.map(e => e.id)).size, entries.length, 'no two entries share an id');
+  assert.notEqual(sid('Every agent is a process.'), sid('Every agent is a process'));
+  // and the build notices: a catalogue made from other English is stale
+  const d = tmp();
+  const edited = entries.map(e => (e.en === 'Every agent is a process.' ? { ...e, en: 'Each agent is a process.', id: sid('Each agent is a process.') } : e));
+  writeFileSync(join(d, 'en.json'), catalogueFile(edited));
+  refused(build({ i18nDir: url(d), outDir: WEB }), new RegExp(`en\\.json is stale.*${sid('Every agent is a process.')}`));
+  rmSync(d, { recursive: true, force: true });
+});
+
+test('the catalogue holds every kind of string, and keeps names and identifiers out', () => {
+  const en = new Set(entries.map(e => e.en));
+  for (const s of ['GenSwarms: the operating system for AI workforces', 'Skip to how it works', 'Story chapters', 'Step {n}: {title}', 'Figure {n}',
+    'illustration', 'Copy', 'Copied', 'Select and copy', 'Language', 'This page is also available in English.', 'Dismiss', 'This page ran off the swarm.',
+    'individual agents', 'supervisor', 'crashed, restarted', 'dropped', 'model calls', 'agent, uses a model', 'verified', 'events (illustration)', 'seed',
+    'change log', 'refused: over the {cap}-agent cap', 'restore: seed + {n} changes', 'operating system', 'control layer', 'Swarms', 'Models', 'tools'])
+    assert.ok(en.has(s), s);
+  // units are whole elements with their inline markup
+  assert.ok(en.has('The operating system for AI&nbsp;workforces.'));
+  for (const kept of ['GenSwarms', 'GitHub', 'LangGraph', 'telegram', 'triage', 'message_routed', 'swarm.state', 'genlayerlabs/cron@0.2.8', 'Local, Tmux, Docker, Apple container, SSH, Bwrap, Mock', 'English', 'Español'])
+    assert.ok(!en.has(kept), kept);
+  assert.ok(entries.every(e => !/sha256:|@\d|message_routed/.test(e.en)), 'no identifiers in the catalogue');
+  // every entry says where it appears; svg labels carry their width budget; snippets their limit
+  for (const e of entries) assert.ok(e.where.length && e.where.every(Boolean), e.id);
+  for (const e of entries.filter(e => e.kind === 'svg')) assert.ok(e.max > 0, `${e.en}: max`);
+  assert.deepEqual(byEn('Deploy, coordinate and control AI agents as separate, supervised processes.').limit, { chars: 150, cjk: 80 });
+  assert.deepEqual(byEn('refused: over the {cap}-agent cap').placeholders, ['{cap}']);
+});
+
+test('the guard refuses a missing id and lists it', () => {
+  const miss = byEn('Every agent is a process.').id;
+  refused(pseudoBuild(['es'], (c, tx) => { delete tx[miss]; }), new RegExp(`es: ${miss} missing \\(story step 4`));
+});
+test('the guard refuses changed markup', () => {
+  const id = byEn('Models provide intelligence.').id;
+  refused(pseudoBuild(['ru'], (c, tx) => { tx[id] = `<em>${tx[id]}</em>`; }), new RegExp(`ru: ${id} markup differs`));
+  const h1 = byEn('The operating system for AI&nbsp;workforces.').id;
+  refused(pseudoBuild(['es'], (c, tx) => { tx[h1] = tx[h1] + '<br>'; }), new RegExp(`es: ${h1} markup differs`));
+});
+test('the guard refuses changed placeholders', () => {
+  const id = byEn('Step {n}: {title}').id;
+  refused(pseudoBuild(['ko'], (c, tx) => { tx[id] = tx[id].replace('{title}', '{headline}'); }), new RegExp(`ko: ${id} placeholders differ`));
+  const cap = byEn('refused: over the {cap}-agent cap').id;
+  refused(pseudoBuild(['tr'], (c, tx) => { tx[cap] = tx[cap].replace('{cap}', '100'); }), new RegExp(`tr: ${cap} placeholders differ`));
+});
+test('the guard refuses a dropped protected name', () => {
+  const id = byEn('How is it different from LangGraph, CrewAI or AutoGen?').id;
+  refused(pseudoBuild(['ru'], (c, tx) => { tx[id] = tx[id].replace('LangGraph', 'ЛангГраф'); }), new RegExp(`ru: ${id} lost the protected name "LangGraph"`));
+  const pkg = byEn('gsp and swarmidx: signed, content-addressed, checked on your machine').id;
+  refused(pseudoBuild(['zh-Hans'], (c, tx) => { tx[pkg] = tx[pkg].replace('gsp', 'GSP'); }), new RegExp(`${pkg} lost the protected name "gsp"`));
+});
+test('the guard refuses descriptions over 150 characters (80 in Chinese and Korean)', () => {
+  const desc = byEn('GenSwarms runs AI agents as separate, supervised processes on declared message paths, with an API and a live event stream. Open source, MIT.').id;
+  const og = byEn('Deploy, coordinate and control AI agents as separate, supervised processes.').id;
+  refused(pseudoBuild(['es'], (c, tx) => { tx[desc] = tx[desc] + ' Ábíéŕţó.'.repeat(2); }), new RegExp(`es: ${desc} is 1[5-9]\\d characters, over the 150-character limit`));
+  refused(pseudoBuild(['zh-Hans'], (c, tx) => { tx[og] = tx[og] + '的'.repeat(80); }), new RegExp(`zh-Hans: ${og} is \\d+ characters, over the 80-character limit`));
+  // a ko description of 81 characters fails, 80 passes
+  refused(pseudoBuild(['ko'], (c, tx) => { tx[desc] = 'GenSwarms MIT ' + '가'.repeat(67); }), /ko: .* 81 characters, over the 80-character limit/);
+  assert.deepEqual(pseudoBuild(['ko'], (c, tx) => { tx[desc] = 'GenSwarms MIT ' + '가'.repeat(66); }).errors, []);
+});
+test('the guard refuses English left on a translated page', () => {
+  // a string kept in English without saying so
+  const id = byEn('Not everything needs a model.').id;
+  refused(pseudoBuild(['tr'], (c, tx) => { tx[id] = 'Not everything needs a model.'; }), new RegExp(`tr: ${id} is still English`));
+  // a translation that happens to show an English text run of the page (the nav link "How it works")
+  const h2 = byEn('How it works.').id;
+  refused(pseudoBuild(['es'], (c, tx) => { tx[h2] = 'How it works'; }), /es: the built page still shows English: "How it works"/);
+  // listed under _same_as_english, it passes
+  const docs = byEn('Docs').id;
+  assert.deepEqual(pseudoBuild(['es'], (c, tx) => { tx[docs] = 'Docs'; tx._same_as_english = [docs]; }).errors, []);
+});
+test('the guard refuses an over-budget page', () => {
+  const id = byEn('One agent is easy. Many agents working together need somewhere to run, rules for who talks to whom, and a way back when one fails.').id;
+  refused(pseudoBuild(['es'], (c, tx) => { tx[id] = tx[id] + ' ñ'.repeat(12000); }), /es: es\/index\.html is \d+ bytes, over the 153600-byte budget/);
+});
+
+// the full pseudo build: all five languages
+const full = pseudoBuild(LANGS.slice(1).map(l => l.code));
+test('a full pseudo-locale build writes every version', () => {
+  assert.deepEqual(full.errors, []);
+  assert.deepEqual(Object.keys(full.outputs).sort(), ['404.html', 'es/index.html', 'index.html', 'ko/index.html', 'llms.txt', 'ru/index.html', 'sitemap.xml', 'tr/index.html', 'zh/index.html']);
+  for (const [f, v] of Object.entries(full.outputs)) if (f.endsWith('.html')) assert.ok(Buffer.byteLength(v) < 153600, `${f} ${Buffer.byteLength(v)} bytes`);
+});
+test('every version has its own head: lang, canonical, reciprocal hreflang, og, content-language, JSON-LD', () => {
+  const alts = [...LANGS.map(l => `<link rel="alternate" hreflang="${l.code}" href="${ORIGIN}${l.dir}">`), `<link rel="alternate" hreflang="x-default" href="${ORIGIN}">`];
+  for (const l of LANGS) {
+    const h = full.outputs[`${l.dir}index.html`], u = ORIGIN + l.dir;
+    assert.match(h, new RegExp(`^<!doctype html>\\n<html lang="${l.code}">`));
+    assert.ok(h.includes(`<link rel="canonical" href="${u}">`), `${l.code} canonical`);
+    for (const a of alts) assert.ok(h.includes(a), `${l.code}: ${a}`);
+    assert.equal((h.match(/rel="alternate" hreflang/g) || []).length, alts.length);
+    assert.ok(h.includes(`<meta http-equiv="content-language" content="${l.code}">`));
+    assert.ok(h.includes(`<meta property="og:locale" content="${l.og}">`));
+    assert.ok(h.includes(`<meta property="og:url" content="${u}">`));
+    assert.ok(h.includes(`<meta property="og:image" content="${ORIGIN}${ogFile(l)}">`));
+    const ld = JSON.parse(h.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
+    assert.equal(ld.inLanguage, l.code); assert.equal(ld.url, u); assert.equal(ld.name, 'GenSwarms');
+    const title = h.match(/<title>([^<]+)<\/title>/)[1], desc = h.match(/<meta name="description" content="([^"]+)"/)[1];
+    assert.ok(h.includes(`<meta property="og:title" content="${title}">`));
+    if (l.code !== 'en') {
+      assert.notEqual(title, 'GenSwarms: the operating system for AI workforces');
+      assert.notEqual(ld.description, JSON.parse(full.outputs['index.html'].match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]).description);
+    }
+    assert.ok([...desc].length <= (l.code === 'ko' || l.code === 'zh-Hans' ? 80 : 150), `${l.code} description`);
+    // switching: the picker and the footer mark this version; links carry hreflang and lang
+    assert.match(h, new RegExp(`<details class="lang"><summary><span class="sr">[^<]+ </span>${l.short}</summary>`));
+    assert.ok(h.includes(`<li><a href="/${l.dir}" hreflang="${l.code}" lang="${l.code}" aria-current="page">${l.name}</a></li>`), `${l.code} picker`);
+    const foot = h.match(/<nav class="foot-langs"[^>]*>([\s\S]*?)<\/nav>/)[1];
+    assert.equal((foot.match(/<a /g) || []).length, LANGS.length);
+    assert.equal((foot.match(/aria-current="page"/g) || []).length, 1);
+    assert.ok(foot.includes(`<a href="/${l.dir}" hreflang="${l.code}" lang="${l.code}" aria-current="page">`));
+    // the suggestion bar's strings for every language, in each language
+    const bar = JSON.parse(h.match(/<script type="application\/json" id="langbar">([\s\S]*?)<\/script>/)[1]);
+    assert.deepEqual(Object.keys(bar), LANGS.map(x => x.code));
+    for (const x of LANGS) assert.equal(bar[x.code].href, '/' + x.dir);
+    assert.equal(bar.en.msg, 'This page is also available in English.');
+    assert.notEqual(bar.es.msg, bar.en.msg);
+    // one folder deeper, every path still works: only absolute paths, full URLs and in-page anchors
+    for (const m of h.matchAll(/\s(?:href|src)="([^"]*)"/g)) assert.match(m[1], /^(\/|#|https:\/\/)/, `${l.code}: ${m[1]}`);
+    // anchors point at ids on the page
+    for (const m of h.matchAll(/href="#([^"]+)"/g)) assert.ok(h.includes(`id="${m[1]}"`), `${l.code}: #${m[1]}`);
+  }
+});
+test('each writing system gets its fonts, and loads only the Google fonts it uses', () => {
+  const o = full.outputs;
+  for (const f of ['index.html', 'es/index.html', 'tr/index.html']) assert.match(o[f], /family=Bricolage\+Grotesque:opsz,wght@12\.\.96,400\.\.800&family=Instrument\+Sans/);
+  for (const f of ['ru/index.html', 'ko/index.html', 'zh/index.html']) {
+    assert.doesNotMatch(o[f], /Instrument\+Sans/, f);
+    assert.match(o[f], /family=Bricolage\+Grotesque:opsz,wght@12\.\.96,700&text=GenSwarms/, f);
+    assert.match(o[f], /family=JetBrains\+Mono/, f);
+  }
+  assert.match(o['ru/index.html'], /--fd:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans',sans-serif/);
+  assert.match(o['ko/index.html'], /--ft:'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif/);
+  assert.match(o['ko/index.html'], /word-break:keep-all/);
+  assert.match(o['zh/index.html'], /--fd:'PingFang SC','Hiragino Sans GB','Noto Sans SC','Microsoft YaHei',sans-serif/);
+  for (const f of ['ko/index.html', 'zh/index.html']) assert.match(o[f], /\.sys \.tb:not\(\.bandl\)\{letter-spacing:0\}/, f);
+  for (const f of ['ru/index.html', 'tr/index.html']) assert.match(o[f], /hyphens:auto/, f);
+  assert.doesNotMatch(o['es/index.html'], /keep-all|overflow-wrap:break-word/);
+});
+test('the sitemap lists every version with the full set of alternates', () => {
+  const s = full.outputs['sitemap.xml'];
+  assert.match(s, /xmlns:xhtml="http:\/\/www\.w3\.org\/1999\/xhtml"/);
+  const urls = [...s.matchAll(/<url>([\s\S]*?)<\/url>/g)].map(m => m[1]);
+  assert.deepEqual(urls.map(u => u.match(/<loc>([^<]+)<\/loc>/)[1]), LANGS.map(l => ORIGIN + l.dir));
+  for (const u of urls) {
+    for (const l of LANGS) assert.ok(u.includes(`<xhtml:link rel="alternate" hreflang="${l.code}" href="${ORIGIN}${l.dir}"/>`));
+    assert.ok(u.includes(`<xhtml:link rel="alternate" hreflang="x-default" href="${ORIGIN}"/>`));
+  }
+});
+test('404 and llms.txt: one 404 for every language, llms.txt stays English with one line of versions', () => {
+  const nf = full.outputs['404.html'];
+  const L404 = JSON.parse(nf.match(/var L=(\{[\s\S]*?\});/)[1]);
+  assert.deepEqual(Object.keys(L404).sort(), ['es', 'ko', 'ru', 'tr', 'zh']);
+  assert.equal(L404.zh.lang, 'zh-Hans'); assert.equal(L404.es.home, '/es/');
+  for (const k of ['title', 'code', 'h1', 'p', 'back', 'docs']) assert.ok(L404.ko[k] && L404.ko[k] !== L404.es[k], k);
+  assert.ok(nf.includes('<h1>This page ran off the swarm.</h1>'), 'English stays in the markup');
+  const llms = full.outputs['llms.txt'], base = readFileSync(new URL('llms.txt', WEB), 'utf8');
+  assert.equal(llms.split('\n').length, base.split('\n').length + 1);
+  assert.match(llms, /^Language versions of this page: English https:\/\/genswarms\.com\/, Español https:\/\/genswarms\.com\/es\/, .*Türkçe https:\/\/genswarms\.com\/tr\/\.$/m);
+});
+test('the English page does not change: only the language additions', () => {
+  const alone = renderPage();
+  assert.equal(alone, readFileSync(new URL('index.html', WEB), 'utf8'), 'the committed English page is the English-only build');
+  // strip the intended additions from the multilingual English page: it is the English-only page again
+  const strip = full.outputs['index.html']
+    .replace(/\n<link rel="alternate" hreflang="[^"]+" href="[^"]+">/g, '')
+    .replace(/,"inLanguage":"en"/, '')
+    .replace(/\n<details class="lang">[\s\S]*?<\/details>/, '')
+    .replace(/\n<nav class="foot-langs"[\s\S]*?<\/nav>/, '')
+    .replace(/\n<script type="application\/json" id="langbar">[\s\S]*?<\/script>\n<script>[\s\S]*?<\/script>/, '')
+    .replace(/(<style>[\s\S]*?)\n\/\* ---------- languages[\s\S]*?(<\/style>)/, '$1$2');
+  assert.equal(strip.replace(/\n\.lang\{[\s\S]*?(\n<\/style>)/, '$1'), alone.replace(/\n<\/style>/, '\n</style>'));
+  // and every English text run is unchanged
+  assert.deepEqual([...textRuns(full.outputs['index.html'])].filter(r => r !== 'Language').sort(), [...textRuns(alone)].sort());
+});
+test('translated figure labels fit: long ones wrap or step down, and the still grows to show them', () => {
+  // a long label in the narrow phone drawing wraps within the drawing
+  const d = tmp();
+  writePseudo(d, ['es']);
+  const tx = JSON.parse(readFileSync(join(d, 'es.json'), 'utf8'));
+  tx[byEn('each agent runs as a process inside its own boundary').id] = 'cada agente se ejecuta como un proceso independiente dentro de su propio límite';
+  tx[byEn('restore: seed + {n} changes').id] = 'restauración: semilla + {n} cambios registrados en el registro';
+  writeFileSync(join(d, 'es.json'), JSON.stringify(tx));
+  const r = build({ i18nDir: url(d), outDir: WEB });
+  rmSync(d, { recursive: true, force: true });
+  assert.deepEqual(r.errors, []);
+  const es = r.outputs['es/index.html'];
+  const p3 = es.match(/<svg class="sys P" data-s="3" viewBox="([^"]+)"[\s\S]*?<\/svg>/);
+  const ann = [...p3[0].matchAll(/<text class="ts ann" x="([\d.]+)" y="([\d.]+)" text-anchor="middle"[^>]*>([^<]+)<\/text>/g)];
+  assert.ok(ann.length >= 2 && ann.length <= 3, `${ann.length} lines`);
+  for (const m of ann) assert.ok(m[3].length * 15.5 * 0.55 <= 368, m[3]);
+  const [, y0, , h0] = p3[1].split(' ').map(Number);
+  assert.ok(Math.max(...ann.map(m => +m[2])) < y0 + h0, 'the crop grew to show every line');
+  const p7 = es.match(/<svg class="sys P" data-s="7"[\s\S]*?<\/svg>/)[0];
+  assert.ok((p7.match(/<text class="log" x="74"/g) || []).length >= 2, 'the restore line wraps');
+  // English figures are drawn exactly as before
+  assert.equal(system(L, 3, { prune: true }).includes('>each agent runs</text>'), true);
+  assert.equal(system(P, 3, { prune: true }).includes('>inside its own boundary</text>'), true);
+});
+test('--check verifies the outputs, the lock and the share images', () => {
+  const d = tmp(), out = join(d, 'site'), i18n = join(d, 'i18n');
+  mkdirSync(out);
+  writePseudo(i18n, ['es', 'ko']);
+  const r = build({ i18nDir: url(i18n), outDir: url(out) });
+  assert.deepEqual(r.errors, []);
+  for (const [f, v] of Object.entries(r.outputs)) { mkdirSync(join(out, f, '..'), { recursive: true }); writeFileSync(join(out, f), v); }
+  writeFileSync(join(i18n, 'build.lock.json'), JSON.stringify(r.lock));
+  const sha = b => createHash('sha256').update(b).digest('hex');
+  const og = {};
+  for (const l of r.langs) { const png = Buffer.from('png ' + l.code); writeFileSync(join(out, ogFile(l)), png); og[l.file || 'en'] = { source: ogSource(r.outputs[`${l.dir}index.html`]), png: sha(png) }; }
+  writeFileSync(join(i18n, 'og.lock.json'), JSON.stringify(og));
+  const ck = () => check({ i18nDir: url(i18n), outDir: url(out) });
+  assert.deepEqual(ck(), []);
+  // a hand-edited page
+  writeFileSync(join(out, 'es/index.html'), r.outputs['es/index.html'].replace('</body>', '<!-- edit --></body>'));
+  assert.match(ck().join('\n'), /website\/es\/index\.html is stale/);
+  writeFileSync(join(out, 'es/index.html'), r.outputs['es/index.html']);
+  // a translation changed after the build
+  const tx = JSON.parse(readFileSync(join(i18n, 'ko.json'), 'utf8'));
+  tx[entries[0].id] = 'GenSwarms 다른 제목';
+  writeFileSync(join(i18n, 'ko.json'), JSON.stringify(tx));
+  assert.match(ck().join('\n'), /ko\/index\.html is stale[\s\S]*build\.lock\.json does not match i18n\/ko\.json/);
+  writePseudo(i18n, ['ko']);
+  assert.deepEqual(ck(), []);
+  // a lock from another build
+  writeFileSync(join(i18n, 'build.lock.json'), JSON.stringify({ ...r.lock, source: 'x' }));
+  assert.match(ck().join('\n'), /build\.lock\.json does not match the English source/);
+  writeFileSync(join(i18n, 'build.lock.json'), JSON.stringify(r.lock));
+  // a share image edited, or showing an old hero
+  writeFileSync(join(out, 'og-es.png'), 'other');
+  assert.match(ck().join('\n'), /og-es\.png changed since tools\/og\.cjs rendered it/);
+  writeFileSync(join(i18n, 'og.lock.json'), JSON.stringify({ ...og, ko: { ...og.ko, source: 'old' } }));
+  assert.match(ck().join('\n'), /og-ko\.png shows an old hero/);
+  rmSync(d, { recursive: true, force: true });
+});
+test('the committed site passes --check', () => {
+  assert.deepEqual(check(), []);
+});
+test('pseudo-locales keep what must not change', () => {
+  for (const l of LANGS.slice(1)) {
+    const tx = pseudo(l.code, entries);
+    for (const e of entries) {
+      assert.notEqual(tx[e.id], e.en, `${l.code} ${e.en}`);
+      for (const n of PROTECT) if (e.en.includes(n) && new RegExp(`(^|[^\\w])${n.replace('.', '\\.')}($|[^\\w])`).test(e.en)) assert.ok(tx[e.id].includes(n), `${l.code} ${n}`);
+    }
+  }
+});
+
+test('--verify checks a served site: 200s, slash redirects, lang, title, canonical, hreflang', async () => {
+  const pages = full.outputs;
+  const serve = (redirect, patch = h => h) => new Promise(res => {
+    const srv = createServer((req, r) => {
+      const u = req.url;
+      const l = LANGS.find(x => x.dir && u === '/' + x.dir.replace(/\/$/, ''));
+      if (l) { if (redirect) { r.writeHead(301, { Location: u + '/' }); return r.end(); } r.writeHead(200); return r.end(patch(pages[`${l.dir}index.html`])); }
+      const f = u === '/' ? 'index.html' : u.slice(1).replace(/\/$/, '/index.html');
+      if (pages[f] != null) { r.writeHead(200); return r.end(f.endsWith('.html') ? patch(pages[f]) : pages[f]); }
+      if (/^\/(robots\.txt|og-[\w-]+\.png)$/.test(u)) { r.writeHead(200); return r.end('x'); }
+      r.writeHead(404); r.end();
+    }).listen(0, '127.0.0.1', () => res(srv));
+  });
+  let srv = await serve(true);
+  let r = await verify(`http://127.0.0.1:${srv.address().port}/`, LANGS);
+  assert.deepEqual(r.bad, []);
+  assert.equal(r.log.length, LANGS.length);
+  srv.close();
+  // /es serving the page instead of redirecting (relative paths would break), and a wrong canonical
+  srv = await serve(false, h => h.replace('<link rel="canonical" href="https://genswarms.com/ko/">', '<link rel="canonical" href="https://genswarms.com/">'));
+  r = await verify(`http://127.0.0.1:${srv.address().port}/`, LANGS);
+  srv.close();
+  assert.ok(r.bad.some(b => /^\/es does not redirect to \/es\/ \(200, /.test(b)), r.bad.join('\n'));
+  assert.ok(r.bad.some(b => /^ko\/ canonical is https:\/\/genswarms\.com\/$/.test(b)), r.bad.join('\n'));
+});
