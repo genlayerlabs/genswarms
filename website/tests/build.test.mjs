@@ -20,11 +20,16 @@ test('one live figure and nine stills per layout', () => {
 
 test('pruned still contains only its stage', () => {
   const s0 = system(L, 0, { prune: true });
-  assert.doesNotMatch(s0, /supervisor/);          // stage 5 only
-  assert.doesNotMatch(s0, /Customer operations/); // stages 7–8 only
-  const s5 = system(L, 5, { prune: true });
-  assert.match(s5, /supervisor/);
-  assert.match(s5, /illustration/);
+  assert.doesNotMatch(s0, /supervisor/);      // stage 3 only
+  assert.doesNotMatch(s0, /invalid_route/);   // stage 4 only
+  assert.doesNotMatch(s0, /swarm\.overlay/);  // stage 7 only
+  const s3 = system(L, 3, { prune: true });
+  assert.match(s3, /supervisor/);
+  assert.match(s3, /crashed, restarted/);
+  assert.doesNotMatch(s3, /illustration/);
+  const s4 = system(L, 4, { prune: true });
+  assert.match(s4, /events \(illustration\)/);
+  assert.doesNotMatch(s4, /swarmidx/);
 });
 
 test('built page is under 150 KB', () => {
@@ -34,43 +39,65 @@ test('built page is under 150 KB', () => {
 test('no copy lives in the script', () => {
   const script = html.match(/<script>([\s\S]*?)<\/script>/g).join('\n');
   assert.doesNotMatch(script, /CAPS|ARIA/);
-  for (const phrase of ['operating system', 'When one fails', 'Hard cases reach a person', 'charged twice', 'Step', 'Figure', 'illustration', 'team shapes', 'Copy', 'Copied', 'Select and copy']) assert.ok(!script.includes(phrase), phrase);
+  for (const phrase of ['operating system', 'Every agent is a process', 'declared paths', 'Not everything needs a model', 'Install what your agents need', 'A swarm is a document', 'One control layer', 'Step', 'Figure', 'illustration', 'dropped', 'Copy', 'Copied', 'Select and copy']) assert.ok(!script.includes(phrase), phrase);
 });
 
 const text = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
 
 test('banned claims are absent', () => {
-  assert.doesNotMatch(text, /GenLayer(?! Labs)|unhardcoded|blockchain/i);
+  // (the package scope genlayerlabs/ in the stage-6 figure is a real swarmidx identifier)
+  assert.doesNotMatch(text, /GenLayer(?! Labs|labs\/)|unhardcoded|blockchain/i);
   assert.doesNotMatch(text, /\bRBAC\b|per-user permission|approval workflow|sandboxed packages/i);
   assert.doesNotMatch(text, /(?<!not )exactly once/i);
   assert.doesNotMatch(text, /\bmemory\b/i);
 });
 
-test('approved copy deck is applied (design/2026-09-25-copy-deck.md)', () => {
+test('approved copy deck v2 is applied (design/2026-09-25-copy-deck-v2.md)', () => {
   assert.match(text, /Deploy, coordinate and control thousands of AI agents across your organization\./);
-  assert.match(text, /One example runs through the page: a customer who was charged twice\./);
-  assert.match(text, /GenSwarms makes those decisions for agents: roles access to tools, data and systems who hands work to whom review and escalation recovery when an agent fails human oversight/);
-  assert.match(text, /The charged-twice ticket enters at the classifier\./);
-  assert.match(text, /Each agent is its own supervised process\. A crash restarts that agent; the ticket carries on\./);
+  const heads = [...html.matchAll(/<article class="step[^"]*" id="s\d"[\s\S]*?<h[12]>([\s\S]*?)<\/h[12]>/g)].map(m => m[1].replace(/&nbsp;/g, ' '));
+  assert.deepEqual(heads, ['The operating system for AI workforces.', 'Your agents need more than models and prompts.', 'Think of it as an operating system.',
+    'Every agent is a process.', 'Agents talk only along declared paths.', 'Not everything needs a model.', 'Install what your agents need.',
+    'A swarm is a document.', 'One control layer for your AI organization.']);
+  assert.match(text, /One agent is easy\. Many agents working together need somewhere to run, rules for who talks to whom, and a way back when one fails\./);
+  assert.match(text, /An operating system runs programs it didn’t write\. GenSwarms does that for agents: it starts them, isolates them, routes their messages and restarts them when they fail\./);
+  assert.match(text, /You draw the graph\. Every message is checked against it, and anything off the graph is dropped\./);
+  assert.match(text, /signed packages from the swarmidx index, verified before they load\./);
+  assert.match(text, /A bad change is refused before it runs; a stopped swarm comes back from its database\./);
+  assert.match(text, /Models provide intelligence\. Agents perform work\. GenSwarms runs the organization\./);
   assert.match(text, /How is it different from LangGraph, CrewAI or AutoGen\?/);
+  assert.match(text, /In use today for chat assistants, coding agents, trading simulations and swarms that watch other swarms\./);
   assert.match(text, /Read https:\/\/genswarms\.com\/skill\.md and set up a swarm\./);
-  // removed: explanatory paragraphs, the old analogy list, the Control surface row
-  assert.doesNotMatch(text, /share context|how agents communicate|A runtime, not a library|Control surface|production-ready/);
-  // the two example lines are the only italic example style
-  assert.equal((html.match(/class="ex"/g) || []).length, 2);
+  // removed: v1's turn block and determines list, explanatory paragraphs, the Control surface row
+  assert.doesNotMatch(html, /class="(turn|turn-k|turn-q|determines|strike)\b/);
+  assert.doesNotMatch(text, /It becomes|share context|A runtime, not a library|Control surface|production-ready|build an AI workforce/);
+  // one italic example line, on step 4
+  assert.equal((html.match(/class="ex"/g) || []).length, 1);
+  assert.match(html, /id="s4" data-step="4">\s*<div class="copy">[\s\S]*?<p class="ex">From here the drawings follow one swarm: a support team that answers customers on Telegram\.<\/p>/);
+  // "How it works." has the deck's ten rows, in order
+  assert.deepEqual([...html.matchAll(/<dt>([^<]+)<\/dt>/g)].map(m => m[1]), ['Processes', 'Isolation', 'Network', 'Messages', 'Services', 'Drivers', 'Packages', 'State', 'Control', 'Events']);
+  assert.equal((html.match(/<ul class="yes">([\s\S]*?)<\/ul>/)[1].match(/<li>/g) || []).length, 4);
+  assert.equal((html.match(/<ul class="not">([\s\S]*?)<\/ul>/)[1].match(/<li>/g) || []).length, 5);
+});
+
+test('none of the removed v1 story remains (page, llms.txt)', () => {
+  const llms = readFileSync(new URL('../llms.txt', import.meta.url), 'utf8');
+  for (const [name, t] of [['index.html', html], ['llms.txt', llms]]) {
+    for (const re of [/charged/i, /classifier/i, /verifier/i, /escalat/i, /human/i, /agent_blocked/i, /attaches/i, /team shapes/i, /Customer operations/i, /coordination layer/i])
+      assert.doesNotMatch(t, re, `${name}: ${re}`);
+  }
 });
 
 test('rail buttons are named after their step headlines', () => {
   const names = [...html.matchAll(/<button type="button" data-go="(\d)" aria-label="([^"]+)"/g)].map(m => m[2]);
   assert.equal(names.length, 9);
   assert.equal(names[0], 'Step 1: The operating system for AI workforces.');
-  assert.equal(names[2], 'Step 3: It becomes: How do I run thousands of them together?');
-  assert.equal(names[5], 'Step 6: When one fails, the rest keep working.');
-  assert.equal(names[7], 'Step 8: The same architecture runs other teams.');
-  for (const [k, n] of names.entries()) assert.ok(text.includes(n.replace(/^Step \d: /, '').replace(/^It becomes: /, '')), `step ${k + 1} name matches a visible headline`);
+  assert.equal(names[2], 'Step 3: Think of it as an operating system.');
+  assert.equal(names[5], 'Step 6: Not everything needs a model.');
+  assert.equal(names[7], 'Step 8: A swarm is a document.');
+  for (const [k, n] of names.entries()) assert.ok(text.includes(n.replace(/^Step \d: /, '')), `step ${k + 1} name matches a visible headline`);
 });
 
-test('visible copy stays short (deck target ~430 words)', () => {
+test('visible copy stays short (deck v2: ~530 words of prose)', () => {
   const words = h => h.replace(/<svg[\s\S]*?<\/svg>|<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, ' ')
     .replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').split(/\s+/).filter(w => /[\p{L}\p{N}]/u.test(w)).length;
   // the page's prose: <main> outside svg/script/style, without screen-reader-only text, the
@@ -78,10 +105,11 @@ test('visible copy stays short (deck target ~430 words)', () => {
   // comparison table (sourced data, fixed by design/comparison-sources.md)
   const prose = words(html.match(/<main[\s\S]*<\/main>/)[0].replace(/<(span|caption) class="sr"[\s\S]*?<\/\1>/g, ' ')
     .replace(/<figcaption class="stage-cap[\s\S]*?<\/figcaption>/, ' ').replace(/<table[\s\S]*?<\/table>/, ' '));
-  assert.ok(prose <= 500, `${prose} words of prose`);
+  // caps: v1's 500 / 660 grew with the approved deck v2 (530 / 711 words as applied)
+  assert.ok(prose <= 540, `${prose} words of prose`);
   // and everything outside svg/script/style in <body>, nav, footer and comparison cells included
   const all = words(html.match(/<body>[\s\S]*<\/body>/)[0]);
-  assert.ok(all <= 660, `${all} words on the whole page`);
+  assert.ok(all <= 720, `${all} words on the whole page`);
 });
 
 test('facts match v0.2.0', () => {
@@ -92,19 +120,45 @@ test('facts match v0.2.0', () => {
 });
 
 test('every simulated/animated figure is labelled illustration', () => {
-  // Figs. 5-7 (stages 4-6) carry a small "illustration" label; Fig. 8 (stage 7) says its team
-  // shapes are illustrative (spec §4.4). Stills carry it in flow; the pinned figure shows it by stage.
+  // Figs. 5-8 (stages 4-7: the support swarm, its routed and dropped messages, packages with
+  // placeholder digests, the change log) carry a small "illustration" label (spec §4). Stills
+  // carry it in flow; the pinned figure shows it by stage.
   const note = k => html.match(new RegExp(`id="s${k}" data-step="${k}">[\\s\\S]*?</article>`))[0].match(/<figcaption class="fig-note">([^<]*)<\/figcaption>/);
-  for (const k of [4, 5, 6]) assert.equal(note(k) && note(k)[1], 'illustration', `still ${k + 1}`);
-  assert.equal(note(7) && note(7)[1], 'team shapes are illustrative');
+  for (const k of [4, 5, 6, 7]) assert.equal(note(k) && note(k)[1], 'illustration', `still ${k + 1}`);
   for (const k of [0, 1, 2, 3, 8]) assert.equal(note(k), null, `still ${k + 1} has no caption`);
   const live = html.match(/<figcaption class="stage-cap[^"]*">([\s\S]*?)<\/figcaption>/)[1];
-  for (const k of [4, 5, 6]) assert.match(live, new RegExp(`data-at="${k}">illustration<`));
-  assert.match(live, /data-at="7">team shapes are illustrative</);
+  for (const k of [4, 5, 6, 7]) assert.match(live, new RegExp(`data-at="${k}">illustration<`));
+  assert.doesNotMatch(live, /data-at="[0-38]"/);
   for (const k of [4, 5, 6, 7]) assert.match(css(), new RegExp(`\\.live\\[data-s="${k}"\\]~\\.stage-cap \\[data-at="${k}"\\]`));
-  // Figs. 6-7 (stages 5-6): the event stream itself is labelled
-  assert.match(system(L, 5, { prune: true }), /event stream \(illustration\)/);
-  assert.match(system(L, 6, { prune: true }), /event stream \(illustration\)/);
+  // Fig. 5 (stage 4): the event log itself is labelled, and uses the real telemetry event names
+  for (const Lo of [L, P]) {
+    const s4 = system(Lo, 4, { prune: true });
+    assert.match(s4, /events \(illustration\)/);
+    assert.match(s4, /message_routed/);
+    assert.match(s4, /invalid_route\s*<\/tspan><tspan>research → telegram/);
+  }
+});
+
+test('figures draw the v2 story from real parts', () => {
+  const both = k => system(L, k, { prune: true }) + system(P, k, { prune: true });
+  assert.match(both(2), />operating system</);
+  assert.match(both(3), />crashed, restarted</);
+  assert.match(both(4), />telegram<[\s\S]*>triage<[\s\S]*>answer<[\s\S]*>research</);
+  assert.match(both(4), />dropped</);
+  for (const o of ['cron', 'budget', 'browser']) assert.match(both(5), new RegExp(`>${o}<`), o);
+  assert.match(both(5), />agent, uses a model</);
+  assert.match(both(5), />object, plain code</);
+  for (const pkg of ['genlayerlabs/genswarms-telegram@0.6.6', 'genlayerlabs/cron@0.2.8', 'genlayerlabs/genswarms-llm-proxy@0.4.2', 'genlayerlabs/browser@0.2.4'])
+    assert.ok(both(6).includes(pkg), pkg);
+  // digests are visibly shortened placeholders, never full-length hashes
+  assert.doesNotMatch(html, /sha256:[0-9a-f]{5,}/);
+  assert.match(both(7), /swarm\.state[\s\S]*swarm\.overlay/);
+  for (const op of ['add_agent', 'scale_agent_group', 'add_topology_edges']) assert.match(both(7), new RegExp(op));
+  assert.match(both(7), /refused: no node named billing/);
+  assert.match(both(7), /restore: seed \+ 2 changes/);
+  // stage 8: unnamed swarms, no people, no business teams
+  assert.doesNotMatch(both(8), /Customer|Software|Sales|Finance|Security|Network operations|class="ch"|esc/);
+  assert.match(both(8), />Swarms</);
 });
 
 test('comparison has no Draft stamp once sourced', () => {

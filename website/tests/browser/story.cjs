@@ -1,5 +1,6 @@
 // website/tests/browser/story.cjs
 // Run: python3 -m http.server 8766 --directory website & NODE_PATH=$PROTO/node_modules node website/tests/browser/story.cjs
+// (BASE=http://localhost:PORT/ to use another server)
 const { chromium } = require('playwright-core');
 const BASE = process.env.BASE || 'http://localhost:8766/';
 const fail = [];
@@ -98,8 +99,19 @@ const ok = (c, m) => { if (!c) fail.push(m); };
         });
         return out;
       }, CLAY);
-      // stage 6 is the escalation (active); the event stream names agent_blocked in clay there
-      if (k !== 6) ok(!clay.length, `${w}: stage ${k}: clay outside moving work: ${clay.join(', ')}`);
+      // clay is only for moving work (the message tokens); failure uses the crash colours
+      ok(!clay.length, `${w}: stage ${k}: clay outside moving work: ${clay.join(', ')}`);
+      // the dropped / refused marks (invalid_route, "dropped", "refused: ...") stay readable: >= 4.5:1
+      const low = await p.evaluate(() => {
+        const lum = c => { const v = c.match(/\d+/g).slice(0, 3).map(n => { n /= 255; return n <= 0.03928 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4; }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+        const bg = lum(getComputedStyle(document.body).backgroundColor), out = [];
+        document.querySelectorAll('.sys.live .k-invalid_route, .sys.live .xl, .sys.live .k-no').forEach(e => {
+          const fg = lum(getComputedStyle(e).fill), r = (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05);
+          if (r < 4.5) out.push(`${e.textContent.trim()} ${r.toFixed(2)}:1`);
+        });
+        return out;
+      });
+      ok(!low.length, `${w}: stage ${k}: failure text under 4.5:1: ${low.join(', ')}`);
     }
     await p.close();
   }
