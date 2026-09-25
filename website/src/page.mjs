@@ -20,6 +20,13 @@ const still = k => `<figure class="still" aria-label="Figure ${k + 1}">
   ${STAGES[k].note ? `<figcaption class="fig-note">${STAGES[k].note}</figcaption>` : ''}
 </figure>`;
 
+// each rail button is named after its step's visible headline (h1/h2, or the turn's last
+// question), so the words match the page and translate with it
+const headline = c => {
+  const m = c.match(/<h[12]>([\s\S]*?)<\/h[12]>/) || c.match(/<p class="turn-k">([^<]*)<\/p>\s*<p class="turn-q new">([^<]*)<\/p>/);
+  return m.slice(1).join(' ').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
+};
+
 const stepsHTML = STEPS.map((c, k) => `<article class="step${k === 0 ? ' step-hero' : ''}" id="s${k}" data-step="${k}">
   ${c}
   ${still(k)}
@@ -78,7 +85,7 @@ ${stepsHTML}
         <figcaption class="stage-cap fig-note">${STAGES.map((s, k) => s.note ? `<span data-at="${k}">${s.note}</span>` : '').join('')}</figcaption>
       </figure>
       <ol class="rail" aria-label="Story chapters">
-        ${STAGES.map((s, k) => `<li><button type="button" data-go="${k}" aria-label="Go to figure ${k + 1}"${k === 0 ? ' aria-current="step"' : ''}></button></li>`).join('')}
+        ${STAGES.map((s, k) => `<li><button type="button" data-go="${k}" aria-label="Step ${k + 1}: ${headline(STEPS[k])}"${k === 0 ? ' aria-current="step"' : ''}></button></li>`).join('')}
       </ol>
     </div>
   </div>

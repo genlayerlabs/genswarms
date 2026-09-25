@@ -34,7 +34,7 @@ test('built page is under 150 KB', () => {
 test('no copy lives in the script', () => {
   const script = html.match(/<script>([\s\S]*?)<\/script>/g).join('\n');
   assert.doesNotMatch(script, /CAPS|ARIA/);
-  for (const phrase of ['One agent', 'supervisor restarts', 'Seven teams', 'Figure', 'Copy', 'Copied', 'Select and copy']) assert.ok(!script.includes(phrase), phrase);
+  for (const phrase of ['operating system', 'When one fails', 'Hard cases reach a person', 'charged twice', 'Step', 'Figure', 'illustration', 'team shapes', 'Copy', 'Copied', 'Select and copy']) assert.ok(!script.includes(phrase), phrase);
 });
 
 const text = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
@@ -58,6 +58,16 @@ test('approved copy deck is applied (design/2026-09-25-copy-deck.md)', () => {
   assert.doesNotMatch(text, /share context|how agents communicate|A runtime, not a library|Control surface|production-ready/);
   // the two example lines are the only italic example style
   assert.equal((html.match(/class="ex"/g) || []).length, 2);
+});
+
+test('rail buttons are named after their step headlines', () => {
+  const names = [...html.matchAll(/<button type="button" data-go="(\d)" aria-label="([^"]+)"/g)].map(m => m[2]);
+  assert.equal(names.length, 9);
+  assert.equal(names[0], 'Step 1: The operating system for AI workforces.');
+  assert.equal(names[2], 'Step 3: It becomes: How do I run thousands of them together?');
+  assert.equal(names[5], 'Step 6: When one fails, the rest keep working.');
+  assert.equal(names[7], 'Step 8: The same architecture runs other teams.');
+  for (const [k, n] of names.entries()) assert.ok(text.includes(n.replace(/^Step \d: /, '').replace(/^It becomes: /, '')), `step ${k + 1} name matches a visible headline`);
 });
 
 test('visible copy stays short (deck target ~430 words)', () => {
