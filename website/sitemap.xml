@@ -1,9 +1,81 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://genswarms.com/</loc>
     <lastmod>2026-09-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://genswarms.com/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://genswarms.com/es/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://genswarms.com/ko/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://genswarms.com/zh/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://genswarms.com/ru/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://genswarms.com/tr/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://genswarms.com/"/>
+  </url>
+  <url>
+    <loc>https://genswarms.com/es/</loc>
+    <lastmod>2026-09-25</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://genswarms.com/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://genswarms.com/es/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://genswarms.com/ko/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://genswarms.com/zh/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://genswarms.com/ru/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://genswarms.com/tr/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://genswarms.com/"/>
+  </url>
+  <url>
+    <loc>https://genswarms.com/ko/</loc>
+    <lastmod>2026-09-25</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://genswarms.com/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://genswarms.com/es/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://genswarms.com/ko/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://genswarms.com/zh/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://genswarms.com/ru/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://genswarms.com/tr/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://genswarms.com/"/>
+  </url>
+  <url>
+    <loc>https://genswarms.com/zh/</loc>
+    <lastmod>2026-09-25</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://genswarms.com/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://genswarms.com/es/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://genswarms.com/ko/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://genswarms.com/zh/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://genswarms.com/ru/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://genswarms.com/tr/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://genswarms.com/"/>
+  </url>
+  <url>
+    <loc>https://genswarms.com/ru/</loc>
+    <lastmod>2026-09-25</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://genswarms.com/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://genswarms.com/es/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://genswarms.com/ko/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://genswarms.com/zh/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://genswarms.com/ru/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://genswarms.com/tr/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://genswarms.com/"/>
+  </url>
+  <url>
+    <loc>https://genswarms.com/tr/</loc>
+    <lastmod>2026-09-25</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://genswarms.com/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://genswarms.com/es/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://genswarms.com/ko/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://genswarms.com/zh/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://genswarms.com/ru/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://genswarms.com/tr/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://genswarms.com/"/>
   </url>
 </urlset>

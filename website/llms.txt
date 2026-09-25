@@ -14,6 +14,7 @@
 - **Events** — one event stream: every message, crash, restart and output, live over WebSocket.
 
 Current version: 0.2.0. License: MIT.
+Language versions of this page: English https://genswarms.com/, Español https://genswarms.com/es/, 한국어 https://genswarms.com/ko/, 简体中文 https://genswarms.com/zh/, Русский https://genswarms.com/ru/, Türkçe https://genswarms.com/tr/.
 
 ## Start here
 

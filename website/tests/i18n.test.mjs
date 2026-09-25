@@ -179,7 +179,10 @@ test('each writing system gets its fonts, and loads only the Google fonts it use
   assert.match(o['zh/index.html'], /--fd:'PingFang SC','Hiragino Sans GB','Noto Sans SC','Microsoft YaHei',sans-serif/);
   for (const f of ['ko/index.html', 'zh/index.html']) assert.match(o[f], /\.sys \.tb:not\(\.bandl\)\{letter-spacing:0\}/, f);
   for (const f of ['ru/index.html', 'tr/index.html']) assert.match(o[f], /hyphens:auto/, f);
-  assert.doesNotMatch(o['es/index.html'], /keep-all|overflow-wrap:break-word/);
+  // Spanish: no Korean line breaking and no title hyphenation; the table hyphenates only where its columns are narrow
+  assert.doesNotMatch(o['es/index.html'], /keep-all|\.cmp tbody th\{hyphens:auto/);
+  for (const f of ['es/index.html', 'ru/index.html', 'tr/index.html'])
+    assert.match(o[f], /\.cmp th,\.cmp td\{overflow-wrap:break-word\}@media \(min-width:1000px\) and \(max-width:1279px\)\{\.cmp th,\.cmp td\{hyphens:auto/, f);
 });
 test('the sitemap lists every version with the full set of alternates', () => {
   const s = full.outputs['sitemap.xml'];
@@ -198,24 +201,28 @@ test('404 and llms.txt: one 404 for every language, llms.txt stays English with 
   assert.equal(L404.zh.lang, 'zh-Hans'); assert.equal(L404.es.home, '/es/');
   for (const k of ['title', 'code', 'h1', 'p', 'back', 'docs']) assert.ok(L404.ko[k] && L404.ko[k] !== L404.es[k], k);
   assert.ok(nf.includes('<h1>This page ran off the swarm.</h1>'), 'English stays in the markup');
-  const llms = full.outputs['llms.txt'], base = readFileSync(new URL('llms.txt', WEB), 'utf8');
+  // the committed llms.txt carries the versions line once; without it, it is the English original
+  const llms = full.outputs['llms.txt'], base = readFileSync(new URL('llms.txt', WEB), 'utf8').replace(/^Language versions of this page:.*\n/m, '');
   assert.equal(llms.split('\n').length, base.split('\n').length + 1);
   assert.match(llms, /^Language versions of this page: English https:\/\/genswarms\.com\/, Español https:\/\/genswarms\.com\/es\/, .*Türkçe https:\/\/genswarms\.com\/tr\/\.$/m);
 });
 test('the English page does not change: only the language additions', () => {
   const alone = renderPage();
-  assert.equal(alone, readFileSync(new URL('index.html', WEB), 'utf8'), 'the committed English page is the English-only build');
-  // strip the intended additions from the multilingual English page: it is the English-only page again
-  const strip = full.outputs['index.html']
+  // strip the intended additions from a multilingual English page: it is the English-only page again
+  const strip = html => html
     .replace(/\n<link rel="alternate" hreflang="[^"]+" href="[^"]+">/g, '')
     .replace(/,"inLanguage":"en"/, '')
     .replace(/\n<details class="lang">[\s\S]*?<\/details>/, '')
     .replace(/\n<nav class="foot-langs"[\s\S]*?<\/nav>/, '')
     .replace(/\n<script type="application\/json" id="langbar">[\s\S]*?<\/script>\n<script>[\s\S]*?<\/script>/, '')
-    .replace(/(<style>[\s\S]*?)\n\/\* ---------- languages[\s\S]*?(<\/style>)/, '$1$2');
-  assert.equal(strip.replace(/\n\.lang\{[\s\S]*?(\n<\/style>)/, '$1'), alone.replace(/\n<\/style>/, '\n</style>'));
-  // and every English text run is unchanged
-  assert.deepEqual([...textRuns(full.outputs['index.html'])].filter(r => r !== 'Language').sort(), [...textRuns(alone)].sort());
+    .replace(/(<style>[\s\S]*?)\n\/\* ---------- languages[\s\S]*?(<\/style>)/, '$1$2')
+    .replace(/\n\.lang\{[\s\S]*?(\n<\/style>)/, '$1');
+  const committed = readFileSync(new URL('index.html', WEB), 'utf8');
+  for (const [name, html] of [['pseudo build', full.outputs['index.html']], ['committed page', committed]]) {
+    assert.equal(strip(html), alone.replace(/\n<\/style>/, '\n</style>'), name);
+    // and every English text run is unchanged
+    assert.deepEqual([...textRuns(html)].filter(r => r !== 'Language').sort(), [...textRuns(alone)].sort(), name);
+  }
 });
 test('translated figure labels fit: long ones wrap or step down, and the still grows to show them', () => {
   // a long label in the narrow phone drawing wraps within the drawing
@@ -278,11 +285,7 @@ test('--check verifies the outputs, the lock and the share images', () => {
   rmSync(d, { recursive: true, force: true });
 });
 test('the committed site passes --check', () => {
-  // only the committed files of website/i18n (translations in progress there are not part of it yet)
-  const d = tmp();
-  for (const f of ['en.json', 'build.lock.json', 'og.lock.json']) writeFileSync(join(d, f), readFileSync(new URL(`i18n/${f}`, WEB)));
-  assert.deepEqual(check({ i18nDir: url(d), outDir: WEB }), []);
-  rmSync(d, { recursive: true, force: true });
+  assert.deepEqual(check({ i18nDir: new URL('i18n/', WEB), outDir: WEB }), []);
 });
 test('pseudo-locales keep what must not change', () => {
   for (const l of LANGS.slice(1)) {

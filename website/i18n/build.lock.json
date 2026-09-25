@@ -1,22 +1,57 @@
 {
  "_about": "Written by `node website/build.mjs` after a successful build; `--check` (CI, deploy) refuses when the English source, a translation or a built file no longer matches it.",
- "source": "6def33c56a46f8392a33d9d797c1f459f1a267ff680ae9703166d4895f1293a8",
+ "source": "fdcd626b32674da8797f59a703ff41c18dcf02b7762253ae2bff0c00af18682f",
  "i18n": {
-  "en.json": "008aba17942dc62dd028be23f7d10decd6bcfa45c7c0b5562ad125c7a9b7f167"
+  "en.json": "008aba17942dc62dd028be23f7d10decd6bcfa45c7c0b5562ad125c7a9b7f167",
+  "es.json": "ec90319d1c432ca6835f6931757260c9e1f0a5d1a88f3886f572068143a2f824",
+  "ko.json": "539880f87d327c495188a63122bf433cfa7eca9a5ca5f16dc31d924fe7e2af51",
+  "zh.json": "0808cb93dc5e2cff7186b401c00675d240122be6cf5c03897bf0ecf73bfdf41e",
+  "ru.json": "21324137469d1889f1106f8dfc23c78aa754e027f31f91cfdff6d8586f2736cc",
+  "tr.json": "9880850aad60e18e5f8ebdb48bbe1d118b1814470391764c1091f9cf61ba6bd5"
  },
  "outputs": {
-  "index.html": "da0fc707179f19c2fa4e3d4072bc0e5fb7689ada20946810fd3939182cdc53a1",
-  "404.html": "b3512be6e106f65d389d679a001d62b05f5fcefa87ecbc7318faa088816220a7",
-  "sitemap.xml": "5c793204ed2095a4e32660fbe9b2c1dd213fb53a58f3fc47b546c2c388893ea4",
-  "llms.txt": "c5aeff03d5fd42a6e574f82fe805a1f166250f54274db2651df96b8168bbf9ba"
+  "index.html": "4eec3055de055e0b1d7bde77fcc34eb6fb260989c3abfad6f62015dcf79d7627",
+  "es/index.html": "cb8ff297d3d589356ec0be402394d096e7d95776e43dbf3b7b271bd83f62ee62",
+  "ko/index.html": "b934f63a8f0f2872f799b7a73decdf6004207f30a9a2651d0a7db6772d85f27b",
+  "zh/index.html": "fa731ff1f405f0fe78189bc4b9ff470863cd3b770c9a24151f7155632dc19ef7",
+  "ru/index.html": "5725a44c7b94ada61647b7277fe27ad57b18b9a36871f55dcd11b728e4239a2f",
+  "tr/index.html": "7301f4197b84770e39cfd46db591a02093d80f000825b2ac655bd07078587ec6",
+  "404.html": "15fc02007ec42ca773e6e44b123f566fe993fe6c34ab735a3dddd94125d8e896",
+  "sitemap.xml": "29e8962955f2e4fbf244b8f0838f4afeab2d6cefeca905d3f45070e43554f00d",
+  "llms.txt": "001fad65364fef111475b284facd760455f0ae2b9d0fcc1a56b11d9a7dc60e6c"
  },
  "lastmod": {
-  "index.html": "2026-09-25"
+  "index.html": "2026-09-25",
+  "es/index.html": "2026-09-25",
+  "ko/index.html": "2026-09-25",
+  "zh/index.html": "2026-09-25",
+  "ru/index.html": "2026-09-25",
+  "tr/index.html": "2026-09-25"
  },
  "og": {
   "en": {
    "image": "og-image.png",
    "source": "747f878e51d4925d392a1b0ec3a629795e31e65b25b85885fc269502ef8dcc0c"
+  },
+  "es": {
+   "image": "og-es.png",
+   "source": "f2b11889a89f2f73b4bba7644f38e61da6664eeb73c4c5bb532ed3f19ab8f813"
+  },
+  "ko": {
+   "image": "og-ko.png",
+   "source": "90ed2a4171a05703994550d9ae58ff0b3bc7fe788734a6f01605c1023557a56c"
+  },
+  "zh": {
+   "image": "og-zh.png",
+   "source": "d749f9ea40616d35ccab044542bb14f7adcacb04300d2a9ab7dbbf57f7317887"
+  },
+  "ru": {
+   "image": "og-ru.png",
+   "source": "874aebc991b264fd655943b944a2d57485c7e30434474d5ada10bc9499b9c250"
+  },
+  "tr": {
+   "image": "og-tr.png",
+   "source": "f287c4f34e2bc0bd78fb51342b85bc24aec7ff755ab2841df964beeb920e6c4e"
   }
  }
 }
