@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { L, P, system, figureCSS } from './figures.mjs';
-import { STAGES, CROP, STEPS, OS, GLY, CMP } from './content.mjs';
+import { STAGES, CROP, STEPS, OS, SEC, CMP } from './content.mjs';
 
 const here = new URL('.', import.meta.url);
 // Build-time minification, deliberately conservative (no external deps):
@@ -17,7 +17,7 @@ const js = minJS(readFileSync(new URL('story.js', here), 'utf8'));
 const still = k => `<figure class="still" aria-label="Figure ${k + 1}">
   ${system(L, k, { label: STAGES[k].aria, crop: CROP.L[k], prune: true })}
   ${system(P, k, { label: STAGES[k].aria, crop: CROP.P[k], prune: true })}
-  <figcaption><span class="fig-n">Figure ${k + 1}</span> ${STAGES[k].cap}</figcaption>
+  ${STAGES[k].note ? `<figcaption class="fig-note">${STAGES[k].note}</figcaption>` : ''}
 </figure>`;
 
 const stepsHTML = STEPS.map((c, k) => `<article class="step${k === 0 ? ' step-hero' : ''}" id="s${k}" data-step="${k}">
@@ -75,10 +75,10 @@ ${stepsHTML}
     <div class="stage">
       <figure class="stage-fig">
         ${system(L, 0, { extraClass: 'live', label: STAGES[0].aria })}
-        <figcaption class="stage-cap"><span class="fig-n" id="figN">Figure 1</span> <span id="figCap">${STAGES[0].cap}</span></figcaption>
+        <figcaption class="stage-cap fig-note">${STAGES.map((s, k) => s.note ? `<span data-at="${k}">${s.note}</span>` : '').join('')}</figcaption>
       </figure>
       <ol class="rail" aria-label="Story chapters">
-        ${STAGES.map((s, k) => `<li><button type="button" data-go="${k}" aria-label="Go to figure ${k + 1}: ${s.cap}"${k === 0 ? ' aria-current="step"' : ''}></button></li>`).join('')}
+        ${STAGES.map((s, k) => `<li><button type="button" data-go="${k}" aria-label="Go to figure ${k + 1}"${k === 0 ? ' aria-current="step"' : ''}></button></li>`).join('')}
       </ol>
     </div>
   </div>
@@ -87,19 +87,16 @@ ${stepsHTML}
 <div class="proof">
 <section class="band" id="os" aria-labelledby="os-h">
   <div class="band-head">
-    <h2 id="os-h">How it works, as an operating system.</h2>
-    <p>The analogy is not a metaphor stretched over a library. Each part of it is a mechanism that ships in version 0.2.0.</p>
+    <h2 id="os-h">How it works.</h2>
   </div>
-  <div class="os-table" role="table" aria-label="Operating-system concepts and their GenSwarms mechanisms">
-    <div class="os-row os-headrow" role="row"><span role="columnheader">In an operating system</span><span role="columnheader">In GenSwarms</span></div>
-    ${OS.map(([k, v]) => `<div class="os-row" role="row"><span class="os-k" role="rowheader"><svg class="gl" viewBox="0 0 32 32" aria-hidden="true">${GLY[k]}</svg>${k}</span><span class="os-v" role="cell">${v}</span></div>`).join('\n    ')}
-  </div>
+  <dl class="spec">
+    ${OS.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('\n    ')}
+  </dl>
 </section>
 
 <section class="band" id="compare" aria-labelledby="cmp-h">
   <div class="band-head">
-    <h2 id="cmp-h">A runtime, not a library.</h2>
-    <p>LangGraph, CrewAI and AutoGen are good ways to write agent logic. GenSwarms is where agents run: as processes it starts, isolates, connects and restarts.</p>
+    <h2 id="cmp-h">How is it different from LangGraph, CrewAI or AutoGen?</h2>
   </div>
   <div class="cmp-wrap">
     <table class="cmp">
@@ -114,30 +111,16 @@ ${stepsHTML}
 
 <section class="band" id="security" aria-labelledby="sec-h">
   <div class="band-head">
-    <h2 id="sec-h">Security and operations.</h2>
-    <p>What the runtime guarantees today, and what it does not do yet.</p>
+    <h2 id="sec-h">What it guarantees, and what it doesn’t yet.</h2>
   </div>
   <div class="sec-cols">
     <div class="sec-col">
-      <h3>What it guarantees</h3>
-      <ul class="yes">
-        <li>Every agent is a separate supervised process and a crash restarts that agent, not the swarm.</li>
-        <li>Agents can run in their own sandbox.</li>
-        <li>Messages move only along the declared topology and every hop is checked.</li>
-        <li>A bad configuration is refused at boot.</li>
-        <li>An isolated agent reaches its model endpoint and nothing else.</li>
-        <li>Packages are signed and verified, with a transparency log.</li>
-        <li>Every message, crash, restart and output is on one live event stream.</li>
-      </ul>
+      <h3>Guarantees</h3>
+      <ul class="yes">${SEC.yes.map(t => `<li>${t}</li>`).join('')}</ul>
     </div>
     <div class="sec-col">
-      <h3>What it doesn’t do yet</h3>
-      <ul class="not">
-        <li>One operator token (no per-user roles yet).</li>
-        <li>Messages are delivered at least once, not exactly once.</li>
-        <li>No token or dollar caps in the core (budget packages exist).</li>
-        <li>Swarms run up to 100 agents by default; the limit is configurable.</li>
-      </ul>
+      <h3>Not yet</h3>
+      <ul class="not">${SEC.not.map(t => `<li>${t}</li>`).join('')}</ul>
     </div>
   </div>
 </section>
@@ -146,11 +129,11 @@ ${stepsHTML}
 <section class="close" id="start" aria-labelledby="close-h">
   <div class="close-in">
     <h2 id="close-h">Start with one team. Scale to thousands of agents.</h2>
-    <p>Build your first swarm, connect your existing systems and expand from individual workflows into an organization-wide AI workforce.</p>
+    <p>Instead of building isolated agents, build an AI&nbsp;workforce.</p>
     <div class="ctas"><a class="btn btn-primary" href="/docs/">Read the docs</a><a class="btn btn-ghost" href="https://github.com/genlayerlabs/genswarms">View on GitHub</a></div>
     <div class="handoff">
       <p id="handoff-l">Or hand it to your agent:</p>
-      <div class="prompt"><code id="prompt">Read https://genswarms.com/skill.md and set up a production-ready swarm.</code><button type="button" id="copy" aria-describedby="handoff-l" data-idle="Copy" data-copied="Copied" data-fallback="Select and copy">Copy</button></div>
+      <div class="prompt"><code id="prompt">Read https://genswarms.com/skill.md and set up a swarm.</code><button type="button" id="copy" aria-describedby="handoff-l" data-idle="Copy" data-copied="Copied" data-fallback="Select and copy">Copy</button></div>
     </div>
   </div>
 </section>

@@ -46,10 +46,32 @@ test('banned claims are absent', () => {
   assert.doesNotMatch(text, /\bmemory\b/i);
 });
 
-test('owner copy edits are applied', () => {
-  assert.match(text, /their roles, tools, boundaries, communication, workflows and supervision/);
-  assert.match(text, /what tools, data and systems each agent can access/);
-  assert.match(text, /how agents communicate(?! and share)/);
+test('approved copy deck is applied (design/2026-09-25-copy-deck.md)', () => {
+  assert.match(text, /Deploy, coordinate and control thousands of AI agents across your organization\./);
+  assert.match(text, /One example runs through the page: a customer who was charged twice\./);
+  assert.match(text, /GenSwarms makes those decisions for agents: roles access to tools, data and systems who hands work to whom review and escalation recovery when an agent fails human oversight/);
+  assert.match(text, /The charged-twice ticket enters at the classifier\./);
+  assert.match(text, /Each agent is its own supervised process\. A crash restarts that agent; the ticket carries on\./);
+  assert.match(text, /How is it different from LangGraph, CrewAI or AutoGen\?/);
+  assert.match(text, /Read https:\/\/genswarms\.com\/skill\.md and set up a swarm\./);
+  // removed: explanatory paragraphs, the old analogy list, the Control surface row
+  assert.doesNotMatch(text, /share context|how agents communicate|A runtime, not a library|Control surface|production-ready/);
+  // the two example lines are the only italic example style
+  assert.equal((html.match(/class="ex"/g) || []).length, 2);
+});
+
+test('visible copy stays short (deck target ~430 words)', () => {
+  const words = h => h.replace(/<svg[\s\S]*?<\/svg>|<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, ' ')
+    .replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').split(/\s+/).filter(w => /[\p{L}\p{N}]/u.test(w)).length;
+  // the page's prose: <main> outside svg/script/style, without screen-reader-only text, the
+  // pinned figure's label copies (shown one at a time, instead of the stills' labels) and the
+  // comparison table (sourced data, fixed by design/comparison-sources.md)
+  const prose = words(html.match(/<main[\s\S]*<\/main>/)[0].replace(/<(span|caption) class="sr"[\s\S]*?<\/\1>/g, ' ')
+    .replace(/<figcaption class="stage-cap[\s\S]*?<\/figcaption>/, ' ').replace(/<table[\s\S]*?<\/table>/, ' '));
+  assert.ok(prose <= 500, `${prose} words of prose`);
+  // and everything outside svg/script/style in <body>, nav, footer and comparison cells included
+  const all = words(html.match(/<body>[\s\S]*<\/body>/)[0]);
+  assert.ok(all <= 660, `${all} words on the whole page`);
 });
 
 test('facts match v0.2.0', () => {
@@ -60,10 +82,16 @@ test('facts match v0.2.0', () => {
 });
 
 test('every simulated/animated figure is labelled illustration', () => {
-  // Fig. 5 (stage 4): the moving request token is the only simulated element, no event log
-  assert.match(text, /customer-operations team on a declared topology\. The moving request is an illustration\./);
-  // Fig. 8 (stage 7): team shapes are illustrative, per spec §4.4
-  assert.match(text, /Seven teams under one control layer \(team shapes are illustrative\)\./);
+  // Figs. 5-7 (stages 4-6) carry a small "illustration" label; Fig. 8 (stage 7) says its team
+  // shapes are illustrative (spec §4.4). Stills carry it in flow; the pinned figure shows it by stage.
+  const note = k => html.match(new RegExp(`id="s${k}" data-step="${k}">[\\s\\S]*?</article>`))[0].match(/<figcaption class="fig-note">([^<]*)<\/figcaption>/);
+  for (const k of [4, 5, 6]) assert.equal(note(k) && note(k)[1], 'illustration', `still ${k + 1}`);
+  assert.equal(note(7) && note(7)[1], 'team shapes are illustrative');
+  for (const k of [0, 1, 2, 3, 8]) assert.equal(note(k), null, `still ${k + 1} has no caption`);
+  const live = html.match(/<figcaption class="stage-cap[^"]*">([\s\S]*?)<\/figcaption>/)[1];
+  for (const k of [4, 5, 6]) assert.match(live, new RegExp(`data-at="${k}">illustration<`));
+  assert.match(live, /data-at="7">team shapes are illustrative</);
+  for (const k of [4, 5, 6, 7]) assert.match(css(), new RegExp(`\\.live\\[data-s="${k}"\\]~\\.stage-cap \\[data-at="${k}"\\]`));
   // Figs. 6-7 (stages 5-6): the event stream itself is labelled
   assert.match(system(L, 5, { prune: true }), /event stream \(illustration\)/);
   assert.match(system(L, 6, { prune: true }), /event stream \(illustration\)/);

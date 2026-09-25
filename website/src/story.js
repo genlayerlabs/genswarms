@@ -5,8 +5,6 @@
   var stage = document.querySelector('.sys.live');
   var steps = Array.prototype.slice.call(document.querySelectorAll('.step'));
   var rail = Array.prototype.slice.call(document.querySelectorAll('.rail button'));
-  var figN = document.getElementById('figN');
-  var figCap = document.getElementById('figCap');
 
   function current() {
     var line = innerHeight * 0.46, best = 0;
@@ -35,8 +33,6 @@
     stage.setAttribute('data-s', k);
     var still = steps[k].querySelector('figure.still');
     stage.setAttribute('aria-label', still.querySelector('svg').getAttribute('aria-label'));
-    figN.textContent = still.querySelector('.fig-n').textContent;
-    figCap.textContent = still.querySelector('figcaption').lastChild.textContent.trim();
     rail.forEach(function (b, i) { if (i === k) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current'); });
   }
 

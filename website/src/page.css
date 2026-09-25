@@ -52,11 +52,9 @@ h1,h2,h3{font-family:var(--fd);color:var(--ink);margin:0;text-wrap:balance}
 h1{font-weight:780;font-size:clamp(44px,13.2vw,64px);line-height:.92;letter-spacing:-.042em;margin-bottom:30px;font-variation-settings:"opsz" 96}
 .step h2{font-weight:730;font-size:clamp(34px,9.4vw,52px);line-height:.98;letter-spacing:-.034em;margin-bottom:26px;font-variation-settings:"opsz" 96}
 .copy .lead{font:500 clamp(21px,1.75vw,25px)/1.34 var(--ft);color:var(--ink);letter-spacing:-.006em}
-.copy .pull{font:680 clamp(24px,2.1vw,31px)/1.14 var(--fd);color:var(--ink);letter-spacing:-.02em;margin-top:30px;max-width:20em}
 .copy .big{font:540 clamp(25px,2.25vw,32px)/1.2 var(--fd);color:var(--ink);letter-spacing:-.02em;max-width:22em}
-.copy .note{font-size:16px;margin-top:26px}
+.copy .ex{font-style:italic;font-size:17px;color:var(--ink-2);margin-top:22px}
 .copy .meta{font-size:14px;margin-top:22px}
-.scroll-cue{display:none}
 
 /* the turn */
 .copy .turn-k{font:500 17px/1.3 var(--ft);color:var(--ink-2);margin:0 0 8px}
@@ -70,10 +68,6 @@ h1{font-weight:780;font-size:clamp(44px,13.2vw,64px);line-height:.92;letter-spac
 .determines li{position:relative;padding:11px 0 11px 30px;border-top:1px solid var(--line);color:var(--ink);font-size:17px;line-height:1.4}
 .determines li:last-child{border-bottom:1px solid var(--line)}
 .determines li::before{content:"";position:absolute;left:3px;top:50%;width:10px;height:10px;margin-top:-5px;border-radius:50%;background:var(--ink);box-shadow:0 0 0 4px var(--sand),0 0 0 5px rgba(51,48,31,.3)}
-.teams{list-style:none;margin:22px 0 0;padding:0}
-.teams li{font:720 clamp(29px,7.4vw,52px)/1.08 var(--fd);letter-spacing:-.032em;color:var(--ink);font-variation-settings:"opsz" 96}
-.teams li:not(:first-child){color:var(--ink-2)}
-.copy .across{margin-bottom:6px}
 .copy .triad{margin-top:40px;max-width:none}
 .triad span{display:block;font:740 clamp(30px,7.6vw,54px)/1.04 var(--fd);letter-spacing:-.034em;color:var(--ink);font-variation-settings:"opsz" 96;padding:10px 0;border-top:1px solid var(--line)}
 .triad span:last-child{border-top:4px solid var(--ink);padding-top:14px}
@@ -84,8 +78,8 @@ h1{font-weight:780;font-size:clamp(44px,13.2vw,64px);line-height:.92;letter-spac
 .still{margin:28px 0 0;padding:0}
 .still .sys.L{display:none}
 .still .sys.P{max-width:520px;margin:0 auto}
-figcaption{font-size:14.5px;line-height:1.45;color:var(--ink-2);margin-top:14px;max-width:34em}
-.fig-n{color:var(--ink);font-weight:600;margin-right:6px}
+/* the only caption left: a small label under the simulated figures (spec §4) */
+.fig-note{font-size:13px;line-height:1.45;color:var(--ink-2);margin-top:10px}
 .stage-col{display:none}
 @media (min-width:760px){
   .still{margin:40px 0 0}
@@ -98,7 +92,6 @@ figcaption{font-size:14.5px;line-height:1.45;color:var(--ink-2);margin-top:14px;
   h1{font-size:clamp(50px,5.5vw,104px)}
   .step h2{font-size:clamp(40px,4.2vw,64px);line-height:1}
   .copy .turn-q{font-size:clamp(38px,3.9vw,58px)}
-  .teams li{font-size:clamp(32px,3.4vw,50px)}
   .triad span{font-size:clamp(30px,3vw,46px)}
 }
 @media (min-width:1280px){
@@ -108,18 +101,16 @@ figcaption{font-size:14.5px;line-height:1.45;color:var(--ink-2);margin-top:14px;
 }
 
 /* ---------- cinematic mode: the pinned stage ----------
-   the drawing column takes the room; the story column keeps every step at least a screen tall,
-   with 18vh of air above and below, so a heading never meets the previous step's text */
+   the drawing column takes the room; each short step keeps ~4/5 of a screen (the figure has
+   time to morph) with 12vh of air above and below, so a heading never meets the previous step */
 @media (min-width:1000px){
   .cine .story{display:grid;grid-template-columns:minmax(0,1fr) min(58vw,880px)}
   .cine .steps{grid-column:1;grid-row:1;padding-right:3vw}
-  .cine .step{display:flex;flex-direction:column;justify-content:center;min-height:100vh;padding:18vh 0;border-top:0}
-  .cine .step-hero{padding-top:max(12vh,104px)}
-  .cine .step:last-child{min-height:120vh}
+  .cine .step{display:flex;flex-direction:column;justify-content:center;min-height:78vh;padding:12vh 0;border-top:0}
+  .cine .step-hero{min-height:100vh;padding-top:max(12vh,104px)}
+  .cine .step:last-child{min-height:100vh}
   .cine .still{display:none}
   .cine .stage-col{display:block;grid-column:2;grid-row:1}
-  .cine .scroll-cue{display:inline-flex;align-items:center;gap:10px;margin-top:44px;font-size:14.5px;color:var(--ink-2);text-decoration:none}
-  .cine .scroll-cue::before{content:"";width:1px;height:38px;background:linear-gradient(var(--ink),transparent)}
 }
 @media (min-width:1000px) and (max-width:1279px){
   .cine .story{grid-template-columns:minmax(0,1fr) 60vw}
@@ -136,12 +127,14 @@ figcaption{font-size:14.5px;line-height:1.45;color:var(--ink-2);margin-top:14px;
 }
 @media (min-width:1000px) and (max-height:799px){
   .stage{padding-top:12px;padding-bottom:12px}
-  .stage-cap{min-height:1.45em;margin-top:8px}
+  .stage-cap{margin-top:6px}
 }
 .stage{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;justify-content:center;padding:24px var(--g) 24px 0}
 .stage-fig{margin:0;flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center}
 .stage .sys{width:100%;height:min(78vh,720px)}
-.stage-cap{min-height:2.9em;margin-top:14px;padding-left:2px}
+.stage-cap{min-height:1.45em;padding-left:2px}
+.stage-cap span{display:none}
+.live[data-s="4"]~.stage-cap [data-at="4"],.live[data-s="5"]~.stage-cap [data-at="5"],.live[data-s="6"]~.stage-cap [data-at="6"],.live[data-s="7"]~.stage-cap [data-at="7"]{display:inline}
 .rail{list-style:none;display:flex;gap:6px;margin:6px 0 0;padding:0}
 .rail button{appearance:none;border:0;background:none;padding:10px 0;width:34px;cursor:pointer;display:block}
 .rail button::before{content:"";display:block;height:3px;border-radius:2px;background:rgba(51,48,31,.2);transition:background .3s}
@@ -240,29 +233,16 @@ figcaption{font-size:14.5px;line-height:1.45;color:var(--ink-2);margin-top:14px;
 .band{display:grid;gap:34px;max-width:1400px;margin:0 auto;padding:88px var(--g);border-top:1px solid var(--line)}
 .band:first-child{border-top:0;padding-top:104px}
 .band-head h2{font-weight:700;font-size:clamp(30px,6.6vw,46px);line-height:1.04;letter-spacing:-.028em;margin-bottom:16px}
-.band-head p{color:var(--ink-2);max-width:30em;margin:0 0 14px}
 @media (min-width:1000px){
   .band{grid-template-columns:minmax(0,4fr) minmax(0,8fr);gap:6vw;padding-top:112px;padding-bottom:112px}
   .band-head{position:sticky;top:48px;align-self:start}
   .band-head h2{font-size:clamp(34px,3.2vw,46px)}
 }
-.os-table{border-bottom:1px solid var(--line)}
-.os-row{display:grid;grid-template-columns:1fr;gap:4px;padding:18px 0;border-top:1px solid var(--line)}
-.os-headrow{font-size:14px;color:var(--ink-2);padding:0 0 10px;border-top:0}
-.os-headrow span:last-child{display:none}
-.os-k{font:650 21px/1.2 var(--fd);letter-spacing:-.015em;color:var(--ink);display:flex;align-items:center;gap:12px}
-.gl{width:28px;height:28px;flex:none;overflow:visible}
-.gl-f{fill:var(--ink)} .gl-s{fill:none;stroke:var(--ink);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round} .gl-w{stroke-width:3}
-.gl-r{fill:none;stroke:var(--ink);stroke-opacity:.35;stroke-width:1.4} .gl-d{fill:none;stroke:var(--ink-2);stroke-width:1.3;stroke-dasharray:3 2.5}
-@media (min-width:640px){.os-row{align-items:center!important}}
-.os-v{color:var(--ink-2);font-size:17px;line-height:1.5;max-width:40em;padding-left:40px}
-@media (min-width:640px){.os-v{padding-left:0}}
-.os-v code{background:var(--sand)}
-@media (min-width:640px){
-  .os-row{grid-template-columns:minmax(140px,1fr) minmax(0,2.6fr);gap:28px;align-items:baseline;padding:20px 0}
-  .os-headrow{padding:0 0 10px}
-  .os-headrow span:last-child{display:block}
-}
+.spec{margin:0;border-bottom:1px solid var(--line)}
+.spec div{display:grid;gap:2px;padding:13px 0;border-top:1px solid var(--line)}
+.spec dt{font:650 18px/1.3 var(--fd);letter-spacing:-.01em;color:var(--ink)}
+.spec dd{margin:0;color:var(--ink-2);font-size:17px;line-height:1.45}
+@media (min-width:640px){.spec div{grid-template-columns:minmax(120px,1fr) minmax(0,3fr);gap:24px;align-items:baseline}}
 
 .cmp-wrap{min-width:0}
 .cmp{width:100%;border-collapse:collapse;font-size:16px;line-height:1.45}
