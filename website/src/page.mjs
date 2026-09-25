@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { L, P, system, figureCSS, em } from './figures.mjs';
 import { STAGES, CROP, STEPS, OS, SEC, CMP, CLOSE } from './content.mjs';
-import { t, tf, escAttr, isKept, ORIGIN, SNIPPET } from './i18n.mjs';
+import { t, tf, escAttr, escText, isKept, ORIGIN, SNIPPET } from './i18n.mjs';
 
 const here = new URL('.', import.meta.url);
 // Build-time minification, deliberately conservative (no external deps):
@@ -9,8 +9,8 @@ const here = new URL('.', import.meta.url);
 // descendant selector); JS loses comment-only lines and indentation but keeps its line breaks
 // (no ASI hazards); markup loses indentation after line breaks (a newline run is still one
 // space to the HTML parser, so inline text keeps its spacing).
-export const minCSS = c => c.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ').replace(/\s*([{};,])\s*/g, '$1').replace(/;}/g, '}').trim();
-export const minJS = j => j.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('//')).join('\n');
+const minCSS = c => c.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ').replace(/\s*([{};,])\s*/g, '$1').replace(/;}/g, '}').trim();
+const minJS = j => j.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('//')).join('\n');
 const minHTML = h => h.replace(/\n\s+/g, '\n');
 const css = minCSS(readFileSync(new URL('page.css', here), 'utf8'));
 const js = minJS(readFileSync(new URL('story.js', here), 'utf8'));
@@ -65,7 +65,10 @@ const mark = (cls = '') => `<svg class="mark ${cls}" viewBox="0 0 26 26" aria-hi
 
 // The header on a multilingual page carries the language picker too. Translated link names differ in length, so the
 // breakpoints where the section links, and then "Docs", leave the header are computed from their estimated widths
-// (15px text; the brand is 149px and GitHub 51px; gutters and gaps as in page.css; 4px to spare). English keeps page.css's 719px.
+// (15px text; 4px to spare). English keeps page.css's 719px.
+// These numbers mirror page.css, keep them in step with it: 149 = .brand (24px .mark + 10px gap + "GenSwarms" in
+// 700 20px Bricolage), 24 = .top's gap, 51 = the .gh link, 44 = the picker's summary (i18n.css), g() = --g and
+// gap() = .top nav's gap. i18n-audit.cjs catches drift (header items overlapping or leaving the screen).
 function navCSS(labels) {
   const g = W => Math.max(16, Math.min(64, 0.042 * W)), gap = W => Math.max(14, Math.min(30, 0.022 * W));
   const fits = (W, items) => 149 + 24 + items.reduce((n, w) => n + w, 0) + gap(W) * (items.length - 1) + 2 * g(W) + 4 <= W;
@@ -112,7 +115,7 @@ export function renderPage({ lang: code = 'en', langs = null, bar = null, ogImag
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${title}</title>
+<title>${escText(title)}</title>
 <meta name="description" content="${escAttr(desc)}">
 <link rel="canonical" href="${url}">${hreflang}
 <meta http-equiv="content-language" content="${code}">

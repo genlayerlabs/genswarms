@@ -5,6 +5,7 @@ on:
   pull_request:
     paths:
       - "website/**"
+      - "design/check-deploy-copy.sh"
       - ".github/workflows/site-i18n.yml"
       - ".github/workflows/pages.yml"
 

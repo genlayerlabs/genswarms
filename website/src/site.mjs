@@ -19,7 +19,6 @@ export const defaults = () => ({
   outDir: process.env.OUT_DIR ? dirURL(process.env.OUT_DIR) : WEB,
 });
 export const MAX_BYTES = 153600;
-const LASTMOD = '2026-09-25';
 const sha = b => createHash('sha256').update(b).digest('hex');
 const read = u => (existsSync(u) ? readFileSync(u) : null);
 
@@ -62,11 +61,12 @@ export const ogSource = html => sha(html.match(/<article class="step step-hero" 
 
 const segments = html => html.split(/<[^>]+>/).map(s => decode(s).replace(/\s+/g, ' ').trim()).filter(Boolean);
 
-function sitemap(langs) {
-  if (langs.length === 1) return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url>\n    <loc>${ORIGIN}</loc>\n    <lastmod>${LASTMOD}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>1.0</priority>\n  </url>\n</urlset>\n`;
+// lastmod: per page, the day its output last changed (kept in build.lock.json, so --check stays deterministic)
+function sitemap(langs, lastmod) {
+  if (langs.length === 1) return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url>\n    <loc>${ORIGIN}</loc>\n    <lastmod>${lastmod['index.html']}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>1.0</priority>\n  </url>\n</urlset>\n`;
   const alts = [...langs.map(l => `    <xhtml:link rel="alternate" hreflang="${l.code}" href="${ORIGIN}${l.dir}"/>\n`), `    <xhtml:link rel="alternate" hreflang="x-default" href="${ORIGIN}"/>\n`].join('');
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n` +
-    langs.map(l => `  <url>\n    <loc>${ORIGIN}${l.dir}</loc>\n    <lastmod>${LASTMOD}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>1.0</priority>\n${alts}  </url>\n`).join('') + '</urlset>\n';
+    langs.map(l => `  <url>\n    <loc>${ORIGIN}${l.dir}</loc>\n    <lastmod>${lastmod[`${l.dir}index.html`]}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>1.0</priority>\n${alts}  </url>\n`).join('') + '</urlset>\n';
 }
 // llms.txt stays English and hand-written; the build keeps one line listing the language versions
 function llms(src, langs) {
@@ -77,7 +77,8 @@ function llms(src, langs) {
 }
 
 // build({ i18nDir, outDir }) -> { outputs: { 'es/index.html': string | null (delete) , … }, lock, langs, errors, notes }
-export function build({ i18nDir, outDir } = defaults()) {
+// today: the date a page whose output changed gets as its sitemap lastmod (tests pass a fixed one)
+export function build({ i18nDir, outDir, today = new Date().toISOString().slice(0, 10) } = defaults()) {
   const errors = [], notes = [];
   const entries = catalogue();
   // 1. the catalogue must match the English source
@@ -117,8 +118,9 @@ export function build({ i18nDir, outDir } = defaults()) {
   const enRuns = textRuns(pages.en);
   for (const l of langs.slice(1)) {
     const same = new Set(tables[l.code]._same_as_english || []);
-    const allowed = new Set(entries.filter(e => same.has(e.id)).flatMap(e => segments(e.en)));
-    const left = [...textRuns(pages[l.code])].filter(r => enRuns.has(r) && !allowed.has(r));
+    // (a run that is part of an allowed string passes too: figure labels keep their hand-set English line breaks)
+    const allowed = entries.filter(e => same.has(e.id)).flatMap(e => segments(e.en));
+    const left = [...textRuns(pages[l.code])].filter(r => enRuns.has(r) && !allowed.some(a => a === r || a.includes(r)));
     if (left.length) errors.push(`${l.code}: the built page still shows English: ${left.map(r => JSON.stringify(r.slice(0, 60))).join(', ')}`);
   }
   if (errors.length) return { errors };
@@ -127,7 +129,15 @@ export function build({ i18nDir, outDir } = defaults()) {
 
   const byLang = Object.fromEntries(langs.slice(1).map(l => [l.dir.replace('/', ''), { lang: l.code, home: '/' + l.dir, ...withLang({ lang: l.code, table: tables[l.code] }, strings404) }]));
   outputs['404.html'] = render404(byLang);
-  outputs['sitemap.xml'] = sitemap(langs);
+  // a page keeps its lastmod while its output is unchanged since the last build (the date then comes from the lock,
+  // or from the current sitemap for a lock that predates the dates); a changed page gets today
+  const prev = JSON.parse(read(new URL('build.lock.json', i18nDir)) || '{}');
+  const oldDates = Object.fromEntries([...(read(new URL('sitemap.xml', outDir)) || '').toString().matchAll(/<loc>([^<]+)<\/loc>\s*<lastmod>([^<]+)<\/lastmod>/g)].map(m => [m[1], m[2]]));
+  const lastmod = Object.fromEntries(langs.map(l => {
+    const f = `${l.dir}index.html`, same = prev.outputs && prev.outputs[f] === sha(pages[l.code]);
+    return [f, (same && ((prev.lastmod || {})[f] || oldDates[ORIGIN + l.dir])) || today];
+  }));
+  outputs['sitemap.xml'] = sitemap(langs, lastmod);
   outputs['llms.txt'] = llms(readFileSync(new URL('llms.txt', WEB), 'utf8'), langs);
 
   const files = { 'en.json': sha(cat), ...Object.fromEntries(langs.slice(1).map(l => [`${l.file}.json`, sha(read(new URL(`${l.file}.json`, i18nDir)))])) };
@@ -136,6 +146,7 @@ export function build({ i18nDir, outDir } = defaults()) {
     source: sha(readdirSync(SRC).sort().map(f => f + '\0' + readFileSync(new URL(f, SRC), 'utf8')).join('\0')),
     i18n: files,
     outputs: Object.fromEntries(Object.entries(outputs).filter(([, v]) => v !== null).map(([k, v]) => [k, sha(v)])),
+    lastmod,
     og: Object.fromEntries(langs.map(l => [ogKey(l), { image: ogFile(l), source: ogSource(pages[l.code]) }])),
   };
   return { outputs, lock, langs, errors, notes, pages };

@@ -22,10 +22,11 @@
   var S = JSON.parse(data.textContent);
   // the first browser language we have a version for; zh-TW, zh-HK, zh-MO and zh-Hant never get Simplified
   var prefs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ''];
+  // (a Traditional tag anywhere in the list rules out Simplified, even after a bare "zh")
   var want = null, hant = false;
+  for (var j = 0; j < prefs.length; j++) if (/^zh-(tw|hk|mo|hant)/i.test(String(prefs[j]))) hant = true;
   for (var i = 0; i < prefs.length && !want; i++) {
     var p = String(prefs[i]).toLowerCase();
-    if (/^zh-(tw|hk|mo|hant)/.test(p)) { hant = true; continue; }
     if (/^zh/.test(p) && hant) continue;
     var c = /^zh/.test(p) ? 'zh-Hans' : p.split('-')[0];
     if (S[c]) want = c;

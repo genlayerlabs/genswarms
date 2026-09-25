@@ -68,10 +68,10 @@ function figureProblems() {
     const sc = svg.getScreenCTM().a;
     const texts = [...svg.querySelectorAll('text')].filter(t => t.getClientRects().length && !hidden(t, svg)).map(t => ({ t, r: t.getBoundingClientRect(), s: t.textContent.trim() }));
     for (const { t, r, s } of texts) {
-      // (the English design renders its phone figures at 11.5px on a 320px screen; the 12px floor starts at 360px,
-      // where story.cjs holds English to 13px)
+      // (the English design renders its phone figures at 11.5px on a 320px screen: the floor there is 11px, and 12px
+      // from 360px, where story.cjs holds English to 13px)
       const px = parseFloat(getComputedStyle(t).fontSize) * sc;
-      if (px < 12 && innerWidth >= 360) out.push(`${name}: "${s}" renders at ${px.toFixed(1)}px`);
+      if (px < (innerWidth < 360 ? 11 : 12)) out.push(`${name}: "${s}" renders at ${px.toFixed(1)}px`);
       if (r.left < sr.left - 1 || r.right > sr.right + 1) out.push(`${name}: "${s}" runs outside the drawing`);
       // a label's box includes the font's full ascent and descent: compare roughly where its glyphs are
       if (!svg.classList.contains('live') && (r.top + r.height * 0.15 < sr.top - 1 || r.bottom - r.height * 0.25 > sr.bottom + 1)) out.push(`${name}: "${s}" is cut off by the crop`);
@@ -225,7 +225,7 @@ function figureProblems() {
     const other = codes.find(c => c !== 'en');
     if (codes.includes('es')) await bar(['es-MX', 'en'], '/', 'es', { then: dismissed });
     if (codes.includes('ko')) await bar(['ko-KR', 'ko'], dirOf.es || '/', 'ko');
-    if (codes.includes('zh-Hans')) { await bar(['zh-CN'], '/', 'zh-Hans'); await bar(['zh-TW', 'zh'], '/', null); await bar(['zh-HK'], '/', null); }
+    if (codes.includes('zh-Hans')) { await bar(['zh-CN'], '/', 'zh-Hans'); await bar(['zh-TW', 'zh'], '/', null); await bar(['zh', 'zh-TW'], '/', null); await bar(['zh-HK'], '/', null); }
     await bar(['en-US'], dirOf[other], 'en', { then: dismissed });
     await bar([other === 'zh-Hans' ? 'zh-CN' : other], dirOf[other], null);
     await bar(['de-DE'], '/', null);

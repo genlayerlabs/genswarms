@@ -44,12 +44,11 @@ export const placeholders = s => (s.match(/\{\w+\}/g) || []).sort();
 export const tagsOf = s => (s.match(/<[^>]+>/g) || []).sort();
 
 // ---------- the lookup ----------
-let ctx = { lang: 'en', table: null, rec: null, missing: null };
-export const lang = () => ctx.lang;
+let ctx = { lang: 'en', table: null, rec: null };
 // run fn with a language table (null = English) and optionally a recorder (a Map, filled in first-use order)
-export function withLang({ lang = 'en', table = null, rec = null, missing = null } = {}, fn) {
+export function withLang({ lang = 'en', table = null, rec = null } = {}, fn) {
   const prev = ctx;
-  ctx = { lang, table, rec, missing };
+  ctx = { lang, table, rec };
   try { return fn(); } finally { ctx = prev; }
 }
 // t(english, where, { kind, max, lines, limit }) -> the text for the current language.
@@ -60,8 +59,9 @@ export function t(en, where, o = {}) {
   if (ctx.rec) record(en, where, o);
   if (!ctx.table) return en;
   const v = ctx.table[sid(en)];
-  if (typeof v !== 'string' || !v.trim()) { if (ctx.missing) ctx.missing.add(sid(en)); return en; }
-  return v.trim();
+  if (typeof v !== 'string' || !v.trim()) return en;
+  // inner HTML: a translator's bare & becomes &amp; (a stray < or > is refused by validate())
+  return (o.kind || 'html') === 'html' ? v.trim().replace(/&(?![a-z]+;|#\d+;)/gi, '&amp;') : v.trim();
 }
 export const fill = (s, vars) => s.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
 // sentence templates, never concatenation (§7): tf('Step {n}: {title}', { n, title }, where)
@@ -84,6 +84,43 @@ function record(en, where, o) {
 }
 
 // ---------- validation of one translation file ----------
+// tags must nest the way HTML needs them to (the multiset check alone would pass `</code>…<code>`)
+const VOID = new Set(['br', 'wbr', 'img', 'hr']);
+function nests(s) {
+  const open = [];
+  for (const [, close, name, self] of s.matchAll(/<(\/?)([a-z][\w-]*)[^>]*?(\/?)>/gi)) {
+    if (self || VOID.has(name.toLowerCase())) continue;
+    if (!close) open.push(name.toLowerCase());
+    else if (open.pop() !== name.toLowerCase()) return false;
+  }
+  return !open.length;
+}
+// Words a translation could have copied from the English. Tags, entities, placeholders, URLs, protected and keep-list
+// names and identifiers (anything with a digit, _, @ or /) are cut out, each leaving a break ('|'), so a run of words
+// never joins across a name such as "LangSmith Deployment".
+// (the figures' lowercase identifiers, such as `browser` or `answer`, are ordinary words in prose: they stay)
+const NAME_RES = [...new Set([...PROTECT, ...[...KEEP].filter(n => !/^[a-z]+$/.test(n))])].filter(n => /\p{L}/u.test(n)).sort((a, b) => b.length - a.length)
+  .map(n => new RegExp(`(?<![\\p{L}\\w])${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\p{L}\\w])`, 'gu'));
+function stripNames(s) {
+  let x = decode(s.replace(/<[^>]+>/g, ' ')).replace(/\{\w+\}|https?:\/\/\S+/g, ' | ');
+  for (const re of NAME_RES) x = x.replace(re, ' | ');
+  return x.replace(/\S*[\d_@/]\S*/g, ' | ');
+}
+// ASCII-Latin words, with every other script and every cut-out name as a break
+const latinTokens = s => (stripNames(s).match(/[A-Za-z]+(?:['’-][A-Za-z]+)*|[^\P{L}A-Za-z]+|\|/gu) || []).map(w => w.toLowerCase());
+function latinTrigrams(s) {
+  const out = new Set();
+  let run = [];
+  for (const w of latinTokens(s)) {
+    if (/^[a-z]/.test(w)) run.push(w); else run = [];
+    if (run.length >= 3) out.add(run.slice(-3).join(' '));
+  }
+  return out;
+}
+// (names and identifiers don't count: a string of product names alone has no words to translate)
+const words = s => (stripNames(s).match(/\p{L}+(?:['’-]\p{L}+)*/gu) || []).map(w => w.toLowerCase());
+// scripts that are not Latin: any run of three English words left in them is English left behind
+const NON_LATIN = new Set(['ko', 'zh-Hans', 'ru']);
 // Every id present, markup and placeholders kept, protected names untouched, snippets short enough, nothing left in
 // English unless the file says so.
 export function validate(code, entries, tx) {
@@ -95,6 +132,8 @@ export function validate(code, entries, tx) {
     if (!tr) { errs.push(`${e.id} missing (${e.where[0]}): ${e.en.slice(0, 70)}`); continue; }
     if (tagsOf(tr).join('') !== tagsOf(e.en).join(''))
       errs.push(`${e.id} markup differs: ${JSON.stringify(tagsOf(e.en))} vs ${JSON.stringify(tagsOf(tr))}`);
+    else if (nests(e.en) && !nests(tr)) errs.push(`${e.id} tags are out of order: ${JSON.stringify(tr.match(/<[^>]+>/g))}`);
+    if (e.kind === 'html' && /[<>]/.test(tr.replace(/<[^>]+>/g, ''))) errs.push(`${e.id} has a bare < or > (write &lt; or &gt;)`);
     if (placeholders(tr).join() !== placeholders(e.en).join())
       errs.push(`${e.id} placeholders differ: ${placeholders(e.en).join(' ') || 'none'} vs ${placeholders(tr).join(' ') || 'none'}`);
     for (const name of PROTECT)
@@ -102,6 +141,19 @@ export function validate(code, entries, tx) {
         errs.push(`${e.id} lost the protected name "${name}"`);
     if (tr === e.en && !same.has(e.id))
       errs.push(`${e.id} is still English (list it under _same_as_english if that is deliberate): ${tr.slice(0, 60)}`);
+    // _same_as_english is for short labels and names, never for whole sentences
+    if (same.has(e.id) && e.kind !== 'svg' && e.kind !== 'attr' && words(e.en).length > 3)
+      errs.push(`${e.id} cannot be listed under _same_as_english (only figure labels, accessible names and strings of up to 3 words can): ${e.en.slice(0, 60)}`);
+    // near-English: three English words in a row in a non-Latin script, or a Latin-script text that is mostly English words
+    if (!same.has(e.id) && NON_LATIN.has(code)) {
+      const en3 = latinTrigrams(e.en), hit = [...latinTrigrams(tr)].find(g => en3.has(g));
+      if (hit) errs.push(`${e.id} still has English in it ("${hit}"): ${tr.slice(0, 60)}`);
+    }
+    if (!same.has(e.id) && !NON_LATIN.has(code)) {
+      const enW = new Set(words(e.en)), trW = words(tr), same80 = trW.filter(w => enW.has(w)).length;
+      if (trW.length && same80 / trW.length >= 0.8)
+        errs.push(`${e.id} is mostly English (${same80} of ${trW.length} words are the English ones): ${tr.slice(0, 60)}`);
+    }
     const lim = e.limit && (CJK.has(code) ? e.limit.cjk : e.limit.chars);
     if (lim && [...tr].length > lim) errs.push(`${e.id} is ${[...tr].length} characters, over the ${lim}-character limit (${e.where[0]})`);
   }

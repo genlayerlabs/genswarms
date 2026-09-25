@@ -1,7 +1,7 @@
 // The 404 page: one file for every language (GitHub Pages serves it for any missing path). The English is in the
 // markup; on a multilingual build a small script swaps in the strings of the language whose folder the missing path
 // is in (/es/…, /ko/…), and the fonts that language needs. Strings come from the catalogue.
-import { t } from './i18n.mjs';
+import { t, escText } from './i18n.mjs';
 
 export const strings404 = () => ({
   title: t('404 — page not found · GenSwarms', '404 page: browser tab title', { kind: '404' }),
@@ -20,7 +20,7 @@ const FONTS = `:lang(ru) body,:lang(ru) h1{font-family:-apple-system,BlinkMacSys
 
 // byLang: { es: { lang: 'es', home: '/es/', ...strings404() in Spanish }, ... } (English stays in the markup)
 export function render404(byLang = null) {
-  const { title, code, h1, p, back, docs } = strings404();
+  const { title, code, h1, p, back, docs } = Object.fromEntries(Object.entries(strings404()).map(([k, v]) => [k, escText(v)]));
   const multi = byLang && Object.keys(byLang).length;
   const head = multi ? `\n<style>\n${FONTS}\n</style>` : '';
   const body = multi ? `<script id="i18n-404">

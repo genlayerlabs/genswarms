@@ -48,6 +48,9 @@ jobs:
       - name: Build docs into _site/docs
         run: mkdocs build --strict --site-dir _site/docs
 
+      - name: The deploy copy ships every language version and nothing else
+        run: bash design/check-deploy-copy.sh
+
       - name: Place landing page at site root
         run: |
           rsync -a --exclude src --exclude tests --exclude tools --exclude i18n --exclude build.mjs website/ _site/

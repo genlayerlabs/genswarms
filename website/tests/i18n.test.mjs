@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
-import { LANGS, ORIGIN, PROTECT, sid, textRuns } from '../src/i18n.mjs';
+import { LANGS, ORIGIN, PROTECT, sid, textRuns, validate } from '../src/i18n.mjs';
 import { catalogue, catalogueFile, build, check, verify, ogSource, ogFile } from '../src/site.mjs';
 import { createServer } from 'node:http';
 import { renderPage } from '../src/page.mjs';
@@ -20,7 +20,7 @@ const entries = catalogue();
 const byEn = en => entries.find(e => e.en === en);
 
 // a pseudo-locale set for `codes`, optionally edited, built in memory
-function pseudoBuild(codes, edit = () => {}) {
+function pseudoBuild(codes, edit = () => {}, opts = {}) {
   const d = tmp();
   writePseudo(d, codes);
   for (const l of LANGS.filter(l => codes.includes(l.code))) {
@@ -28,7 +28,7 @@ function pseudoBuild(codes, edit = () => {}) {
     edit(l.code, tx);
     writeFileSync(f, JSON.stringify(tx));
   }
-  const r = build({ i18nDir: url(d), outDir: WEB });
+  const r = build({ i18nDir: url(d), outDir: WEB, ...opts });
   rmSync(d, { recursive: true, force: true });
   return r;
 }
@@ -105,9 +105,10 @@ test('the guard refuses English left on a translated page', () => {
   // a string kept in English without saying so
   const id = byEn('Not everything needs a model.').id;
   refused(pseudoBuild(['tr'], (c, tx) => { tx[id] = 'Not everything needs a model.'; }), new RegExp(`tr: ${id} is still English`));
-  // a translation that happens to show an English text run of the page (the nav link "How it works")
-  const h2 = byEn('How it works.').id;
-  refused(pseudoBuild(['es'], (c, tx) => { tx[h2] = 'How it works'; }), /es: the built page still shows English: "How it works"/);
+  // a translation near its own English is caught by validate() (see the fix-round tests); one that shows another
+  // string's English (here the nav link "Security" as the "Guarantees" heading) only by the page check
+  const h3 = byEn('Guarantees').id;
+  refused(pseudoBuild(['es'], (c, tx) => { tx[h3] = 'Security'; }), /es: the built page still shows English: "Security"/);
   // listed under _same_as_english, it passes
   const docs = byEn('Docs').id;
   assert.deepEqual(pseudoBuild(['es'], (c, tx) => { tx[docs] = 'Docs'; tx._same_as_english = [docs]; }).errors, []);
@@ -277,7 +278,11 @@ test('--check verifies the outputs, the lock and the share images', () => {
   rmSync(d, { recursive: true, force: true });
 });
 test('the committed site passes --check', () => {
-  assert.deepEqual(check(), []);
+  // only the committed files of website/i18n (translations in progress there are not part of it yet)
+  const d = tmp();
+  for (const f of ['en.json', 'build.lock.json', 'og.lock.json']) writeFileSync(join(d, f), readFileSync(new URL(`i18n/${f}`, WEB)));
+  assert.deepEqual(check({ i18nDir: url(d), outDir: WEB }), []);
+  rmSync(d, { recursive: true, force: true });
 });
 test('pseudo-locales keep what must not change', () => {
   for (const l of LANGS.slice(1)) {
@@ -313,4 +318,87 @@ test('--verify checks a served site: 200s, slash redirects, lang, title, canonic
   srv.close();
   assert.ok(r.bad.some(b => /^\/es does not redirect to \/es\/ \(200, /.test(b)), r.bad.join('\n'));
   assert.ok(r.bad.some(b => /^ko\/ canonical is https:\/\/genswarms\.com\/$/.test(b)), r.bad.join('\n'));
+});
+
+// ---------- fix round 1: near-English, _same_as_english, tag order, escaping, lastmod ----------
+const idOf = en => byEn(en).id;
+test('_same_as_english is only for figure labels, accessible names and strings of up to 3 words', () => {
+  const sentence = idOf('Every agent is a process.');
+  refused(pseudoBuild(['es'], (c, tx) => { tx[sentence] = 'Every agent is a process.'; tx._same_as_english = [sentence]; }), new RegExp(`es: ${sentence} cannot be listed under _same_as_english`));
+  const ld = idOf('The operating system for AI workforces: runs AI agents as separate, supervised processes on declared message paths, with a REST + WebSocket API and a live event stream.');
+  refused(pseudoBuild(['tr'], (c, tx) => { tx[ld] = byEn('The operating system for AI workforces: runs AI agents as separate, supervised processes on declared message paths, with a REST + WebSocket API and a live event stream.').en; tx._same_as_english = [ld]; }), new RegExp(`${ld} cannot be listed`));
+  // a short string, a figure label and an accessible name may be
+  const ok = ['Docs', 'model calls', 'Primary'].map(idOf);
+  assert.deepEqual(pseudoBuild(['es'], (c, tx) => { for (const i of ok) tx[i] = entries.find(e => e.id === i).en; tx._same_as_english = ok; }).errors, []);
+  // the stage-3 annotation keeps its hand-set English lines, and those pass as part of the listed string
+  const ann = ['each agent runs as a process', 'its boundary: what it can reach', 'each agent runs as a process inside its own boundary'].map(idOf);
+  assert.deepEqual(pseudoBuild(['ru'], (c, tx) => { for (const i of ann) tx[i] = entries.find(e => e.id === i).en; tx._same_as_english = ann; }).errors, []);
+});
+test('non-Latin scripts: three English words in a row are English left behind', () => {
+  const id = idOf('Not everything needs a model.');
+  refused(pseudoBuild(['ru'], (c, tx) => { tx[id] = 'Не всё needs a model.'; }), new RegExp(`ru: ${id} still has English in it \\("needs a model"\\)`));
+  refused(pseudoBuild(['zh-Hans'], (c, tx) => { tx[id] = '并非everything needs a模型。'; }), new RegExp(`zh-Hans: ${id} still has English in it \\("everything needs a"\\)`));
+  refused(pseudoBuild(['ko'], (c, tx) => { tx[id] = 'Not everything needs 모델이.'; }), new RegExp(`ko: ${id} still has English`));
+  // false-positive guard: product names, protected names and a couple of English terms between Cyrillic or Han words
+  const cells = {
+    'In your Python or JS process, or on LangSmith Deployment servers': ['В вашем процессе Python или JS либо на серверах LangSmith Deployment', '在你的 Python 或 JS 进程中，或在 LangSmith Deployment 服务器上'],
+    'Multi-agent framework, now in maintenance mode; Microsoft Agent Framework succeeds it': ['Мультиагентный фреймворк, сейчас в режиме поддержки; на смену ему пришёл Microsoft Agent Framework', '多智能体框架，现处于维护模式；Microsoft Agent Framework 接替了它'],
+    'In your Python process, or on CrewAI AMP managed infrastructure': ['В вашем процессе Python или в управляемой инфраструктуре CrewAI AMP', '在你的 Python 进程中，或在 CrewAI AMP 托管基础设施上'],
+    'Telegram, WhatsApp and email connectors, a browser, a scheduler: signed packages from the swarmidx index, verified before they load.': ['Коннекторы Telegram, WhatsApp и email, браузер, планировщик: подписанные пакеты из индекса swarmidx, проверенные перед загрузкой.', 'Telegram、WhatsApp 和 email 连接器、浏览器、调度器：来自 swarmidx 索引的签名包，加载前经过验证。'],
+  };
+  const [ru, zh] = [0, 1].map(k => pseudoBuild([k ? 'zh-Hans' : 'ru'], (c, tx) => { for (const [en, v] of Object.entries(cells)) tx[idOf(en)] = v[k]; }));
+  assert.deepEqual(ru.errors, []); assert.deepEqual(zh.errors, []);
+});
+test('Latin scripts: a translation made mostly of the English words is refused', () => {
+  const id = idOf('Every agent is a process.');
+  refused(pseudoBuild(['es'], (c, tx) => { tx[id] = 'Every agent es a process.'; }), new RegExp(`es: ${id} is mostly English \\(4 of 5 words`));
+  refused(pseudoBuild(['tr'], (c, tx) => { tx[id] = 'Every agent is a process!'; }), new RegExp(`tr: ${id} is mostly English`));
+  // false-positive guard: names, identifiers and a few shared words (local, sandbox, skill, Python) stay well under 80%
+  const cells = {
+    'Each in its own supervised process: local, sandbox, container or SSH': 'Cada uno en su propio proceso supervisado: local, sandbox, contenedor o SSH',
+    'In your Python or JS process, or on LangSmith Deployment servers': 'En tu proceso de Python o JS, o en servidores de LangSmith Deployment',
+    'REST, WebSocket, CLI, and a skill file for your coding agent': 'REST, WebSocket, CLI y un archivo de skill para tu agente de programación',
+    'bwrap, Docker or Apple container, per agent': 'bwrap, Docker o Apple container, por agente',
+    'GenSwarms compared with LangGraph, CrewAI and AutoGen': 'GenSwarms frente a LangGraph, CrewAI y AutoGen',
+  };
+  assert.deepEqual(pseudoBuild(['es'], (c, tx) => { for (const [en, v] of Object.entries(cells)) tx[idOf(en)] = v; }).errors, []);
+  // a string of names only has no words to compare, and may be listed as it is
+  const names = { id: 'n0', kind: 'html', en: 'Local, Tmux, Docker, Apple container, SSH, Bwrap, Mock', where: ['x'] };
+  assert.deepEqual(validate('es', [names], { n0: names.en, _same_as_english: ['n0'] }), []);
+  assert.deepEqual(validate('ru', [names], { n0: names.en, _same_as_english: ['n0'] }), []);
+});
+test('tags must keep their nesting, and html text escapes & and refuses a bare <', () => {
+  const e = { id: 'c1', kind: 'html', en: 'Use <code>gsp</code> to <em>publish</em>.', where: ['x'] };
+  assert.deepEqual(validate('es', [e], { c1: 'Usa <code>gsp</code> para <em>publicar</em>.' }), []);
+  assert.deepEqual(validate('es', [e], { c1: 'Para <em>publicar</em>, usa <code>gsp</code>.' }), [], 'reordering whole elements is fine');
+  assert.match(validate('es', [e], { c1: 'Usa </code>gsp<code> para <em>publicar</em>.' }).join(), /c1 tags are out of order/);
+  assert.match(validate('es', [e], { c1: 'Usa <code>gsp</code> para <em>publicar</em> si a < b.' }).join(), /c1 has a bare < or >/);
+  const id = idOf('Not everything needs a model.');
+  const r = pseudoBuild(['es'], (c, tx) => { tx[id] = 'No todo necesita un modelo de I&D.'; });
+  assert.deepEqual(r.errors, []);
+  assert.ok(r.outputs['es/index.html'].includes('No todo necesita un modelo de I&amp;D.'));
+});
+test('sitemap lastmod: a page keeps its date until its output changes', () => {
+  const d = tmp(), out = join(d, 'site'), i18n = join(d, 'i18n');
+  mkdirSync(out);
+  writePseudo(i18n, ['es', 'ko']);
+  const run = today => {
+    const r = build({ i18nDir: url(i18n), outDir: url(out), today });
+    assert.deepEqual(r.errors, []);
+    for (const [f, v] of Object.entries(r.outputs)) { mkdirSync(join(out, f, '..'), { recursive: true }); writeFileSync(join(out, f), v); }
+    writeFileSync(join(i18n, 'build.lock.json'), JSON.stringify(r.lock));
+    return r;
+  };
+  const dates = r => Object.fromEntries([...r.outputs['sitemap.xml'].matchAll(/<loc>([^<]+)<\/loc>\s*<lastmod>([^<]+)</g)].map(m => [m[1], m[2]]));
+  const a = run('2026-10-01');
+  assert.deepEqual(Object.values(dates(a)), ['2026-10-01', '2026-10-01', '2026-10-01']);
+  assert.deepEqual(a.lock.lastmod, { 'index.html': '2026-10-01', 'es/index.html': '2026-10-01', 'ko/index.html': '2026-10-01' });
+  // nothing changed: the same dates on a later day, so --check on another day still passes
+  assert.deepEqual(dates(run('2026-10-05')), dates(a));
+  // a changed Korean string moves only the Korean page
+  const tx = JSON.parse(readFileSync(join(i18n, 'ko.json'), 'utf8'));
+  tx[idOf('Not everything needs a model.')] = '모든 것에 모델이 필요한 것은 아닙니다.';
+  writeFileSync(join(i18n, 'ko.json'), JSON.stringify(tx));
+  assert.deepEqual(dates(run('2026-10-09')), { [ORIGIN]: '2026-10-01', [ORIGIN + 'es/']: '2026-10-01', [ORIGIN + 'ko/']: '2026-10-09' });
+  rmSync(d, { recursive: true, force: true });
 });

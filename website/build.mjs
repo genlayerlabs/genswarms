@@ -23,7 +23,7 @@ if (args.includes('--extract')) {
   mkdirSync(i18nDir, { recursive: true });
   writeFileSync(new URL('en.json', i18nDir), catalogueFile(entries));
   const words = entries.reduce((n, e) => n + e.en.replace(/<[^>]+>|\{\w+\}/g, ' ').split(/\s+/).filter(w => /\p{L}/u.test(w)).length, 0);
-  console.log(`website/i18n/en.json: ${entries.length} entries, ${words} words`);
+  console.log(`${process.env.I18N_DIR || 'website/i18n'}/en.json: ${entries.length} entries, ${words} words`);
 } else if (args.includes('--check')) {
   const bad = check({ i18nDir, outDir });
   if (bad.length) fail('Not up to date (the host keeps the last good version live):', bad);
@@ -54,5 +54,5 @@ if (args.includes('--extract')) {
   }
   mkdirSync(i18nDir, { recursive: true });
   writeFileSync(new URL('build.lock.json', i18nDir), JSON.stringify(r.lock, null, 1) + '\n');
-  console.log(`${r.langs.map(l => l.code).join(', ')}: built; website/i18n/build.lock.json written`);
+  console.log(`${r.langs.map(l => l.code).join(', ')}: built; ${process.env.I18N_DIR || 'website/i18n'}/build.lock.json written`);
 }

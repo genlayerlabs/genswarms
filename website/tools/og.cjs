@@ -13,7 +13,9 @@ const fs = require('fs');
 const path = require('path');
 
 const WEB = path.resolve(__dirname, '..');
+// I18N_DIR and OUT_DIR as for build.mjs: images go next to the pages that were built
 const I18N = process.env.I18N_DIR ? path.resolve(process.env.I18N_DIR) : path.join(WEB, 'i18n');
+const OUT = process.env.OUT_DIR ? path.resolve(process.env.OUT_DIR) : WEB;
 const sha = b => crypto.createHash('sha256').update(b).digest('hex');
 const args = process.argv.slice(2);
 const BASE = (args.find(a => !a.startsWith('--')) || 'http://localhost:8790/').replace(/\/?$/, '/');
@@ -27,7 +29,7 @@ const BASE = (args.find(a => !a.startsWith('--')) || 'http://localhost:8790/').r
   const next = {};
   const b = await chromium.launch({ executablePath: process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' });
   for (const [key, { image, source }] of Object.entries(lock.og)) {
-    const l = LANGS.find(x => (x.file || 'en') === key), out = path.join(WEB, image);
+    const l = LANGS.find(x => (x.file || 'en') === key), out = path.join(OUT, image);
     if (!args.includes('--force') && og[key] && og[key].source === source && fs.existsSync(out) && sha(fs.readFileSync(out)) === og[key].png) {
       next[key] = og[key];
       console.log(`${image}: up to date`);

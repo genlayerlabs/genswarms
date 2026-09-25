@@ -1,6 +1,6 @@
 {
  "_about": "Written by `node website/build.mjs` after a successful build; `--check` (CI, deploy) refuses when the English source, a translation or a built file no longer matches it.",
- "source": "ee7b337f97bc0ac2bf06a222c70cc836a26e0fba0c2ed2665c78382f42691063",
+ "source": "6def33c56a46f8392a33d9d797c1f459f1a267ff680ae9703166d4895f1293a8",
  "i18n": {
   "en.json": "008aba17942dc62dd028be23f7d10decd6bcfa45c7c0b5562ad125c7a9b7f167"
  },
@@ -9,6 +9,9 @@
   "404.html": "b3512be6e106f65d389d679a001d62b05f5fcefa87ecbc7318faa088816220a7",
   "sitemap.xml": "5c793204ed2095a4e32660fbe9b2c1dd213fb53a58f3fc47b546c2c388893ea4",
   "llms.txt": "c5aeff03d5fd42a6e574f82fe805a1f166250f54274db2651df96b8168bbf9ba"
+ },
+ "lastmod": {
+  "index.html": "2026-09-25"
  },
  "og": {
   "en": {
