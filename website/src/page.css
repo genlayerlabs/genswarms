@@ -23,7 +23,7 @@ code{font:500 .86em/1 var(--fm);background:var(--sand-2);padding:.18em .4em;bord
 
 /* ---------- header ---------- */
 .top{position:absolute;inset:0 0 auto 0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:22px var(--g)}
-.brand{display:inline-flex;align-items:center;gap:10px;font:700 20px/1 var(--fd);letter-spacing:-.02em;text-decoration:none;color:var(--ink)}
+.brand{display:inline-flex;align-items:center;min-height:44px;gap:10px;font:700 20px/1 var(--fd);letter-spacing:-.02em;text-decoration:none;color:var(--ink)}
 .mark{width:24px;height:24px;flex:none}
 .top nav{display:flex;align-items:center;gap:clamp(14px,2.2vw,30px);font-size:15px}
 .top nav a{display:inline-flex;align-items:center;min-height:44px;text-decoration:none;color:var(--ink-2)}
@@ -318,6 +318,6 @@ figcaption{font-size:14.5px;line-height:1.45;color:var(--ink-2);margin-top:14px;
 .foot p{margin:0;flex:1;min-width:220px}
 .foot nav{display:flex;flex-wrap:wrap;gap:0 22px}
 .foot .legal{flex-basis:100%;font-size:13.5px}
-.foot nav a{text-decoration:none}
+.foot nav a{display:inline-flex;align-items:center;min-height:44px;text-decoration:none}
 .foot nav a:hover{color:var(--sand)}
 
