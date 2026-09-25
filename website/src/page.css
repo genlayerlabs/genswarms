@@ -1,7 +1,7 @@
 :root{
   --sand:#E9E0D2; --sand-2:#DED3BF; --sand-3:#d3c7b0;
   --ink:#33301f; --ink-2:#5f5946; --line:rgba(51,48,31,.16);
-  --clay:#A84E36; --clay-l:#D2704F; --night:#12110d;
+  --clay:#A84E36; --clay-l:#D2704F; --clay-d:#96432e; --night:#12110d;
   --sage:#8fa06f; --sage-d:#56663a; --crash:#E0664A; --crash-d:#a8452f;
   --fd:'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
   --ft:'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
@@ -157,7 +157,7 @@ figcaption{font-size:14.5px;line-height:1.45;color:var(--ink-2);margin-top:14px;
 .sys .tb{font-family:var(--fd);font-weight:700;fill:var(--ink);letter-spacing:-.02em}
 .sys .log{font-family:var(--fm);fill:var(--ink);white-space:pre}
 .sys .logcap{font-style:italic}
-.sys .k-crash{fill:var(--crash-d)} .sys .k-restart{fill:var(--sage-d)} .sys .k-agent_blocked{fill:var(--clay)} .sys .k-message,.sys .k-output{fill:var(--ink-2)}
+.sys .k-crash{fill:var(--crash-d)} .sys .k-restart{fill:var(--sage-d)} .sys .k-agent_blocked{fill:var(--clay-d)} .sys .k-message,.sys .k-output{fill:var(--ink-2)}
 .sys .st{fill:var(--ink)}
 .fx{opacity:0}
 .org-ghost{fill:none;stroke:var(--ink);stroke-opacity:.22;stroke-width:1.2;stroke-dasharray:2 5;stroke-linecap:round}

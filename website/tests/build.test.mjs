@@ -34,7 +34,7 @@ test('built page is under 150 KB', () => {
 test('no copy lives in the script', () => {
   const script = html.match(/<script>([\s\S]*?)<\/script>/g).join('\n');
   assert.doesNotMatch(script, /CAPS|ARIA/);
-  for (const phrase of ['One agent', 'supervisor restarts', 'Seven teams', 'Copy', 'Copied', 'Select and copy']) assert.ok(!script.includes(phrase), phrase);
+  for (const phrase of ['One agent', 'supervisor restarts', 'Seven teams', 'Figure', 'Copy', 'Copied', 'Select and copy']) assert.ok(!script.includes(phrase), phrase);
 });
 
 const text = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
@@ -57,6 +57,16 @@ test('facts match v0.2.0', () => {
   for (const b of ['Local', 'Tmux', 'Docker', 'Apple container', 'SSH', 'Bwrap', 'Mock']) assert.ok(text.includes(b), b);
   assert.match(text, /100 agents/);
   assert.match(text, /illustration/i);
+});
+
+test('every simulated/animated figure is labelled illustration', () => {
+  // Fig. 5 (stage 4): the moving request token is the only simulated element, no event log
+  assert.match(text, /customer-operations team on a declared topology\. The moving request is an illustration\./);
+  // Fig. 8 (stage 7): team shapes are illustrative, per spec §4.4
+  assert.match(text, /Seven teams under one control layer \(team shapes are illustrative\)\./);
+  // Figs. 6-7 (stages 5-6): the event stream itself is labelled
+  assert.match(system(L, 5, { prune: true }), /event stream \(illustration\)/);
+  assert.match(system(L, 6, { prune: true }), /event stream \(illustration\)/);
 });
 
 test('comparison has no Draft stamp once sourced', () => {

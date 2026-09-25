@@ -1,6 +1,6 @@
 # GenSwarms
 
-> The operating system for AI workforces. You declare the agents, deterministic objects, backends, and the directed message graph that connects them; GenSwarms runs each agent as an isolated, supervised process, streams every event live, and restarts failures automatically.
+> The operating system for AI workforces. You declare the agents, deterministic objects, backends, and the directed message graph that connects them; GenSwarms runs each agent as a separate, supervised process, streams every event live, and restarts failures automatically.
 
 - **Processes** — every agent and object runs as a supervised OTP process; agent groups scale up and down while the swarm runs.
 - **Isolation** — per-agent sandbox: bwrap namespaces with a copy-on-write root and seccomp, or Docker / Apple container.
@@ -42,4 +42,4 @@ Current version: 0.2.0. License: MIT.
 - [Blog](https://genswarms.com/docs/blog/): notes and guides from the team building GenSwarms.
 - [Full documentation (single file)](https://genswarms.com/llms-full.txt): every doc page concatenated for one-shot ingestion.
 - [GitHub repository](https://github.com/genlayerlabs/genswarms): source, issues, and license.
-- [SubZeroClaw](https://github.com/genlayerlabs/subzeroclaw): the minimal open-source agent loop each worker runs.
+- [SubZeroClaw](https://github.com/genlayerlabs/subzeroclaw): the minimal open-source agent loop Tmux workers run by default (they can also run Codex, Claude Code or OpenCode).

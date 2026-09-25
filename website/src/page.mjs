@@ -34,16 +34,16 @@ export function renderPage() {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GenSwarms: the operating system for AI workforces</title>
-<meta name="description" content="GenSwarms runs AI agents as isolated, supervised processes on declared message paths, with an API and a live event stream. Open source, MIT.">
+<meta name="description" content="GenSwarms runs AI agents as separate, supervised processes on declared message paths, with an API and a live event stream. Open source, MIT.">
 <link rel="canonical" href="https://genswarms.com/">
 <meta http-equiv="content-language" content="en">
 <meta property="og:type" content="website"><meta property="og:locale" content="en_US">
 <meta property="og:title" content="GenSwarms: the operating system for AI workforces">
-<meta property="og:description" content="Deploy, coordinate and control AI agents as isolated, supervised processes.">
+<meta property="og:description" content="Deploy, coordinate and control AI agents as separate, supervised processes.">
 <meta property="og:url" content="https://genswarms.com/"><meta property="og:image" content="https://genswarms.com/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/favicon-32.png" sizes="32x32"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"GenSwarms","applicationCategory":"DeveloperApplication","operatingSystem":"Linux, macOS","softwareVersion":"0.2.0","license":"https://opensource.org/licenses/MIT","url":"https://genswarms.com/","codeRepository":"https://github.com/genlayerlabs/genswarms","description":"The operating system for AI workforces: runs AI agents as isolated, supervised processes on declared message paths, with a REST + WebSocket API and a live event stream.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"GenLayer Labs"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"GenSwarms","applicationCategory":"DeveloperApplication","operatingSystem":"Linux, macOS","softwareVersion":"0.2.0","license":"https://opensource.org/licenses/MIT","url":"https://genswarms.com/","codeRepository":"https://github.com/genlayerlabs/genswarms","description":"The operating system for AI workforces: runs AI agents as separate, supervised processes on declared message paths, with a REST + WebSocket API and a live event stream.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"GenLayer Labs"}}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">

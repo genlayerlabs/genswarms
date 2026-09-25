@@ -6,10 +6,10 @@ export const STAGES = [
   { cap: 'More agents, each built on its own and wired by hand.', aria: 'Twelve agents scattered, joined by ad-hoc hand-made connections.' },
   { cap: 'A coordination layer between the agents and the organization.', aria: 'The agents arranged in a grid beneath a GenSwarms coordination layer, which sits beneath the organization.' },
   { cap: 'Each agent a supervised process inside its own boundary.', aria: 'Each agent enclosed by a boundary, with a supervisor on the GenSwarms layer.' },
-  { cap: 'A customer-operations team on a declared topology.', aria: 'A request flows from classifier to account lookup to investigator, then to billing or technical support, then to a verifier and out as a reply. The verifier can escalate to a human.' },
+  { cap: 'A customer-operations team on a declared topology. The moving request is an illustration.', aria: 'A request flows from classifier to account lookup to investigator, then to billing or technical support, then to a verifier and out as a reply. The verifier can escalate to a human.' },
   { cap: 'The investigator crashes; its supervisor restarts it.', aria: 'The investigator agent crashes and its supervisor restarts it while the request continues through technical support. An event stream lists message, crash, restart, message.' },
   { cap: 'An exceptional case waits for a person.', aria: 'The verifier is blocked waiting on human input; the case goes to a human. The event stream shows agent_blocked.' },
-  { cap: 'Seven teams under one control layer.', aria: 'Seven teams: customer operations, software engineering, sales, finance, research, security and network operations, all connected to one GenSwarms control layer.' },
+  { cap: 'Seven teams under one control layer (team shapes are illustrative).', aria: 'Seven teams: customer operations, software engineering, sales, finance, research, security and network operations, all connected to one GenSwarms control layer. The team shapes are illustrative.' },
   { cap: 'GenSwarms above the teams, models underneath.', aria: 'The GenSwarms control layer on top, seven teams of agents in the middle, and a row of models underneath.' },
 ];
 
