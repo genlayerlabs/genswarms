@@ -91,7 +91,7 @@ test('inlined CSS and JS are minified', () => {
   assert.doesNotMatch(html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, ''), /\n[ \t]+</, 'no indentation between tags');
 });
 test('figure labels are sized to stay >= 13px where they render', () => {
-  // desktop: live figure is >= ~690px wide for 800 units at >= 1280px; phones: stills bleed to ~360px for 400 units
+  // desktop: live figure is >= ~690px wide for 800 units at >= 1280px; phones: stills are 328px for 376 units at 360px
   for (const k of ['ts', 'log']) assert.ok(L.fs[k] >= 16, `L.fs.${k}`);
-  for (const k of ['t', 'ts', 'log']) assert.ok(P.fs[k] >= 14.5, `P.fs.${k}`);
+  for (const k of ['t', 'ts', 'log']) assert.ok(P.fs[k] >= 15, `P.fs.${k}`);
 });

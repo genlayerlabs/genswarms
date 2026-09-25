@@ -62,7 +62,7 @@ export const P = {
     ],
     Rlabel: [228, 45, 'start'], outLabel: [228, 520, 'start'],
     Hlabel: [340, 478, 'middle', ['human']], Hsub: null,
-    sup: [46, 300], supLabel: [46, 280, 'middle'],
+    sup: [58, 300], supLabel: [58, 280, 'middle'],
     status5: [180, 236, 'end', 'crashed, restarted'],
     log: [16, 588],
   },
@@ -71,7 +71,7 @@ export const P = {
   clusters: [[105, 142], [295, 142], [105, 262], [295, 262], [105, 382], [295, 382], [200, 508]],
   clusterLabelDy: 50,
   models: { y: 628, x1: 30, x2: 370, label: [30, 610], xs: [130, 180, 230, 280, 330] },
-  fs: { t: 16, ts: 14.5, tb: 20, log: 14.5 },
+  fs: { t: 16, ts: 15.5, tb: 20, log: 15 },
   ghostR: 22,
 };
 export const LAYOUTS = [L, P];
@@ -251,8 +251,8 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
   const log6 = [['message', 'billing → verifier'], ['agent_blocked', 'verifier, waiting on human input'], ['output', 'verifier → reply']];
   const logBlock = (rows, k) => {
     let b = text(gx, gy, 'event stream (illustration)', 'ts logcap');
-    // wrap a row's text at the figure edge (phones), continuing under the text column
-    const cols = Math.floor((Lo.w - 2 * gx) / (Lo.fs.log * 0.6)) - k;
+    // wrap a row's text at the figure edge (phones: the crop ends 12 units in), continuing under the text column
+    const cols = Math.floor((Lo.w - gx - 12) / (Lo.fs.log * 0.6)) - k;
     let y = gy + lh;
     rows.forEach(([kind, rest]) => {
       // too long for one line: break at the space nearest the middle (two balanced lines)

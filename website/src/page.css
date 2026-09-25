@@ -79,18 +79,16 @@ h1{font-weight:780;font-size:clamp(44px,13.2vw,64px);line-height:.92;letter-spac
 .triad span:last-child{border-top:4px solid var(--ink);padding-top:14px}
 
 /* ---------- figures (stills) ----------
-   phones: the portrait drawing bleeds to the screen edge (its own margins are the gutter);
+   phones: the portrait drawing sits inside the 16px gutter, cropped to its content width;
    760px+: the landscape drawing; 1280px+ without the pinned stage: drawing beside its text */
-.still{margin:28px calc(-1 * var(--g)) 0;padding:0}
+.still{margin:28px 0 0;padding:0}
 .still .sys.L{display:none}
 .still .sys.P{max-width:520px;margin:0 auto}
-.still figcaption{padding:0 var(--g)}
 figcaption{font-size:14.5px;line-height:1.45;color:var(--ink-2);margin-top:14px;max-width:34em}
 .fig-n{color:var(--ink);font-weight:600;margin-right:6px}
 .stage-col{display:none}
 @media (min-width:760px){
   .still{margin:40px 0 0}
-  .still figcaption{padding:0}
   .still .sys.L{display:block;max-width:900px}
   .still .sys.P{display:none}
 }
@@ -128,8 +126,17 @@ figcaption{font-size:14.5px;line-height:1.45;color:var(--ink-2);margin-top:14px;
   .cine h1{font-size:5.3vw}
   .cine .stage{padding-right:24px}
   /* the drawing renders at ~0.7x here: labels step up to stay >= 13px */
+}
+/* narrow (1000-1279px) or short (under 800px tall) screens render the pinned drawing at
+   ~0.7x: its labels step up to stay >= 13px, and long team names wrap. Under 600px tall the
+   story is not pinned at all (html.cine needs min-height:600px), so the stills take over. */
+@media (min-width:1000px) and (max-width:1279px),(min-width:1000px) and (max-height:799px){
   .L.live .ts,.L.live .log{font-size:18.5px}
   .L.live .clw{display:none}.L.live .cln{display:inline}
+}
+@media (min-width:1000px) and (max-height:799px){
+  .stage{padding-top:12px;padding-bottom:12px}
+  .stage-cap{min-height:1.45em;margin-top:8px}
 }
 .stage{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;justify-content:center;padding:24px var(--g) 24px 0}
 .stage-fig{margin:0;flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center}

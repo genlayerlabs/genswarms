@@ -69,6 +69,7 @@ const ok = (c, m) => { if (!c) fail.push(m); };
       if (!svg.getClientRects().length) return;
       const sc = svg.getScreenCTM().a;
       svg.querySelectorAll('text').forEach(t => {
+        if (!t.getClientRects().length) return; // display:none twin label
         for (let e = t; e && e !== svg; e = e.parentElement) if (getComputedStyle(e).opacity === '0') return;
         const px = parseFloat(getComputedStyle(t).fontSize) * sc;
         if (px < 13) out.push(`${t.textContent.trim()} ${px.toFixed(1)}px`);
@@ -76,9 +77,11 @@ const ok = (c, m) => { if (!c) fail.push(m); };
     });
     return out;
   }, sel);
-  for (const [w, h] of [[1440, 900], [1280, 720], [1024, 768]]) {
+  // includes short laptop windows (1366x768 and 1280x720 screens minus browser chrome)
+  for (const [w, h] of [[1440, 900], [1280, 720], [1024, 768], [1366, 657], [1280, 600]]) {
     p = await b.newPage({ viewport: { width: w, height: h } });
     await p.goto(BASE); await p.waitForTimeout(300);
+    ok(await p.evaluate(() => document.documentElement.classList.contains('cine')), `${w}x${h}: pinned mode`);
     for (let k = 0; k <= 8; k++) {
       await p.evaluate(k => document.getElementById('s' + k).scrollIntoView({ behavior: 'instant', block: 'start' }), k);
       await p.waitForTimeout(1500);
@@ -100,11 +103,33 @@ const ok = (c, m) => { if (!c) fail.push(m); };
     }
     await p.close();
   }
+  // below 600px tall the story runs in flow (stills), still >= 13px
+  for (const [w, h] of [[1280, 560], [1024, 560]]) {
+    p = await b.newPage({ viewport: { width: w, height: h } });
+    await p.goto(BASE); await p.waitForTimeout(300);
+    ok(!(await p.evaluate(() => document.documentElement.classList.contains('cine'))), `${w}x${h}: in-flow mode`);
+    const small = await smallText('.still svg.L');
+    ok(!small.length, `${w}x${h}: still text under 13px: ${small.join(', ')}`);
+    await p.close();
+  }
   for (const w of [390, 360]) {
     p = await b.newPage({ viewport: { width: w, height: 844 } });
     await p.goto(BASE); await p.waitForTimeout(300);
     const small = await smallText('.still svg.P');
     ok(!small.length, `${w}: phone still text under 13px: ${small.join(', ')}`);
+    // phone figures keep the 16px side gutter (the svg box and everything painted in it)
+    const out = await p.evaluate(() => {
+      const bad = [];
+      document.querySelectorAll('.still svg.P').forEach((svg, k) => {
+        [svg, ...svg.querySelectorAll('*')].forEach(e => {
+          const r = e.getBoundingClientRect();
+          if (!r.width || getComputedStyle(e).display === 'none') return;
+          if (r.left < 15.5 || r.right > innerWidth - 15.5) bad.push(`fig ${k + 1} ${e.getAttribute('class') || e.tagName} ${Math.round(r.left)}..${Math.round(r.right)}`);
+        });
+      });
+      return bad;
+    });
+    ok(!out.length, `${w}: phone figure outside the 16px gutter: ${out.slice(0, 6).join(', ')}`);
     await p.close();
   }
   // step headings never meet the previous step's text or figure
@@ -121,6 +146,13 @@ const ok = (c, m) => { if (!c) fail.push(m); };
           const r = e.getBoundingClientRect(); if (r.height) bottom = Math.max(bottom, r.bottom);
         });
         const first = steps[k].querySelector('.copy > *').getBoundingClientRect().top;
+        // and a still's drawing never runs into its own caption
+        const fig = steps[k - 1].querySelector('figure.still'), cap = fig && fig.querySelector('figcaption');
+        if (cap && vis(cap)) {
+          let fb = -1e9;
+          fig.querySelectorAll('svg *').forEach(e => { if (vis(e)) { const r = e.getBoundingClientRect(); if (r.height) fb = Math.max(fb, r.bottom); } });
+          if (cap.getBoundingClientRect().top - fb < 4) out.push(`figure ${k} runs into its caption`);
+        }
         if (first - bottom < 48) out.push(`step ${k} starts ${Math.round(first - bottom)}px after step ${k - 1}`);
       }
       return out;
