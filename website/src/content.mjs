@@ -7,15 +7,15 @@ export const STAGES = [
   { aria: 'The agents in a grid under GenSwarms, the operating system layer, beneath the organization.' },
   { aria: 'Each agent inside its own boundary under a GenSwarms supervisor; one agent crashes and restarts while the others keep running.' },
   { aria: 'A support swarm: a Telegram object and triage, research and answer agents on declared paths; a message from research to Telegram is off the graph and dropped.', note: 'illustration' },
-  { aria: 'The same swarm with its objects drawn as squares and its agents as circles: Telegram, a cron scheduler, a model-spend budget and a browser.', note: 'illustration' },
+  { aria: 'The same swarm with its objects drawn as squares and its agents as circles: Telegram, a cron scheduler, a browser, and a budget that answer and research call their model through.', note: 'illustration' },
   { aria: 'Each object comes from a signed package in the swarmidx index, verified before it loads.', note: 'illustration' },
-  { aria: 'The swarm as a document: a seed of agents, objects and edges, and a log of changes in which a bad change is refused.', note: 'illustration' },
+  { aria: 'The swarm as a document: a seed of agents, objects and edges, a log of two changes, and a change over the 100-agent cap that is refused and never logged.', note: 'illustration' },
   { aria: 'GenSwarms on top, several swarms of agents in the middle, models underneath.' },
 ];
 
 export const CROP = {
-  L: ['0 84 800 374', '0 30 800 600', '0 70 800 500', '0 70 800 500', '0 195 800 410', '0 75 800 480', '0 75 800 540', '0 100 800 325', '0 70 800 520'],
-  P: ['12 108 376 428', '12 30 376 570', '12 85 376 460', '12 85 376 520', '12 20 376 555', '12 20 376 505', '12 20 376 640', '12 10 376 360', '12 10 376 560'],
+  L: ['0 84 800 374', '0 30 800 600', '0 70 800 500', '0 70 800 500', '0 195 800 456', '0 75 800 500', '0 75 800 580', '0 100 800 325', '0 70 800 520'],
+  P: ['12 108 376 428', '12 30 376 570', '12 85 376 460', '12 85 376 520', '12 20 376 577', '12 20 376 505', '12 20 376 640', '12 10 376 360', '12 10 376 560'],
 };
 
 export const STEPS = [

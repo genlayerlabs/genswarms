@@ -97,7 +97,7 @@ test('rail buttons are named after their step headlines', () => {
   for (const [k, n] of names.entries()) assert.ok(text.includes(n.replace(/^Step \d: /, '')), `step ${k + 1} name matches a visible headline`);
 });
 
-test('visible copy stays short (deck v2: ~530 words of prose)', () => {
+test('visible copy stays short (deck v2: 530 words of prose)', () => {
   const words = h => h.replace(/<svg[\s\S]*?<\/svg>|<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, ' ')
     .replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').split(/\s+/).filter(w => /[\p{L}\p{N}]/u.test(w)).length;
   // the page's prose: <main> outside svg/script/style, without screen-reader-only text, the
@@ -105,11 +105,11 @@ test('visible copy stays short (deck v2: ~530 words of prose)', () => {
   // comparison table (sourced data, fixed by design/comparison-sources.md)
   const prose = words(html.match(/<main[\s\S]*<\/main>/)[0].replace(/<(span|caption) class="sr"[\s\S]*?<\/\1>/g, ' ')
     .replace(/<figcaption class="stage-cap[\s\S]*?<\/figcaption>/, ' ').replace(/<table[\s\S]*?<\/table>/, ' '));
-  // caps: v1's 500 / 660 grew with the approved deck v2 (530 / 711 words as applied)
-  assert.ok(prose <= 540, `${prose} words of prose`);
+  // caps pinned at deck v2's applied counts (530 / 711), so copy can't grow silently
+  assert.ok(prose <= 530, `${prose} words of prose`);
   // and everything outside svg/script/style in <body>, nav, footer and comparison cells included
   const all = words(html.match(/<body>[\s\S]*<\/body>/)[0]);
-  assert.ok(all <= 720, `${all} words on the whole page`);
+  assert.ok(all <= 711, `${all} words on the whole page`);
 });
 
 test('facts match v0.2.0', () => {
@@ -136,6 +136,7 @@ test('every simulated/animated figure is labelled illustration', () => {
     assert.match(s4, /events \(illustration\)/);
     assert.match(s4, /message_routed/);
     assert.match(s4, /invalid_route\s*<\/tspan><tspan>research → telegram/);
+    assert.match(s4, /message_routed\s*<\/tspan><tspan>answer → telegram/);
   }
 });
 
@@ -148,16 +149,26 @@ test('figures draw the v2 story from real parts', () => {
   for (const o of ['cron', 'budget', 'browser']) assert.match(both(5), new RegExp(`>${o}<`), o);
   assert.match(both(5), />agent, uses a model</);
   assert.match(both(5), />object, plain code</);
+  // budget is called over HTTP, not a message route: dotted, arrowless lines from answer and research
+  for (const Lo of [L, P]) assert.equal((system(Lo, 5, { prune: true }).match(/<line class="mc"/g) || []).length, 2, Lo.id);
+  assert.doesNotMatch(both(5), /class="mc-h"/);
+  assert.match(system(L, 5, { prune: true }), />model calls</);
   for (const pkg of ['genlayerlabs/genswarms-telegram@0.6.6', 'genlayerlabs/cron@0.2.8', 'genlayerlabs/genswarms-llm-proxy@0.4.2', 'genlayerlabs/browser@0.2.4'])
     assert.ok(both(6).includes(pkg), pkg);
   // digests are visibly shortened placeholders, never full-length hashes
   assert.doesNotMatch(html, /sha256:[0-9a-f]{5,}/);
   assert.match(both(7), /swarm\.state[\s\S]*swarm\.overlay/);
-  for (const op of ['add_agent', 'scale_agent_group', 'add_topology_edges']) assert.match(both(7), new RegExp(op));
-  assert.match(both(7), /refused: no node named billing/);
+  assert.match(both(7), /1 add_agent research/);
+  assert.match(both(7), /2 scale_agent_group answer 3/);
+  // a refused change (OpPolicy agent_cap_exceeded, checked before a seq is assigned) is never
+  // numbered or logged: shown after the log, without a seq
+  assert.match(both(7), />scale_agent_group answer 150</);
+  assert.doesNotMatch(both(7), /\b3 \w+_\w+/);
+  assert.match(both(7), /refused: over the 100-agent cap/);
+  assert.doesNotMatch(both(7), /add_topology_edges|billing/);
   assert.match(both(7), /restore: seed \+ 2 changes/);
   // stage 8: unnamed swarms, no people, no business teams
-  assert.doesNotMatch(both(8), /Customer|Software|Sales|Finance|Security|Network operations|class="ch"|esc/);
+  assert.doesNotMatch(both(8), /Customer|Software|Sales|Finance|Security|Network operations|class="ch"|class="ce esc"/);
   assert.match(both(8), />Swarms</);
 });
 

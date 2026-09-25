@@ -23,17 +23,18 @@ export const L = {
   // stages 4-7: one support swarm. Agents a0-a2; objects are squares.
   team: {
     a: [[330, 235], [330, 425], [560, 330]], // triage, answer, research
-    tg: [140, 330], cron: [330, 105], budget: [560, 150], browser: [730, 330],
-    labels: [[362, 228, 'start'], [362, 445, 'start'], [560, 290, 'middle']],
-    olabels: { tg: [112, 337, 'end'], cron: [298, 111, 'end'], budget: [560, 196, 'middle'], browser: [730, 290, 'middle'] },
+    tg: [140, 330], cron: [330, 105], budget: [730, 470], browser: [730, 330],
+    labels: [[362, 228, 'start'], [330, 478, 'middle'], [560, 290, 'middle']],
+    olabels: { tg: [112, 337, 'end'], cron: [298, 111, 'end'], budget: [730, 516, 'middle'], browser: [730, 290, 'middle'] },
+    callsLabel: [600, 437, 'middle'], // "model calls", on the dotted lines to budget (L only)
     drop: [445, 330], dropLabel: [430, 336, 'end'],
-    log: [40, 496], legend: [40, 506], index: [40, 500],
+    log: [40, 518], legend: [40, 530], index: [40, 522],
     doc: { x: 100, y: 118, w: 600, cols: 58 },
   },
   worldTo: [400, 330], worldC: [435, 290], // stages 7-8: the swarm folds away into the document
   bar7: { y: 100, x1: 60, x2: 740, label: [60, 80] },
   clusters: [[130, 240], [310, 240], [490, 240], [670, 240], [220, 405], [400, 405], [580, 405]],
-  swarmsLabel: [60, 413],
+  swarmsLabel: [60, 498],
   models: { y: 568, x1: 60, x2: 740, label: [60, 548], xs: [170, 250, 330, 410, 490, 570, 650, 730].slice(0, 7).map((x, i) => 175 + i * 80) },
   fs: { t: 20, ts: 16, tb: 26, log: 16 },
   ghostR: 34,
@@ -54,9 +55,9 @@ export const P = {
   crash: { i: 10, st: [240, 512, 'middle'] },
   team: {
     a: [[80, 175], [320, 175], [200, 370]],
-    tg: [200, 50], cron: [80, 55], budget: [320, 55], browser: [330, 370],
+    tg: [200, 50], cron: [80, 55], budget: [200, 270], browser: [330, 370],
     labels: [[100, 234, 'end'], [300, 234, 'start'], [200, 422, 'middle']],
-    olabels: { tg: [200, 100, 'middle'], cron: [104, 61, 'start'], budget: [296, 61, 'end'], browser: [330, 422, 'middle'] },
+    olabels: { tg: [200, 100, 'middle'], cron: [104, 61, 'start'], budget: [200, 240, 'middle'], browser: [330, 422, 'middle'] },
     drop: [200, 296], dropLabel: [200, 268, 'middle'],
     log: [16, 474], legend: [24, 476], index: [16, 470],
     doc: { x: 16, y: 24, w: 368, cols: 37 },
@@ -64,7 +65,7 @@ export const P = {
   worldTo: [200, 300], worldC: [200, 200],
   bar7: { y: 42, x1: 30, x2: 370, label: [30, 24] },
   clusters: [[105, 142], [295, 142], [105, 262], [295, 262], [105, 382], [295, 382], [200, 508]],
-  swarms: [[105, 150], [295, 150], [105, 250], [295, 250], [105, 350], [295, 350], [200, 450]], swarmsLabel: [30, 104],
+  swarms: [[105, 150], [295, 150], [105, 250], [295, 250], [105, 350], [295, 350], [200, 450]], swarmsLabel: [30, 100],
   models: { y: 548, x1: 30, x2: 370, label: [30, 530], xs: [130, 180, 230, 280, 330] },
   fs: { t: 16, ts: 15.5, tb: 20, log: 15 },
   ghostR: 22,
@@ -183,7 +184,11 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
   } else {
     const last = SW[6];
     con += `<line class="drop" x1="200" y1="${b7.y + bandH(Lo)}" x2="200" y2="${last[1] - 30}"/>`;
-    SW.slice(0, 6).forEach(([x, y]) => { con += `<line class="drop" x1="200" y1="${y}" x2="${x < 200 ? x + 68 : x - 68}" y2="${y}"/>`; });
+    // horizontal stubs from the spine end where each shape begins
+    SW.slice(0, 6).forEach(([x, y], k) => {
+      const xs = SHAPES[k].n.map(n => n[0]), end = x < 200 ? x + Math.max(...xs) + 5 : x + Math.min(...xs) - 5;
+      con += `<line class="drop" x1="200" y1="${y}" x2="${end}" y2="${y}"/>`;
+    });
   }
   s += grp([8], con + band(Lo, b7, 'control layer'));
   let cls = '';
@@ -221,12 +226,14 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
     d += r;
     y += lh * 0.45;
     head('swarm.overlay', 'change log');
-    for (const [ok, op] of [[1, '1 add_agent research'], [1, '2 scale_agent_group answer 3'], [0, '3 add_topology_edges research → billing']]) {
+    // logged changes get a seq; a change the gate refuses (OpPolicy, before any seq) is never logged
+    for (const [ok, op] of [[1, '1 add_agent research'], [1, '2 scale_agent_group answer 3'], [0, 'scale_agent_group answer 150']]) {
+      if (!ok) y += lh * 0.3;
       d += (ok ? okBadge : noBadge)(x + 26, y - Lo.fs.log * 0.33);
-      [r, y] = monoRows(x + 42, y, lh, [['', op.replace(/ → /g, '\u00a0→\u00a0')]], 0, D.cols - 4);
+      [r, y] = monoRows(x + 42, y, lh, [['', op]], 0, D.cols - 4);
       d += r;
     }
-    [r, y] = monoRows(x + 42, y, lh, [['', 'refused: no node named billing', '', 'k-no']], 0, D.cols - 4);
+    [r, y] = monoRows(x + 42, y, lh, [['', 'refused: over the 100-agent cap', '', 'k-no']], 0, D.cols - 4);
     d += r;
     y += lh * 0.45;
     d += cyl(x, y - Lo.fs.log - 4) + `<text class="log" x="${x + 38}" y="${f(y)}">restore: seed + 2 changes</text>`;
@@ -290,6 +297,10 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
   const [TR, AN, RE] = A, OB = { tg: T.tg, cron: T.cron, budget: T.budget, browser: T.browser };
   s += grp([4, 5, 6], edge(OB.tg, TR, 19, 22) + edge(TR, AN, 22, 22) + edge(TR, RE, 22, 22) + edge(RE, AN, 22, 22) + edge(AN, OB.tg, 22, 19));
   s += grp([5, 6], edge(TR, OB.cron, 22, 19) + edge(RE, OB.browser, 22, 19));
+  // budget (llm-proxy) is the endpoint agents call their model through, not a message route:
+  // dotted, arrowless lines, never the edge style
+  s += grp([5, 6], edge(AN, OB.budget, 22, 19, 'mc', false) + edge(RE, OB.budget, 22, 19, 'mc', false) +
+    (T.callsLabel ? text(T.callsLabel[0], T.callsLabel[1], 'model calls', 'ts', T.callsLabel[2]) : ''));
   // stage 4: research tries telegram, which is off the graph: the message is dropped
   {
     const [dx, dy] = T.drop, [x1, y1] = shorten(RE[0], RE[1], dx, dy, 22, 0);
@@ -314,14 +325,15 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
       ['message_routed', 'triage → research'],
       ['invalid_route', 'research → telegram'],
       ['message_routed', 'research → answer'],
+      ['message_routed', 'answer → telegram'],
     ], 16, 99)[0];
     s += grp([4], b);
   }
   // stage 5: legend
   {
     const [gx, gy] = T.legend, gap = Lo.id === 'L' ? 34 : 30, tx = gx + 28;
-    let b = agentGlyph(gx + 11, gy - 5) + text(tx, gy, 'agent, uses a model', 'ts lgt');
-    b += `<rect class="ob" x="${gx}" y="${gy + gap - 16}" width="22" height="22" rx="3"/><rect class="ob-c" x="${gx + 7}" y="${gy + gap - 9}" width="8" height="8" rx="1"/>` + text(tx, gy + gap, 'object, plain code', 'ts lgt');
+    let b = `<rect class="lg-b" x="${gx - 3}" y="${gy - 19}" width="28" height="28" rx="7"/>` + agentGlyph(gx + 11, gy - 5) + text(tx, gy, 'agent, uses a model', 'ts');
+    b += `<rect class="ob" x="${gx}" y="${gy + gap - 16}" width="22" height="22" rx="3"/><rect class="ob-c" x="${gx + 7}" y="${gy + gap - 9}" width="8" height="8" rx="1"/>` + text(tx, gy + gap, 'object, plain code', 'ts');
     s += grp([5], b);
   }
   // stage 6: the swarmidx index, each package verified on this machine

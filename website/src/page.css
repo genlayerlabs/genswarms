@@ -2,7 +2,7 @@
   --sand:#E9E0D2; --sand-2:#DED3BF; --sand-3:#d3c7b0;
   --ink:#33301f; --ink-2:#5f5946; --line:rgba(51,48,31,.16);
   --clay:#A84E36; --clay-l:#D2704F; --clay-d:#96432e; --night:#12110d;
-  --sage:#8fa06f; --sage-d:#56663a; --crash:#E0664A; --crash-d:#a8452f;
+  --sage:#8fa06f; --sage-d:#56663a; --crash:#E0664A; --crash-d:#a2412b;
   --fd:'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
   --ft:'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
   --fm:'JetBrains Mono', ui-monospace, Menlo, monospace;
@@ -135,7 +135,7 @@ h1{font-weight:780;font-size:clamp(44px,13.2vw,64px);line-height:.92;letter-spac
 .sys .tb{font-family:var(--fd);font-weight:700;fill:var(--ink);letter-spacing:-.02em}
 .sys .log{font-family:var(--fm);fill:var(--ink);white-space:pre}
 .sys .logcap{font-style:italic}
-.sys .k-message_routed,.sys .k-dg{fill:var(--ink-2)} .sys .k-invalid_route,.sys .k-no{fill:var(--crash-d)} .sys .k-ok{fill:var(--sage-d)} .sys .k-hd,.sys .k-pkg{fill:var(--ink);font-weight:500}
+.sys .k-message_routed,.sys .k-dg{fill:var(--ink-2)} .sys .k-invalid_route,.sys .k-no{fill:var(--crash-d)} .sys .k-hd,.sys .k-pkg{fill:var(--ink);font-weight:500}
 .sys .st{fill:var(--ink)}
 .fx{opacity:0}
 .org-ghost{fill:none;stroke:var(--ink);stroke-opacity:.22;stroke-width:1.2;stroke-dasharray:2 5;stroke-linecap:round}
@@ -143,7 +143,7 @@ h1{font-weight:780;font-size:clamp(44px,13.2vw,64px);line-height:.92;letter-spac
 .P .org-ghost-m{stroke-width:7}
 .ag .core{fill:var(--ink)}
 .ag .ring{fill:none;stroke:var(--ink);stroke-opacity:.26;stroke-width:1.2}
-.ag .bnd{fill:rgba(233,224,210,.7);stroke:var(--ink);stroke-opacity:.35;stroke-width:1.2;stroke-dasharray:3 4}
+.ag .bnd,.lg-b{fill:rgba(233,224,210,.7);stroke:var(--ink);stroke-opacity:.35;stroke-width:1.2;stroke-dasharray:3 4}
 .wire{fill:none;stroke:var(--ink);stroke-opacity:.45;stroke-width:1.2;stroke-dasharray:2 5;stroke-linecap:round}
 .orgline{stroke:var(--ink-2);stroke-width:1}
 .dept{fill:var(--sand);stroke:var(--ink-2);stroke-width:1.1}
@@ -169,6 +169,7 @@ h1{font-weight:780;font-size:clamp(44px,13.2vw,64px);line-height:.92;letter-spac
 .ob-c{fill:var(--ink)}
 .lg-r{fill:none;stroke:var(--ink);stroke-opacity:.4;stroke-width:1.2}
 .lg-c{fill:var(--ink)}
+.mc{stroke:var(--ink);stroke-opacity:.6;stroke-width:1.8;stroke-dasharray:.1 5;stroke-linecap:round}
 .edrop{stroke:var(--ink);stroke-opacity:.6;stroke-width:1.6;stroke-dasharray:5 5}
 .xm{fill:none;stroke:var(--crash-d);stroke-width:2.6;stroke-linecap:round}
 .sys .xl{fill:var(--crash-d)}
