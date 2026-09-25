@@ -19,6 +19,15 @@
   [mqW, mqR].forEach(function (m) { (m.addEventListener ? m.addEventListener('change', mode) : m.addListener(mode)); });
   addEventListener('load', sync);
   addEventListener('resize', sync, { passive: true });
+  // fallback for the gap between load and a still-animating fragment/restored scroll
+  // (e.g. a deep link's smooth scroll), and for engines without IntersectionObserver:
+  // keep syncing on scroll, throttled to one check per frame.
+  var ticking = false;
+  addEventListener('scroll', function () {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(function () { sync(); ticking = false; });
+  }, { passive: true });
 
   function setStage(k) {
     steps[k].classList.add('seen');

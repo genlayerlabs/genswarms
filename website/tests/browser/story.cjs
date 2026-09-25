@@ -16,6 +16,30 @@ const ok = (c, m) => { if (!c) fail.push(m); };
   ok(await p.isVisible('#s6 figure.still'), 'narrow → still of step 6 visible');
   await p.setViewportSize({ width: 1440, height: 900 }); await p.waitForTimeout(600);
   ok(await p.getAttribute('.sys.live', 'data-s') === '6', 'wide again → stage 6 without scrolling');
+  await p.close();
+  // isolate the load/resize sync mechanism itself: disable IntersectionObserver before any
+  // page script runs, so only the sync-on-load/resize code path (not IO) can update the stage.
+  {
+    const c0 = await b.newContext({ viewport: { width: 1440, height: 900 } });
+    await c0.addInitScript(() => { delete window.IntersectionObserver; });
+    let p0 = await c0.newPage();
+    await p0.goto(BASE + '#s6'); await p0.waitForTimeout(800);
+    ok(!(await p0.evaluate(() => 'IntersectionObserver' in window)), 'no-IO: IntersectionObserver is really gone');
+    ok(await p0.getAttribute('.sys.live', 'data-s') === '6', 'no-IO: deep link #s6 shows stage 6');
+    // scroll to step 4, then reload with no hash: the restored scroll position (not a hash
+    // or IO) must drive the stage on load
+    await p0.evaluate(() => document.getElementById('s4').scrollIntoView({ behavior: 'instant', block: 'start' }));
+    await p0.waitForTimeout(200);
+    await p0.reload(); await p0.waitForTimeout(800);
+    ok(await p0.getAttribute('.sys.live', 'data-s') === '4', 'no-IO: reload with restored scroll shows stage 4');
+    // resize across the breakpoint and back, still on stage 6
+    await p0.goto(BASE + '#s6'); await p0.waitForTimeout(800);
+    await p0.setViewportSize({ width: 900, height: 900 }); await p0.waitForTimeout(400);
+    await p0.setViewportSize({ width: 1440, height: 900 }); await p0.waitForTimeout(600);
+    ok(await p0.getAttribute('.sys.live', 'data-s') === '6', 'no-IO: resize cycle keeps stage 6');
+    await c0.close();
+  }
+  p = await b.newPage({ viewport: { width: 1440, height: 900 } });
   // focus is never hidden under the figure or nav
   await p.goto(BASE); await p.waitForTimeout(300);
   for (let i = 0; i < 25; i++) {
@@ -24,7 +48,7 @@ const ok = (c, m) => { if (!c) fail.push(m); };
       const hit = x => x && (() => { const c = x.getBoundingClientRect(); return b.left < c.right && c.left < b.right && b.top < c.bottom && c.top < b.bottom; })();
       // header nav (z-index:10) always paints above the pinned figure column, so a nav
       // link's bbox intersecting the (grid-row-tall) .stage-col box is not actually covered.
-      return { tag: e.tagName, hidden: (e.closest('.stage-col') || e.closest('nav')) ? false : (hit(fig) || hit(nav)) }; });
+      return { tag: e.tagName, hidden: (e.closest('.stage-col') || e.closest('header nav')) ? false : (hit(fig) || hit(nav)) }; });
     ok(!r.hidden, `focused ${r.tag} #${i} is covered`);
   }
   ok(await p.$('a.skip[href="#os"]') !== null, 'skip link to #os exists');
