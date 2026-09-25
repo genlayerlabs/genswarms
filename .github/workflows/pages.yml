@@ -31,7 +31,10 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Landing page is built from its sources and passes its tests
+      # Every language version must be built from the current English source and translations, with share
+      # images rendered from the current headlines (website/i18n/build.lock.json, og.lock.json). On a mismatch
+      # the job stops here and the last good version stays live.
+      - name: Landing page and its translations are built from their sources and pass their tests
         run: |
           node --test website/tests/*.mjs
           node website/build.mjs --check
@@ -47,7 +50,7 @@ jobs:
 
       - name: Place landing page at site root
         run: |
-          rsync -a --exclude src --exclude tests --exclude tools --exclude build.mjs website/ _site/
+          rsync -a --exclude src --exclude tests --exclude tools --exclude i18n --exclude build.mjs website/ _site/
           touch _site/.nojekyll
           cp SKILL.md _site/skill.md
           {
@@ -79,3 +82,16 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      # Every version served right: 200s, /es -> /es/, lang, title, canonical, hreflang
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify the live language versions
+        run: |
+          for i in 1 2 3 4 5; do
+            node website/build.mjs --verify https://genswarms.com/ && exit 0
+            sleep 30
+          done
+          exit 1

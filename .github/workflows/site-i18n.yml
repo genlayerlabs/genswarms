@@ -1,0 +1,27 @@
+name: Landing page
+
+# Pull requests that touch the landing page must ship pages and translations built from the current English source.
+on:
+  pull_request:
+    paths:
+      - "website/**"
+      - ".github/workflows/site-i18n.yml"
+      - ".github/workflows/pages.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Tests
+        run: node --test website/tests/*.mjs
+      - name: Pages, translations and share images match the sources
+        run: node website/build.mjs --check
+      - name: Deploy copy ships every version and nothing else
+        run: bash design/check-deploy-copy.sh
