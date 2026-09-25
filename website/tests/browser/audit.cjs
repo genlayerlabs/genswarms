@@ -23,13 +23,31 @@ const SIZES = [[320,720],[360,780],[375,812],[390,844],[414,896],[480,900],[600,
         if (de.scrollWidth > innerWidth) o.push(`overflow ${de.scrollWidth}`);
         const fig = document.querySelector('.cine .stage');
         if (fig) { const f = fig.getBoundingClientRect();
-          if (f.height > innerHeight + 1) o.push('pinned figure taller than viewport');
+          // the stage box itself is fixed at 100vh by CSS and can never overflow the viewport;
+          // measure what the reader actually sees instead — the rendered live figure (and its
+          // caption, part of the same pinned block) — but only while `.stage` is actually
+          // pinned (sticky top:0). Near the top and bottom of the story column `.stage` is in
+          // its normal (unstuck) flow position and legitimately scrolls off-screen with the
+          // rest of the page; that's not an overflow bug.
+          const pinned = Math.abs(f.top) < 2;
+          const liveSvg = document.querySelector('.cine .sys.live');
+          if (pinned && liveSvg) {
+            const s = liveSvg.getBoundingClientRect();
+            const cap = document.querySelector('.cine .stage-cap');
+            const capBottom = cap && cap.offsetParent ? cap.getBoundingClientRect().bottom : s.bottom;
+            if (s.top < -1 || Math.max(s.bottom, capBottom) > innerHeight + 1) o.push('pinned figure taller than viewport');
+          }
           for (const t of document.querySelectorAll('.step .copy')) { const b = t.getBoundingClientRect();
             if (b.bottom > 0 && b.top < innerHeight && b.left < f.right && f.left < b.right && b.top < f.bottom && f.top < b.bottom) o.push('step text under figure'); } }
         const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
         for (let n; (n = tw.nextNode());) { const e = n.parentElement; if (!n.textContent.trim() || !e.offsetParent || e.closest('svg,.skip')) continue;
           if (parseFloat(getComputedStyle(e).fontSize) < 12) o.push('text < 12px: ' + n.textContent.trim().slice(0, 20)); }
-        if (phone) for (const a of document.querySelectorAll('a,button')) { if (!a.offsetParent || a.closest('p,li') || a.classList.contains('skip')) continue;
+        if (phone) for (const a of document.querySelectorAll('a,button')) { if (!a.offsetParent || a.classList.contains('skip')) continue;
+          // only inline links inside running text or prose lists are exempt (not primary tap
+          // targets); this deliberately does NOT exempt .rail's buttons just for sitting in a
+          // <li> — they're skipped above only because they're actually hidden (offsetParent)
+          // whenever the viewport is phone-shaped, and would be checked normally if ever shown.
+          if (a.tagName === 'A' && a.closest('p,li')) continue;
           const r = a.getBoundingClientRect(); if (r.height < 44) o.push('tap target ' + Math.round(r.height) + 'px: ' + a.textContent.trim().slice(0, 20)); }
         return o;
       }, { phone });
