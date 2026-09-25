@@ -12,23 +12,23 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
 <style>
-:root{--paper:#E9E0D2;--ink:#33301f;--ink-2:#6b6450;--ink-3:#9a9079;--line-2:#cabd9f;--accent:#A84E36;--r-spring:cubic-bezier(.2,.9,.25,1)}
+:root{--sand:#E9E0D2;--ink:#33301f;--ink-2:#5f5946;--clay:#A84E36;--r-spring:cubic-bezier(.2,.9,.25,1)}
 *{margin:0;padding:0;box-sizing:border-box}
-::selection{background:var(--accent);color:#fff}
-body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--paper);color:var(--ink);font-family:"Instrument Sans",sans-serif;-webkit-font-smoothing:antialiased;padding:32px;text-align:center}
+::selection{background:var(--clay);color:#fff}
+body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--sand);color:var(--ink);font-family:"Instrument Sans",sans-serif;-webkit-font-smoothing:antialiased;padding:32px;text-align:center}
 .wrap{max-width:540px}
 .mark{width:46px;height:46px;margin:0 auto 30px;display:block}
-.mark line{stroke:var(--ink-3);stroke-width:1.1}
-.mark circle{fill:var(--accent)}
-.code{font-family:"JetBrains Mono",monospace;font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:14px}
+.mark line{stroke:var(--ink);stroke-opacity:.35;stroke-width:1.1}
+.mark circle{fill:var(--clay)}
+.code{font-family:"JetBrains Mono",monospace;font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-2);margin-bottom:14px}
 h1{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:clamp(40px,9vw,72px);line-height:1;letter-spacing:-.03em;margin-bottom:16px}
 p{font-size:16.5px;color:var(--ink-2);max-width:34ch;margin:0 auto 30px}
 .row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
-.btn{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:600;padding:12px 20px;min-height:44px;border-radius:11px;text-decoration:none;transition:transform .3s var(--r-spring),border-color .3s ease,background .3s ease}
-.btn-primary{background:var(--ink);color:var(--paper)}
-.btn-primary:hover{background:var(--accent)}
-.btn-ghost{color:var(--ink);border:1px solid var(--line-2)}
-.btn-ghost:hover{border-color:var(--ink)}
+.btn{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:600;padding:12px 20px;min-height:44px;border-radius:11px;text-decoration:none;transition:transform .3s var(--r-spring),background .3s ease}
+.btn-primary{background:var(--ink);color:var(--sand)}
+.btn-primary:hover{background:var(--clay)}
+.btn-ghost{color:var(--ink);border:0;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:5px}
+.btn-ghost:hover{text-decoration-thickness:2px}
 .btn svg{transition:transform .35s var(--r-spring)}
 .btn:hover svg{transform:translateX(3px)}
 </style>
