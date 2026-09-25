@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { L, P, system, figureCSS } from './figures.mjs';
-import { STAGES, CROP, STEPS, OS, SEC, CMP } from './content.mjs';
+import { STAGES, CROP, STEPS, OS, SEC, CMP, CLOSE } from './content.mjs';
 
 const here = new URL('.', import.meta.url);
 // Build-time minification, deliberately conservative (no external deps):
@@ -20,12 +20,9 @@ const still = k => `<figure class="still" aria-label="Figure ${k + 1}">
   ${STAGES[k].note ? `<figcaption class="fig-note">${STAGES[k].note}</figcaption>` : ''}
 </figure>`;
 
-// each rail button is named after its step's visible headline (h1/h2, or the turn's last
-// question), so the words match the page and translate with it
-const headline = c => {
-  const m = c.match(/<h[12]>([\s\S]*?)<\/h[12]>/) || c.match(/<p class="turn-k">([^<]*)<\/p>\s*<p class="turn-q new">([^<]*)<\/p>/);
-  return m.slice(1).join(' ').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
-};
+// each rail button is named after its step's visible headline (h1/h2), so the words match the
+// page and translate with it
+const headline = c => c.match(/<h[12]>([\s\S]*?)<\/h[12]>/)[1].replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
 
 const stepsHTML = STEPS.map((c, k) => `<article class="step${k === 0 ? ' step-hero' : ''}" id="s${k}" data-step="${k}">
   ${c}
@@ -136,7 +133,7 @@ ${stepsHTML}
 <section class="close" id="start" aria-labelledby="close-h">
   <div class="close-in">
     <h2 id="close-h">Start with one team. Scale to thousands of agents.</h2>
-    <p>Instead of building isolated agents, build an AI&nbsp;workforce.</p>
+    <p>${CLOSE}</p>
     <div class="ctas"><a class="btn btn-primary" href="/docs/">Read the docs</a><a class="btn btn-ghost" href="https://github.com/genlayerlabs/genswarms">View on GitHub</a></div>
     <div class="handoff">
       <p id="handoff-l">Or hand it to your agent:</p>

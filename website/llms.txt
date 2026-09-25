@@ -2,16 +2,16 @@
 
 > The operating system for AI workforces. You declare the agents, deterministic objects, backends, and the directed message graph that connects them; GenSwarms runs each agent as a separate, supervised process, streams every event live, and restarts failures automatically.
 
-- **Processes** — every agent and object runs as a supervised OTP process; agent groups scale up and down while the swarm runs.
+- **Processes** — every agent and object runs as a supervised OTP process; a crashed agent restarts without stopping the others. An agent's role, model and backend are set separately; agent groups scale up and down while the swarm runs.
 - **Isolation** — per-agent sandbox: bwrap namespaces with a copy-on-write root and seccomp, or Docker / Apple container.
-- **Communication** — a declared topology is the only way messages move; every hop is checked against it.
-- **Boot** — the IR gate checks the whole configuration before anything starts and refuses a bad one.
-- **Recovery** — crashed agents restart under supervision; a swarm can be restored from its database.
-- **Drivers** — 7 backends: Local, Tmux (Codex, Claude Code and OpenCode sessions), Docker, Apple container, SSH, Bwrap, Mock.
 - **Network** — with `network: :isolated` an agent reaches its model endpoint and nothing else (bwrap and Docker).
-- **Packages** — `gsp` and the `swarmidx` notary: signed, verified packages with a transparency log.
-- **Observability** — one event stream: every message, crash, restart and output, live over WebSocket.
-- **Control** — a REST API, a WebSocket and a CLI.
+- **Messages** — a declared directed topology is the only way messages move; every hop is checked against it and off-graph messages are dropped.
+- **Services** — objects: deterministic Elixir handlers on the same graph as agents (for example a Telegram gateway, a cron scheduler, a browser, per-conversation LLM budgets).
+- **Drivers** — 7 backends: Local, Tmux (Codex, Claude Code and OpenCode sessions), Docker, Apple container, SSH, Bwrap, Mock.
+- **Packages** — `gsp` and the `swarmidx` notary: signed, content-addressed packages, verified on your machine against a transparency log.
+- **State** — a swarm is a seed plus an ordered log of changes; the gate checks the whole configuration and every change before it runs and refuses a bad one; a stopped swarm restores from its database.
+- **Control** — a REST API, a WebSocket, a CLI, and a skill file (skill.md) for coding agents.
+- **Events** — one event stream: every message, crash, restart and output, live over WebSocket.
 
 Current version: 0.2.0. License: MIT.
 
