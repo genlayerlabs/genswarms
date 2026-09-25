@@ -1,4 +1,5 @@
 // The system figure. One data model -> the live (pinned) figure + static stills (two layouts).
+import { t, tf, fill, escText } from './i18n.mjs';
 
 const f = n => Math.round(n * 10) / 10;
 const vis = arr => 'fx ' + arr.map(k => 'v' + k).join(' ');
@@ -15,8 +16,8 @@ export const L = {
   bar: { y: 200, x1: 170, x2: 630, label: [170, 184] },
   gridLabel: [400, 548],
   ann: [
-    { x: 212, y: 382, anchor: 'end', lines: ['each agent runs', 'as a process'], lx1: 216, lx2: 226, ly: 390 },
-    { x: 588, y: 382, anchor: 'start', lines: ['its boundary: what', 'it can reach'], lx1: 574, lx2: 584, ly: 390 },
+    { x: 212, y: 382, anchor: 'end', lines: ['each agent runs', 'as a process'], lx1: 216, lx2: 226, ly: 390, room: [8, 212] },
+    { x: 588, y: 382, anchor: 'start', lines: ['its boundary: what', 'it can reach'], lx1: 574, lx2: 584, ly: 390, room: [588, 792] },
   ],
   // stage 3: the agent that crashes and restarts (index into the grid) and its status line
   crash: { i: 10, st: [450, 534, 'middle'] },
@@ -50,7 +51,7 @@ export const P = {
   bar: { y: 200, x1: 40, x2: 360, label: [40, 184] },
   gridLabel: [200, 522],
   ann: [
-    { x: 200, y: 568, anchor: 'middle', lines: ['each agent runs as a process', 'inside its own boundary'] },
+    { x: 200, y: 568, anchor: 'middle', lines: ['each agent runs as a process', 'inside its own boundary'], room: [16, 384] },
   ],
   crash: { i: 10, st: [240, 512, 'middle'] },
   team: {
@@ -131,6 +132,76 @@ const hex = (x, y, r) => {
   return `<path class="hex" d="${d}Z"/>`;
 };
 const text = (x, y, s, cls = 't', anchor = 'start') => `<text class="${cls}" x="${f(x)}" y="${f(y)}" text-anchor="${anchor}">${s}</text>`;
+
+// ---------- translated labels ----------
+// Han, kana and fullwidth forms break anywhere and are ~1em wide; Hangul is ~0.8em and breaks at spaces.
+const HAN = /[\u2e80-\u2fff\u3000-\u30ff\u3400-\u9fff\uf900-\ufaff\uff00-\uffef]/;
+const HANGUL = /[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af]/;
+// estimated advance of s in em, rounded up from measurements of Instrument Sans, Bricolage Grotesque, JetBrains Mono
+// and the Russian, Korean and Chinese system faces the translated pages use
+export function em(s, { mono = false, bold = false } = {}) {
+  let w = 0;
+  for (const ch of s) {
+    if (HAN.test(ch)) w += 1.02;
+    else if (HANGUL.test(ch)) w += mono ? 0.86 : 0.8;
+    else if (mono) w += 0.6;
+    else if (/\s/.test(ch)) w += 0.25;
+    else if (/[A-Z\u0400-\u042f]/.test(ch)) w += 0.76;
+    else if (/[0-9]/.test(ch)) w += 0.6;
+    else if (/[\u0430-\u045f]/.test(ch)) w += 0.58;
+    else if (/[.,:;'’()!|/-]/.test(ch)) w += 0.34;
+    else w += 0.55;
+  }
+  return bold ? w * 1.09 : w;
+}
+// monospaced columns: CJK characters take two
+const cols = s => [...s].reduce((n, ch) => n + (HAN.test(ch) || HANGUL.test(ch) ? 2 : 1), 0);
+// greedy line breaking at spaces and between Han characters (closing punctuation stays with its character)
+export function breakLines(s, maxW, width) {
+  const toks = [];
+  s.split(' ').forEach((w, i) => {
+    const parts = w.match(/[\u2e80-\u2fff\u3400-\u9fff\uf900-\ufaff][\u3001\u3002\uff0c\uff1a\uff1b\uff01\uff1f\u300d\u300f\uff09]*|[^\u2e80-\u2fff\u3400-\u9fff\uf900-\ufaff]+/g) || [''];
+    parts.forEach((p, j) => toks.push([p, j ? '' : i ? ' ' : '']));
+  });
+  const lines = [];
+  let cur = '';
+  for (const [p, glue] of toks) {
+    const next = cur ? cur + glue + p : p;
+    if (cur && width(next) > maxW) { lines.push(cur); cur = p; } else cur = next;
+  }
+  lines.push(cur);
+  return lines;
+}
+const SIZE = cls => cls.split(' ').find(c => c === 't' || c === 'ts' || c === 'tb' || c === 'log');
+// the live figure (L) steps .ts and .log labels up to 18.5px on narrow and short screens (page.css): fit to that
+const fsOf = (Lo, cls) => { const k = SIZE(cls), v = Lo.fs[k]; return Lo.id === 'L' && (k === 'ts' || k === 'log') ? Math.max(v, 18.5) : v; };
+const BOUNDS = { L: [8, 792], P: [16, 384] };
+// where a translated label grew below its drawing (per stage), so a still's crop can grow with it
+let grown = [];
+// A label drawn in a figure. English renders exactly as designed. A translation gets the room [lo, hi] (SVG units):
+// it slides inward to fit, then wraps (up to `lines`, downward, or upward with up: true), and only then steps its
+// font down (to 82%). The catalogue's `max` is that room in Latin characters (CJK characters count about double).
+function tlabel(Lo, x, y, en, where, { cls = 't', anchor = 'start', room = BOUNDS[Lo.id], lines = 1, up = false, vars = null, st = [], english = null, max = null } = {}) {
+  const fs = fsOf(Lo, cls), [lo, hi] = room, bold = SIZE(cls) === 'tb', mono = SIZE(cls) === 'log';
+  const tr = t(en, where, { kind: 'svg', max: max ?? Math.floor((hi - lo) / (fs * (mono ? 0.6 : 0.55))), lines });
+  const s = vars ? fill(tr, vars) : tr;
+  if (tr === en) return english ? english() : text(x, y, vars ? fill(en, vars) : en, cls, anchor);
+  let k = 1, ls;
+  for (k of [1, 0.94, 0.88, 0.82]) {
+    const width = u => em(u, { mono, bold }) * fs * k;
+    ls = breakLines(s, hi - lo, width);
+    if (ls.length <= lines && Math.max(...ls.map(width)) <= hi - lo) break;
+  }
+  // still too long at the smallest step: keep to the lines allowed and let it overflow (the audit reports it)
+  if (ls.length > lines) ls = [...ls.slice(0, lines - 1), ls.slice(lines - 1).reduce((a, b) => (HAN.test(a.slice(-1)) && HAN.test(b[0]) ? a + b : a + ' ' + b))];
+  const w = Math.max(...ls.map(u => em(u, { mono, bold }) * fs * k));
+  const clamp = (v, a, b) => Math.min(Math.max(v, a), Math.max(a, b));
+  const ax = anchor === 'middle' ? clamp(x, lo + w / 2, hi - w / 2) : anchor === 'end' ? clamp(x, lo + w, hi) : clamp(x, lo, hi - w);
+  const lh = Math.round(fs * k * 1.3), y0 = up ? y - (ls.length - 1) * lh : y;
+  const style = k < 1 ? ` style="font-size:${f(fs * k)}px"` : '';
+  if (!up && ls.length > 1) grown.push([y0 + (ls.length - 1) * lh + fs * 0.35, st]);
+  return ls.map((u, i) => `<text class="${cls}" x="${f(ax)}" y="${f(y0 + i * lh)}" text-anchor="${anchor}"${style}>${escText(u)}</text>`).join('');
+}
 // an object: a square with a square core (agents are circles)
 const obj = (x, y, r = 15) => `<rect class="ob" x="${x - r}" y="${y - r}" width="${2 * r}" height="${2 * r}" rx="3"/><rect class="ob-c" x="${x - 5}" y="${y - 5}" width="10" height="10" rx="1"/>`;
 const agentGlyph = (x, y) => `<circle class="lg-r" cx="${x}" cy="${y}" r="11"/><circle class="lg-c" cx="${x}" cy="${y}" r="6.5"/>`;
@@ -139,20 +210,15 @@ const okBadge = (x, y) => `<circle class="okb" cx="${x}" cy="${y}" r="8.5"/><pat
 const noBadge = (x, y) => `<circle class="nob" cx="${x}" cy="${y}" r="8.5"/><path class="okc" d="M${x - 3.2} ${y - 3.2}l6.4 6.4m0 -6.4l-6.4 6.4"/>`;
 const cyl = (x, y, w = 26, h = 26) => { const ry = 5; return `<path class="db" d="M${x} ${y + ry}v${h - 2 * ry}a${w / 2} ${ry} 0 0 0 ${w} 0v${-(h - 2 * ry)}"/><ellipse class="db" cx="${x + w / 2}" cy="${y + ry}" rx="${w / 2}" ry="${ry}"/><path class="db" fill="none" d="M${x} ${y + h / 2}a${w / 2} ${ry} 0 0 0 ${w} 0"/>`; };
 // monospaced rows: [kind, rest, kindClass, restClass, [tail, tailClass]]. The kind is padded to `pad` columns; a
-// rest too long for `cols` wraps at spaces and continues under the rest column.
-function monoRows(x, y, lh, rows, pad, cols) {
+// rest too long for `width` columns wraps (at spaces, or between Han characters) and continues under the rest column.
+function monoRows(x, y, lh, rows, pad, width) {
   let b = '';
   rows.forEach(([kind, rest, kc, rc, tail]) => {
-    const lines = [];
-    let cur = '';
-    for (const w of rest.split(' ')) {
-      if (cur && (cur + ' ' + w).length > cols - pad) { lines.push(cur); cur = w; } else cur = cur ? cur + ' ' + w : w;
-    }
-    lines.push(cur);
+    const lines = breakLines(rest, width - pad, cols);
     lines.forEach((ln, j) => {
       const k = j ? ' '.repeat(pad) : kind ? `<tspan class="${kc || 'k-' + kind}">${kind.padEnd(pad)}</tspan>` : ' '.repeat(pad);
       const end = tail && j === lines.length - 1 ? `<tspan class="${tail[1]}">${tail[0]}</tspan>` : '';
-      b += `<text class="log" x="${x}" y="${f(y)}">${k}${ln ? `<tspan${rc ? ` class="${rc}"` : ''}>${ln}</tspan>` : ''}${end}</text>`;
+      b += `<text class="log" x="${x}" y="${f(y)}">${k}${ln ? `<tspan${rc ? ` class="${rc}"` : ''}>${escText(ln)}</tspan>` : ''}${end}</text>`;
       y += lh;
     });
   });
@@ -160,11 +226,13 @@ function monoRows(x, y, lh, rows, pad, cols) {
 }
 
 const bandH = Lo => (Lo.id === 'L' ? 19 : 16);
+// the room right of the "GenSwarms" wordmark in a band, for a label that ends at x
+const bandRoom = (Lo, b, x) => [b.x1 + 20 + em('GenSwarms', { bold: true }) * Lo.fs.tb + 14, x];
 function band(Lo, b, right) {
   const h = bandH(Lo);
   let o = `<rect class="layer" x="${b.x1}" y="${b.y - h}" width="${b.x2 - b.x1}" height="${2 * h}" rx="${h}"/>`;
   o += text(b.x1 + 20, b.y + (Lo.id === 'L' ? 9 : 7), 'GenSwarms', 'tb bandl');
-  if (right) o += text(b.x2 - 18, b.y + (Lo.id === 'L' ? 5.5 : 5), right, 'ts bandr', 'end');
+  if (right) o += tlabel(Lo, b.x2 - 18, b.y + (Lo.id === 'L' ? 5.5 : 5), right[0], right[1], { cls: 'ts bandr', anchor: 'end', room: bandRoom(Lo, b, b.x2 - 18) });
   return o;
 }
 // ---------- the system SVG ----------
@@ -173,6 +241,8 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
   const grp = (stages, inner, extra = '') =>
     prune && !stages.includes(stage) ? '' : `<g class="${vis(stages)}${extra ? ' ' + extra : ''}">${inner}</g>`;
   const lh = Math.round(Lo.fs.log * 1.5);
+  grown = [];
+  const fig = k => `figure ${k + 1} (${['one agent', 'hand-wired agents', 'the OS layer', 'processes', 'declared paths', 'objects', 'packages', 'the swarm as a document', 'the control layer'][k]})`;
   let s = '';
   // --- stage 8: the organisation (outside the world group)
   s += `<g class="org">`;
@@ -190,7 +260,7 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
       con += `<line class="drop" x1="200" y1="${y}" x2="${end}" y2="${y}"/>`;
     });
   }
-  s += grp([8], con + band(Lo, b7, 'control layer'));
+  s += grp([8], con + band(Lo, b7, ['control layer', `${fig(8)}, SVG label: inside the dark “GenSwarms” band above the swarms (one line)`]));
   let cls = '';
   SW.forEach(([cx, cy], k) => {
     const sh = SHAPES[k];
@@ -198,12 +268,12 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
     if (sh.arc) cls += `<path class="ce" d="M${cx + sh.arc[0]} ${cy - 6}Q${cx} ${cy - 34} ${cx + sh.arc[1]} ${cy - 6}"/>`;
     sh.n.forEach(([x, y]) => { cls += `<circle class="cn" cx="${cx + x}" cy="${cy + y}" r="5"/>`; });
   });
-  s += grp([8], cls + text(Lo.swarmsLabel[0], Lo.swarmsLabel[1], 'Swarms', 'tb tm'));
+  s += grp([8], cls + tlabel(Lo, Lo.swarmsLabel[0], Lo.swarmsLabel[1], 'Swarms', `${fig(8)}, SVG label: bold heading over the row of swarms`, { cls: 'tb tm', room: [Lo.swarmsLabel[0], Lo.w - Lo.swarmsLabel[0]] }));
   // models row
   const m = Lo.models;
   let mr = `<line class="mline" x1="${m.x1}" y1="${m.y}" x2="${m.x2}" y2="${m.y}"/>`;
   m.xs.forEach(x => { mr += hex(x, m.y, 9); });
-  mr += text(m.label[0], m.label[1], 'Models', 'tb tm');
+  mr += tlabel(Lo, m.label[0], m.label[1], 'Models', `${fig(8)}, SVG label: bold heading over the row of models (hexagons)`, { cls: 'tb tm', room: [m.label[0], Lo.w - m.label[0]] });
   s += grp([8], mr);
   s += `</g>`;
 
@@ -212,11 +282,12 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
     const D = T.doc, pad = 20, x = D.x + pad;
     let y = D.y + pad + Lo.fs.log;
     let d = '';
-    const head = (name, note) => {
-      d += `<text class="log k-hd" x="${x}" y="${f(y)}">${name}</text>` + text(D.x + D.w - pad, y, note, 'ts', 'end');
+    const head = (name, note, where) => {
+      const end = D.x + D.w - pad;
+      d += `<text class="log k-hd" x="${x}" y="${f(y)}">${name}</text>` + tlabel(Lo, end, y, note, where, { cls: 'ts', anchor: 'end', room: [x + name.length * 0.6 * fsOf(Lo, 'log') + 16, end] });
       y += lh;
     };
-    head('swarm.state', 'seed');
+    head('swarm.state', 'seed', `${fig(7)}, SVG label: note at the right of “swarm.state”, the swarm’s starting definition (one line)`);
     let r;
     [r, y] = monoRows(x + 18, y, lh, [
       ['agents', 'triage, answer'],
@@ -225,7 +296,7 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
     ], 9, D.cols - 2);
     d += r;
     y += lh * 0.45;
-    head('swarm.overlay', 'change log');
+    head('swarm.overlay', 'change log', `${fig(7)}, SVG label: note at the right of “swarm.overlay”, the numbered log of changes (one line)`);
     // logged changes get a seq; a change the gate refuses (OpPolicy, before any seq) is never logged
     for (const [ok, op] of [[1, '1 add_agent research'], [1, '2 scale_agent_group answer 3'], [0, 'scale_agent_group answer 150']]) {
       if (!ok) y += lh * 0.3;
@@ -233,12 +304,23 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
       [r, y] = monoRows(x + 42, y, lh, [['', op]], 0, D.cols - 4);
       d += r;
     }
-    [r, y] = monoRows(x + 42, y, lh, [['', 'refused: over the 100-agent cap', '', 'k-no']], 0, D.cols - 4);
+    const refusedEn = 'refused: over the {cap}-agent cap';
+    const refused = tf(refusedEn, { cap: 100 }, `${fig(7)}, SVG label (monospace, red): why the last change was refused; {cap} is the agent limit (100). Wraps at ${D.cols - 4} columns in the phone drawing; CJK characters take two`, { kind: 'svg', max: D.cols - 4 });
+    const translated = refused !== fill(refusedEn, { cap: 100 });
+    [r, y] = monoRows(x + 42, y, lh, [['', refused, '', 'k-no']], 0, D.cols - 4);
     d += r;
     y += lh * 0.45;
-    d += cyl(x, y - Lo.fs.log - 4) + `<text class="log" x="${x + 38}" y="${f(y)}">restore: seed + 2 changes</text>`;
+    const restoreEn = 'restore: seed + {n} changes';
+    const restore = tf(restoreEn, { n: 2 }, `${fig(7)}, SVG label (monospace): a stopped swarm is rebuilt from its seed plus the logged changes; {n} is how many (2). Wraps at ${D.cols - 4} columns in the phone drawing`, { kind: 'svg', max: D.cols - 4 });
+    if (restore === fill(restoreEn, { n: 2 })) {
+      d += cyl(x, y - Lo.fs.log - 4) + `<text class="log" x="${x + 38}" y="${f(y)}">${restore}</text>`;
+    } else {
+      d += cyl(x, y - Lo.fs.log - 4);
+      breakLines(restore, D.cols - 4, cols).forEach((ln, i) => { if (i) y += lh; d += `<text class="log" x="${x + 38}" y="${f(y)}">${escText(ln)}</text>`; });
+    }
     y += lh * 0.5;
     const h = y - D.y + 4, fold = 22;
+    if (translated || restore !== fill(restoreEn, { n: 2 })) grown.push([D.y + h + 8, [7]]);
     d = `<path class="doc" d="M${D.x} ${D.y + 10}q0 -10 10 -10H${D.x + D.w - fold}L${D.x + D.w} ${D.y + fold}V${f(D.y + h - 10)}q0 10 -10 10H${D.x + 10}q-10 0 -10 -10Z"/><path class="doc-f" d="M${D.x + D.w - fold} ${D.y}V${D.y + fold}H${D.x + D.w}"/>` + d;
     s += grp([7], d);
   }
@@ -259,21 +341,25 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
   const sq = Lo.id === 'L' ? [175, 262, 350, 450, 538, 625] : [60, 116, 172, 228, 284, 340];
   const bh = bandH(Lo);
   sq.forEach(x => { g2 += `<rect class="dept" x="${x - 6}" y="${o.y - 6}" width="12" height="12" rx="2"/><line class="drop" x1="${x}" y1="${o.y + 6}" x2="${x}" y2="${br.y - bh}"/>`; });
-  g2 += text(o.label[0], o.label[1], 'the organization', 'ts');
+  g2 += tlabel(Lo, o.label[0], o.label[1], 'the organization', `${fig(2)}, SVG label: the line of departments at the top (one line)`, { cls: 'ts', room: [o.label[0], o.x2] });
   Lo.grid.xs.forEach(x => { g2 += `<line class="col" x1="${x}" y1="${br.y + bh}" x2="${x}" y2="${Lo.grid.ys[2]}"/>`; });
   s += grp([2, 3], g2 + band(Lo, br, null));
-  const bandR = (s, c = 'ts bandr') => text(br.x2 - 18, br.y + (Lo.id === 'L' ? 5.5 : 5), s, c, 'end');
-  s += grp([2], text(Lo.gridLabel[0], Lo.gridLabel[1], 'individual agents', 'ts', 'middle') + bandR('operating system'));
+  const bandR = (s, where) => tlabel(Lo, br.x2 - 18, br.y + (Lo.id === 'L' ? 5.5 : 5), s, where, { cls: 'ts bandr', anchor: 'end', room: bandRoom(Lo, br, br.x2 - 18) });
+  s += grp([2], tlabel(Lo, Lo.gridLabel[0], Lo.gridLabel[1], 'individual agents', `${fig(2)}, SVG label: under the grid of agents`, { cls: 'ts', anchor: 'middle', room: Lo.id === 'L' ? [150, 650] : [20, 380], lines: 2, st: [2] }) +
+    bandR('operating system', `${fig(2)}, SVG label: inside the dark “GenSwarms” band, what the layer is (one line)`));
   // stage 3: supervisor + annotations + one agent crashes and restarts
   // the diamond sits after the word, so it never depends on the label's rendered width
-  let g3 = `<path class="dia-in" d="${(() => { const x = br.x2 - 22, y = br.y, r = 6; return `M${x} ${y - r}L${x + r} ${y}L${x} ${y + r}L${x - r} ${y}Z`; })()}"/>` + text(br.x2 - 36, br.y + (Lo.id === 'L' ? 5.5 : 5), 'supervisor', 'ts bandr', 'end');
+  let g3 = `<path class="dia-in" d="${(() => { const x = br.x2 - 22, y = br.y, r = 6; return `M${x} ${y - r}L${x + r} ${y}L${x} ${y + r}L${x - r} ${y}Z`; })()}"/>` +
+    tlabel(Lo, br.x2 - 36, br.y + (Lo.id === 'L' ? 5.5 : 5), 'supervisor', `${fig(3)}, SVG label: inside the dark “GenSwarms” band, before a small diamond; the software that restarts a crashed process, not a person (one line)`, { cls: 'ts bandr', anchor: 'end', room: bandRoom(Lo, br, br.x2 - 36) });
   Lo.ann.forEach(a => {
-    a.lines.forEach((ln, i) => { g3 += text(a.x, a.y + i * (Lo.fs.ts + 5), ln, 'ts ann', a.anchor); });
+    // English keeps its hand-set line breaks; a translation wraps to the room it has
+    g3 += tlabel(Lo, a.x, a.y, a.lines.join(' '), `${fig(3)}, SVG annotation beside the agents (${Lo.id === 'L' ? 'desktop drawing' : 'phone drawing'}; wraps)`, { cls: 'ts ann', anchor: a.anchor, room: a.room, lines: 3, st: [3],
+      english: () => a.lines.map((ln, i) => text(a.x, a.y + i * (Lo.fs.ts + 5), ln, 'ts ann', a.anchor)).join('') });
     if (a.lx1) g3 += `<line class="lead" x1="${a.lx1}" y1="${a.ly - 8}" x2="${a.lx2}" y2="${a.ly - 8}"/>`;
   });
   const C = Lo.crash, [kx, ky] = pos[3][C.i];
   g3 += `<g transform="translate(${kx} ${ky})"><circle class="burst" r="30"/><circle class="restart" r="23"/></g>`;
-  g3 += text(C.st[0], C.st[1], 'crashed, restarted', 'ts st', C.st[2]);
+  g3 += tlabel(Lo, C.st[0], C.st[1], 'crashed, restarted', `${fig(3)}, SVG label: status under the one agent that crashes and comes back`, { cls: 'ts st', anchor: C.st[2], room: Lo.id === 'L' ? [240, 660] : [20, 380], lines: 2, st: [3] });
   s += grp([3], g3);
 
   // stage 0: satellites
@@ -286,10 +372,11 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
     prompt: (x, y) => `<rect class="glyph" x="${x - 13}" y="${y - 10}" width="26" height="20" rx="3"/><line class="glyph" x1="${x - 7}" y1="${y - 3}" x2="${x + 7}" y2="${y - 3}"/><line class="glyph" x1="${x - 7}" y1="${y + 3}" x2="${x + 3}" y2="${y + 3}"/>`,
     tools: (x, y) => `<rect class="glyph" x="${x - 11}" y="${y - 11}" width="22" height="22" rx="3"/><rect class="glyph" x="${x - 4}" y="${y - 4}" width="8" height="8" rx="1"/>`,
   };
+  const satRoom = Lo.id === 'L' ? { model: [300, 500], prompt: [500, 792], tools: [8, 300] } : { model: [120, 280], prompt: [256, 384], tools: [16, 146] };
   for (const [k, [x, y]] of Object.entries(Lo.sat)) {
     const [x1, y1, x2, y2] = shorten(cx, cy, x, y, Lo.id === 'L' ? 66 : 56, 20);
     g0 += `<line class="sat" x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}"/>` + glyph[k](x, y);
-    g0 += text(x, y < cy ? y - 24 : y + 38, k, 't', 'middle');
+    g0 += tlabel(Lo, x, y < cy ? y - 24 : y + 38, k, `${fig(0)}, SVG label: one of the three things an agent is made of (its model / its prompt / its tools); one line`, { anchor: 'middle', room: satRoom[k] });
   }
   s += grp([0], g0);
 
@@ -300,14 +387,14 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
   // budget (llm-proxy) is the endpoint agents call their model through, not a message route:
   // dotted, arrowless lines, never the edge style
   s += grp([5, 6], edge(AN, OB.budget, 22, 19, 'mc', false) + edge(RE, OB.budget, 22, 19, 'mc', false) +
-    (T.callsLabel ? text(T.callsLabel[0], T.callsLabel[1], 'model calls', 'ts', T.callsLabel[2]) : ''));
+    (T.callsLabel ? tlabel(Lo, T.callsLabel[0], T.callsLabel[1], 'model calls', `${fig(5)}, SVG label (desktop drawing): on the dotted lines from two agents to “budget”, the proxy they call their model through`, { cls: 'ts', anchor: T.callsLabel[2], room: [480, 700], lines: 2, st: [5, 6] }) : ''));
   // stage 4: research tries telegram, which is off the graph: the message is dropped
   {
     const [dx, dy] = T.drop, [x1, y1] = shorten(RE[0], RE[1], dx, dy, 22, 0);
     const u = 7;
     let g = `<line class="edrop" x1="${f(x1)}" y1="${f(y1)}" x2="${dx}" y2="${dy}"/>`;
     g += `<path class="xm" d="M${dx - u} ${dy - u}L${dx + u} ${dy + u}M${dx + u} ${dy - u}L${dx - u} ${dy + u}"/>`;
-    g += text(T.dropLabel[0], T.dropLabel[1], 'dropped', 'ts xl', T.dropLabel[2]);
+    g += tlabel(Lo, T.dropLabel[0], T.dropLabel[1], 'dropped', `${fig(4)}, SVG label (red): next to the crossed-out message that was off the graph`, { cls: 'ts xl', anchor: T.dropLabel[2], room: Lo.id === 'L' ? [345, 436] : [110, 290], lines: 2, up: Lo.id === 'P', st: [4] });
     s += grp([4], g);
   }
   // objects (squares), their labels, and at stage 6 the verified package mark
@@ -319,7 +406,7 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
   // stage 4: events (illustration)
   {
     const [gx, gy] = T.log;
-    let b = text(gx, gy, 'events (illustration)', 'ts logcap');
+    let b = tlabel(Lo, gx, gy, 'events (illustration)', `${fig(4)}, SVG label (italic): heading over the simulated event log`, { cls: 'ts logcap', room: [gx, BOUNDS[Lo.id][1]] });
     b += monoRows(gx, gy + lh, lh, [
       ['message_routed', 'telegram → triage'],
       ['message_routed', 'triage → research'],
@@ -332,8 +419,9 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
   // stage 5: legend
   {
     const [gx, gy] = T.legend, gap = Lo.id === 'L' ? 34 : 30, tx = gx + 28;
-    let b = `<rect class="lg-b" x="${gx - 3}" y="${gy - 19}" width="28" height="28" rx="7"/>` + agentGlyph(gx + 11, gy - 5) + text(tx, gy, 'agent, uses a model', 'ts');
-    b += `<rect class="ob" x="${gx}" y="${gy + gap - 16}" width="22" height="22" rx="3"/><rect class="ob-c" x="${gx + 7}" y="${gy + gap - 9}" width="8" height="8" rx="1"/>` + text(tx, gy + gap, 'object, plain code', 'ts');
+    const room = [tx, Lo.id === 'L' ? 640 : BOUNDS.P[1]];
+    let b = `<rect class="lg-b" x="${gx - 3}" y="${gy - 19}" width="28" height="28" rx="7"/>` + agentGlyph(gx + 11, gy - 5) + tlabel(Lo, tx, gy, 'agent, uses a model', `${fig(5)}, SVG legend: next to the circle symbol (one line)`, { cls: 'ts', room });
+    b += `<rect class="ob" x="${gx}" y="${gy + gap - 16}" width="22" height="22" rx="3"/><rect class="ob-c" x="${gx + 7}" y="${gy + gap - 9}" width="8" height="8" rx="1"/>` + tlabel(Lo, tx, gy + gap, 'object, plain code', `${fig(5)}, SVG legend: next to the square symbol (one line)`, { cls: 'ts', room });
     s += grp([5], b);
   }
   // stage 6: the swarmidx index, each package verified on this machine
@@ -341,8 +429,14 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
     const [gx, gy] = T.index;
     // header: the index, and what the mark means
     // (the legend starts at a fixed x, so labels that step up in size grow away from the mark)
-    const kx = Lo.id === 'L' ? gx + 24 + 40 * Lo.fs.log * 0.6 : 300;
-    let b = text(gx, gy, 'swarmidx index', 'ts') + okBadge(kx + 8, gy - 5) + text(kx + 22, gy, 'verified', 'ts');
+    // (a translated "verified" too long for the phone drawing moves the mark left, never past the heading)
+    const idxEn = 'swarmidx index', okEn = 'verified';
+    const idxT = t(idxEn, `${fig(6)}, SVG label: heading over the list of packages (swarmidx is the package index; keep the name)`, { kind: 'svg' });
+    const okT = t(okEn, `${fig(6)}, SVG legend: next to the green check mark; each package was checked on this machine (one short word)`, { kind: 'svg' });
+    const fs = fsOf(Lo, 'ts'), BR = BOUNDS[Lo.id][1];
+    let kx = Lo.id === 'L' ? gx + 24 + 40 * Lo.fs.log * 0.6 : 300;
+    if (okT !== okEn) kx = Math.max(Math.min(kx, BR - 22 - em(okT) * fs), gx + em(idxT) * fs + 12);
+    let b = tlabel(Lo, gx, gy, idxEn, '', { cls: 'ts', room: [gx, kx - 4] }) + okBadge(kx + 8, gy - 5) + tlabel(Lo, kx + 22, gy, okEn, '', { cls: 'ts', room: [kx + 22, BR], max: 16 });
     let y = gy + lh + 4;
     OBJECTS.forEach(o => {
       b += okBadge(gx + 8, y - Lo.fs.log * 0.33);
@@ -374,7 +468,14 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
 
   // the live figure keeps one viewBox for every stage; a camera group recentres each drawing (figureCSS)
   if (live) s = `<g class="cam">${s}</g>`;
-  return `<svg class="sys ${Lo.id}${extraClass ? ' ' + extraClass : ''}" data-s="${stage}" viewBox="${crop || `0 0 ${Lo.w} ${Lo.h}`}" role="img" aria-label="${label}">${s}</svg>`;
+  // a still whose translated labels wrapped below its crop grows to show them
+  let vb = crop || `0 0 ${Lo.w} ${Lo.h}`;
+  if (crop) {
+    const [x0, y0, w0, h0] = crop.split(' ').map(Number);
+    const need = Math.max(0, ...grown.filter(([, st]) => st.includes(stage)).map(([y]) => y + 6 - (y0 + h0)));
+    if (need > 0) vb = `${x0} ${y0} ${w0} ${f(h0 + need)}`;
+  }
+  return `<svg class="sys ${Lo.id}${extraClass ? ' ' + extraClass : ''}" data-s="${stage}" viewBox="${vb}" role="img" aria-label="${label}">${s}</svg>`;
 }
 
 // ---------- CSS generated from the model ----------

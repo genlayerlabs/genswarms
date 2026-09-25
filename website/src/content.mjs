@@ -18,46 +18,31 @@ export const CROP = {
   P: ['12 108 376 428', '12 30 376 570', '12 85 376 460', '12 85 376 520', '12 20 376 577', '12 20 376 505', '12 20 376 640', '12 10 376 360', '12 10 376 560'],
 };
 
+// Each step is rendered through t() (src/i18n.mjs): one catalogue entry per element that owns text, with its inline
+// markup, so translators get whole sentences. `where` tells them where it shows.
+const ctas = (t, w) => `<div class="ctas"><a class="btn btn-primary" href="/docs/">${t('Read the docs', `${w}: primary button`)}</a><a class="btn btn-ghost" href="https://github.com/genlayerlabs/genswarms">${t('View on GitHub', `${w}: secondary link`)}</a></div>`;
+const step = (n, t, h, ps) => `<div class="copy">
+    <h2>${t(h, `story step ${n}: headline (h2, display size; also names rail button ${n})`)}</h2>
+${ps.map(([cls, p], i) => `    <p${cls ? ` class="${cls}"` : ''}>${t(p, `story step ${n}: ${cls === 'ex' ? 'italic example line' : `paragraph ${i + 1}`}`)}</p>`).join('\n')}
+  </div>`;
 export const STEPS = [
-  `<div class="copy hero-copy">
-    <h1>The operating system for AI&nbsp;workforces.</h1>
-    <p class="lead">Deploy, coordinate and control thousands of AI agents across your organization.</p>
-    <div class="ctas"><a class="btn btn-primary" href="/docs/">Read the docs</a><a class="btn btn-ghost" href="https://github.com/genlayerlabs/genswarms">View on GitHub</a></div>
-    <p class="meta">Open source, MIT. Version 0.2.0.</p>
+  t => `<div class="copy hero-copy">
+    <h1>${t('The operating system for AI&nbsp;workforces.', 'story step 1: the page headline (h1; also rail button 1 and the share image). &nbsp; keeps two words together')}</h1>
+    <p class="lead">${t('Deploy, coordinate and control thousands of AI agents across your organization.', 'story step 1: lead paragraph under the headline')}</p>
+    ${ctas(t, 'story step 1')}
+    <p class="meta">${t('Open source, MIT. Version 0.2.0.', 'story step 1: small line under the buttons')}</p>
   </div>`,
-  `<div class="copy">
-    <h2>Your agents need more than models and prompts.</h2>
-    <p>One agent is easy. Many agents working together need somewhere to run, rules for who talks to whom, and a way back when one fails.</p>
-  </div>`,
-  `<div class="copy">
-    <h2>Think of it as an operating system.</h2>
-    <p>An operating system runs programs it didn’t write. GenSwarms does that for agents: it starts them, isolates them, routes their messages and restarts them when they fail.</p>
-  </div>`,
-  `<div class="copy">
-    <h2>Every agent is a process.</h2>
-    <p>Each one runs in its own sandbox, under its own supervisor. If one crashes, it restarts and the others keep working. You set its role, its model and where it runs separately.</p>
-  </div>`,
-  `<div class="copy">
-    <h2>Agents talk only along declared paths.</h2>
-    <p>You draw the graph. Every message is checked against it, and anything off the graph is dropped.</p>
-    <p class="ex">From here the drawings follow one swarm: a support team that answers customers on Telegram.</p>
-  </div>`,
-  `<div class="copy">
-    <h2>Not everything needs a model.</h2>
-    <p>Objects are plain code on the same graph: a Telegram gateway, a scheduler, a budget for model spend. They do the same thing every time.</p>
-  </div>`,
-  `<div class="copy">
-    <h2>Install what your agents need.</h2>
-    <p>Telegram, WhatsApp and email connectors, a browser, a scheduler: signed packages from the swarmidx index, verified before they load.</p>
-  </div>`,
-  `<div class="copy">
-    <h2>A swarm is a document.</h2>
-    <p>Its definition is data, and every change is logged. A bad change is refused before it runs; a stopped swarm comes back from its database.</p>
-  </div>`,
-  `<div class="copy">
-    <h2>One control layer for your AI organization.</h2>
-    <p>Watch every message, crash and restart as it happens. Drive it by API or CLI, or hand it to your coding agent.</p>
-    <p class="triad"><span>Models provide intelligence.</span> <span>Agents perform work.</span> <span>GenSwarms runs the organization.</span></p>
+  t => step(2, t, 'Your agents need more than models and prompts.', [['', 'One agent is easy. Many agents working together need somewhere to run, rules for who talks to whom, and a way back when one fails.']]),
+  t => step(3, t, 'Think of it as an operating system.', [['', 'An operating system runs programs it didn’t write. GenSwarms does that for agents: it starts them, isolates them, routes their messages and restarts them when they fail.']]),
+  t => step(4, t, 'Every agent is a process.', [['', 'Each one runs in its own sandbox, under its own supervisor. If one crashes, it restarts and the others keep working. You set its role, its model and where it runs separately.']]),
+  t => step(5, t, 'Agents talk only along declared paths.', [['', 'You draw the graph. Every message is checked against it, and anything off the graph is dropped.'], ['ex', 'From here the drawings follow one swarm: a support team that answers customers on Telegram.']]),
+  t => step(6, t, 'Not everything needs a model.', [['', 'Objects are plain code on the same graph: a Telegram gateway, a scheduler, a budget for model spend. They do the same thing every time.']]),
+  t => step(7, t, 'Install what your agents need.', [['', 'Telegram, WhatsApp and email connectors, a browser, a scheduler: signed packages from the swarmidx index, verified before they load.']]),
+  t => step(8, t, 'A swarm is a document.', [['', 'Its definition is data, and every change is logged. A bad change is refused before it runs; a stopped swarm comes back from its database.']]),
+  t => `<div class="copy">
+    <h2>${t('One control layer for your AI organization.', 'story step 9: headline (h2, display size; also names rail button 9)')}</h2>
+    <p>${t('Watch every message, crash and restart as it happens. Drive it by API or CLI, or hand it to your coding agent.', 'story step 9: paragraph 1')}</p>
+    <p class="triad"><span>${t('Models provide intelligence.', 'story step 9: closing triad, line 1 of 3 (large display type, one short sentence)')}</span> <span>${t('Agents perform work.', 'story step 9: closing triad, line 2 of 3')}</span> <span>${t('GenSwarms runs the organization.', 'story step 9: closing triad, line 3 of 3')}</span></p>
   </div>`,
 ];
 
