@@ -95,3 +95,22 @@ test('figure labels are sized to stay >= 13px where they render', () => {
   for (const k of ['ts', 'log']) assert.ok(L.fs[k] >= 16, `L.fs.${k}`);
   for (const k of ['t', 'ts', 'log']) assert.ok(P.fs[k] >= 15, `P.fs.${k}`);
 });
+test('head metadata', () => {
+  const desc = html.match(/<meta name="description" content="([^"]+)"/)[1];
+  assert.ok(desc.length <= 150, `description ${desc.length} chars`);
+  assert.match(html, /<title>GenSwarms: the operating system for AI workforces<\/title>/);
+  assert.match(html, /<link rel="canonical" href="https:\/\/genswarms\.com\/"/);
+  assert.match(html, /<meta http-equiv="content-language" content="en"/);
+  for (const i of ['/favicon.svg', '/favicon-32.png', '/apple-touch-icon.png']) assert.ok(html.includes(`href="${i}"`), i);
+  const ld = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
+  assert.equal(ld['@type'], 'SoftwareApplication');
+  assert.equal(ld.softwareVersion, '0.2.0');
+  assert.doesNotMatch(html, /FAQPage/);
+});
+test('llms.txt matches the new positioning', () => {
+  const t = readFileSync(new URL('../llms.txt', import.meta.url), 'utf8');
+  assert.match(t, /operating system for AI workforces/);
+  assert.match(t, /0\.2\.0/);
+  assert.match(t, /Apple container/);
+  assert.doesNotMatch(t, /~380|54 ?KB/);
+});

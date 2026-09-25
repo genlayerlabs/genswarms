@@ -1,8 +1,19 @@
 # GenSwarms
 
-> GenSwarms is an open-source Elixir/OTP runtime for orchestrating swarms of AI agents. You declare the agents, deterministic objects, backends, and the directed message graph that connects them; GenSwarms runs each agent as an isolated supervised worker, streams every event live, and restarts failures automatically.
+> The operating system for AI workforces. You declare the agents, deterministic objects, backends, and the directed message graph that connects them; GenSwarms runs each agent as an isolated, supervised process, streams every event live, and restarts failures automatically.
 
-Agents are stochastic, but the swarm around them is declared, bounded, observable, and recoverable. Each worker runs the minimal open-source SubZeroClaw agent loop (~380 lines of C); GenSwarms adds the system layer a swarm needs: isolation, routing, supervision, state, observability, and a REST + WebSocket API. License: MIT.
+- **Processes** — every agent and object runs as a supervised OTP process; agent groups scale up and down while the swarm runs.
+- **Isolation** — per-agent sandbox: bwrap namespaces with a copy-on-write root and seccomp, or Docker / Apple container.
+- **Communication** — a declared topology is the only way messages move; every hop is checked against it.
+- **Boot** — the IR gate checks the whole configuration before anything starts and refuses a bad one.
+- **Recovery** — crashed agents restart under supervision; a swarm can be restored from its database.
+- **Drivers** — 7 backends: Local, Tmux (Codex, Claude Code and OpenCode sessions), Docker, Apple container, SSH, Bwrap, Mock.
+- **Network** — with `network: :isolated` an agent reaches its model endpoint and nothing else (bwrap and Docker).
+- **Packages** — `gsp` and the `swarmidx` notary: signed, verified packages with a transparency log.
+- **Observability** — one event stream: every message, crash, restart and output, live over WebSocket.
+- **Control** — a REST API, a WebSocket and a CLI.
+
+Current version: 0.2.0. License: MIT.
 
 ## Start here
 
@@ -17,7 +28,7 @@ Agents are stochastic, but the swarm around them is declared, bounded, observabl
 - [Messaging & routing](https://genswarms.com/docs/messaging/): `@agent:` syntax, topology-gated routing, file inbox/outbox.
 - [Objects](https://genswarms.com/docs/objects/): deterministic, non-agentic components that participate in the topology.
 - [Skills](https://genswarms.com/docs/skills/): per-agent markdown skills and template variables.
-- [Backends](https://genswarms.com/docs/backends/): Local, Docker, SSH, Bwrap, and Mock execution backends.
+- [Backends](https://genswarms.com/docs/backends/): Local, Tmux, Docker, Apple container, SSH, Bwrap, and Mock execution backends.
 - [Containers](https://genswarms.com/docs/containers/): NixOS container images, tool presets, and sandbox internals.
 - [REST API](https://genswarms.com/docs/rest-api/): the complete JSON HTTP API.
 - [WebSocket API](https://genswarms.com/docs/websocket/): real-time agent output, routing, and event streams.
@@ -31,4 +42,4 @@ Agents are stochastic, but the swarm around them is declared, bounded, observabl
 - [Blog](https://genswarms.com/docs/blog/): notes and guides from the team building GenSwarms.
 - [Full documentation (single file)](https://genswarms.com/llms-full.txt): every doc page concatenated for one-shot ingestion.
 - [GitHub repository](https://github.com/genlayerlabs/genswarms): source, issues, and license.
-- [SubZeroClaw](https://github.com/genlayerlabs/subzeroclaw): the minimal agent loop each worker runs.
+- [SubZeroClaw](https://github.com/genlayerlabs/subzeroclaw): the minimal open-source agent loop each worker runs.

@@ -24,7 +24,7 @@ body{min-height:100vh;display:flex;align-items:center;justify-content:center;bac
 h1{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:clamp(40px,9vw,72px);line-height:1;letter-spacing:-.03em;margin-bottom:16px}
 p{font-size:16.5px;color:var(--ink-2);max-width:34ch;margin:0 auto 30px}
 .row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
-.btn{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:600;padding:12px 20px;border-radius:11px;text-decoration:none;transition:transform .3s var(--r-spring),border-color .3s ease,background .3s ease}
+.btn{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:600;padding:12px 20px;min-height:44px;border-radius:11px;text-decoration:none;transition:transform .3s var(--r-spring),border-color .3s ease,background .3s ease}
 .btn-primary{background:var(--ink);color:var(--paper)}
 .btn-primary:hover{background:var(--accent)}
 .btn-ghost{color:var(--ink);border:1px solid var(--line-2)}
@@ -43,7 +43,7 @@ p{font-size:16.5px;color:var(--ink-2);max-width:34ch;margin:0 auto 30px}
       <circle cx="9" cy="20" r="2.6"/><circle cx="20" cy="20" r="2.6"/>
     </svg>
     <div class="code">Error 404</div>
-    <h1>This node isn't on the graph.</h1>
+    <h1>This page ran off the swarm.</h1>
     <p>The page you're looking for doesn't exist — or it wandered off the topology.</p>
     <div class="row">
       <a class="btn btn-primary" href="/">Back to home <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 10L10 3M10 3H4M10 3V9"/></svg></a>
