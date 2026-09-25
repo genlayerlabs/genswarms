@@ -92,8 +92,10 @@ exactly once · no token or dollar caps in the core (budget packages exist) · s
 the limit is configurable.
 
 ### 4.4 Figure labels
-Only real event kinds and real names: `message`, `crash`, `restart`, `output`, `scale`, `agent_blocked`; backends and
-objects as they exist. Team shapes in Fig. 8 are illustrative and captioned so.
+Only real event kinds, op names and package names (updated for copy deck v2): telemetry events `message_routed` and
+`invalid_route`; IR ops such as `add_agent`, `scale_agent_group`, `add_topology_edges`; swarmidx packages as published
+(e.g. `genlayerlabs/cron@0.2.8`); backends and objects as they exist. Digests in figures are visibly shortened
+placeholders. No human, approval or escalation marks, and no business-team names: the swarms in Fig. 9 are unnamed.
 
 ## 5. Comparison ("A runtime, not a library")
 Columns: GenSwarms · LangGraph · CrewAI · AutoGen. Rows: What it is · Where agents run · What a crash affects ·

@@ -14,28 +14,26 @@ export const L = {
   org: { y: 110, x1: 120, x2: 680, label: [120, 92] },
   bar: { y: 200, x1: 170, x2: 630, label: [170, 184] },
   gridLabel: [400, 548],
-  diamond: [400, 200],
   ann: [
     { x: 212, y: 382, anchor: 'end', lines: ['each agent runs', 'as a process'], lx1: 216, lx2: 226, ly: 390 },
     { x: 588, y: 382, anchor: 'start', lines: ['its boundary: what', 'it can reach'], lx1: 574, lx2: 584, ly: 390 },
   ],
+  // stage 3: the agent that crashes and restarts (index into the grid) and its status line
+  crash: { i: 10, st: [450, 534, 'middle'] },
+  // stages 4-7: one support swarm. Agents a0-a2; objects are squares.
   team: {
-    R: [36, 330], a: [[140, 330], [270, 330], [415, 330], [545, 245], [545, 415], [668, 330]], out: [760, 330], H: [668, 150],
-    labels: [
-      [140, 294, 'middle', ['classifier']], [270, 294, 'middle', ['account lookup']], [415, 286, 'middle', ['investigator']],
-      [545, 207, 'middle', ['billing']], [545, 464, 'middle', ['technical support']], [668, 380, 'middle', ['verifier']],
-    ],
-    Rlabel: [36, 294, 'middle'], outLabel: [760, 294, 'middle'],
-    Hlabel: [638, 146, 'end', ['human']], Hsub: [638, 168, 'end', 'attaches to the session'],
-    sup: [415, 530], supLabel: [438, 535, 'start'],
-    status5: [393, 382, 'end', 'crashed, restarted'],
-    status6: [0, 0, 'end', ''],
-    log: [40, 58],
+    a: [[330, 235], [330, 425], [560, 330]], // triage, answer, research
+    tg: [140, 330], cron: [330, 105], budget: [560, 150], browser: [730, 330],
+    labels: [[362, 228, 'start'], [362, 445, 'start'], [560, 290, 'middle']],
+    olabels: { tg: [112, 337, 'end'], cron: [298, 111, 'end'], budget: [560, 196, 'middle'], browser: [730, 290, 'middle'] },
+    drop: [445, 330], dropLabel: [430, 336, 'end'],
+    log: [40, 496], legend: [40, 506], index: [40, 500],
+    doc: { x: 100, y: 118, w: 600, cols: 58 },
   },
-  worldTo: [130, 240], // where the team collapses to in stage 7
+  worldTo: [400, 330], worldC: [435, 290], // stages 7-8: the swarm folds away into the document
   bar7: { y: 100, x1: 60, x2: 740, label: [60, 80] },
   clusters: [[130, 240], [310, 240], [490, 240], [670, 240], [220, 405], [400, 405], [580, 405]],
-  clusterLabelDy: 62,
+  swarmsLabel: [60, 413],
   models: { y: 568, x1: 60, x2: 740, label: [60, 548], xs: [170, 250, 330, 410, 490, 570, 650, 730].slice(0, 7).map((x, i) => 175 + i * 80) },
   fs: { t: 20, ts: 16, tb: 26, log: 16 },
   ghostR: 34,
@@ -50,36 +48,32 @@ export const P = {
   org: { y: 118, x1: 30, x2: 370, label: [30, 100] },
   bar: { y: 200, x1: 40, x2: 360, label: [40, 184] },
   gridLabel: [200, 522],
-  diamond: [200, 200],
   ann: [
     { x: 200, y: 568, anchor: 'middle', lines: ['each agent runs as a process', 'inside its own boundary'] },
   ],
+  crash: { i: 10, st: [240, 512, 'middle'] },
   team: {
-    R: [200, 40], a: [[200, 115], [200, 190], [200, 265], [100, 350], [300, 350], [200, 435]], out: [200, 515], H: [340, 435],
-    labels: [
-      [230, 120, 'start', ['classifier']], [230, 195, 'start', ['account lookup']], [230, 270, 'start', ['investigator']],
-      [100, 396, 'middle', ['billing']], [300, 396, 'middle', ['technical', 'support']], [168, 440, 'end', ['verifier']],
-    ],
-    Rlabel: [228, 45, 'start'], outLabel: [228, 520, 'start'],
-    Hlabel: [340, 478, 'middle', ['human']], Hsub: null,
-    sup: [58, 300], supLabel: [58, 280, 'middle'],
-    status5: [180, 236, 'end', 'crashed, restarted'],
-    log: [16, 588],
+    a: [[80, 175], [320, 175], [200, 370]],
+    tg: [200, 50], cron: [80, 55], budget: [320, 55], browser: [330, 370],
+    labels: [[100, 234, 'end'], [300, 234, 'start'], [200, 422, 'middle']],
+    olabels: { tg: [200, 100, 'middle'], cron: [104, 61, 'start'], budget: [296, 61, 'end'], browser: [330, 422, 'middle'] },
+    drop: [200, 296], dropLabel: [200, 268, 'middle'],
+    log: [16, 474], legend: [24, 476], index: [16, 470],
+    doc: { x: 16, y: 24, w: 368, cols: 37 },
   },
-  worldTo: [105, 142],
+  worldTo: [200, 300], worldC: [200, 200],
   bar7: { y: 42, x1: 30, x2: 370, label: [30, 24] },
   clusters: [[105, 142], [295, 142], [105, 262], [295, 262], [105, 382], [295, 382], [200, 508]],
-  clusterLabelDy: 50,
-  models: { y: 628, x1: 30, x2: 370, label: [30, 610], xs: [130, 180, 230, 280, 330] },
+  swarms: [[105, 150], [295, 150], [105, 250], [295, 250], [105, 350], [295, 350], [200, 450]], swarmsLabel: [30, 104],
+  models: { y: 548, x1: 30, x2: 370, label: [30, 530], xs: [130, 180, 230, 280, 330] },
   fs: { t: 16, ts: 15.5, tb: 20, log: 15 },
   ghostR: 22,
 };
 export const LAYOUTS = [L, P];
 
-export const TEAMS = ['Customer operations', 'Software engineering', 'Sales', 'Finance', 'Research', 'Security', 'Network operations'];
-// cluster constellations in local coords
+// stage 8: swarm constellations in local coords (shapes only, unnamed)
 export const SHAPES = [
-  { n: [[-56, 0], [-32, 0], [-8, 0], [18, -18], [18, 18], [44, 0]], e: [[0, 1], [1, 2], [2, 3], [2, 4], [3, 5], [4, 5]], h: [44, -28] },
+  { n: [[-56, 0], [-32, 0], [-8, 0], [18, -18], [18, 18], [44, 0]], e: [[0, 1], [1, 2], [2, 3], [2, 4], [3, 5], [4, 5]] },
   { n: [[-56, 0], [-28, 0], [0, 0], [28, 0], [56, 0]], e: [[0, 1], [1, 2], [2, 3], [3, 4]], arc: [28, -28] },
   { n: [[-50, 0], [0, -24], [0, 0], [0, 24], [50, 0]], e: [[0, 1], [0, 2], [0, 3], [1, 4], [2, 4], [3, 4]] },
   { n: [[-52, -16], [-22, -16], [-52, 16], [-22, 16], [14, 0], [50, 0]], e: [[0, 1], [2, 3], [1, 4], [3, 4], [4, 5]] },
@@ -97,11 +91,22 @@ export function agentPos(Lo) {
   const g = [];
   for (const y of Lo.grid.ys) for (const x of Lo.grid.xs) g.push([x, y, 1]);
   st[2] = g; st[3] = g;
-  const t = g.map((p, i) => (i < 6 ? [...Lo.team.a[i], 1] : p));
+  const t = g.map((p, i) => (i < 3 ? [...Lo.team.a[i], 1] : p));
   st[4] = t; st[5] = t; st[6] = t; st[7] = t; st[8] = t;
   return st;
 }
-const AGENT_VIS = i => (i === 0 ? [0, 1, 2, 3, 4, 5, 6, 7, 8] : i < 6 ? [1, 2, 3, 4, 5, 6] : [1, 2, 3]);
+// the three swarm agents stay from stage 1 to 7; the rest of the grid leaves after stage 3
+const AGENT_VIS = i => (i === 0 ? [0, 1, 2, 3, 4, 5, 6, 7, 8] : i < 3 ? [1, 2, 3, 4, 5, 6, 7] : [1, 2, 3]);
+const AGENT_NAMES = ['triage', 'answer', 'research'];
+// objects of the swarm: name, first stage, its swarmidx package (stage 6; digests are shortened
+// placeholders, drawn as an illustration)
+const OBJECTS = [
+  ['tg', 'telegram', 4, 'genlayerlabs/genswarms-telegram@0.6.6', 'sha256:9f2c…'],
+  ['cron', 'cron', 5, 'genlayerlabs/cron@0.2.8', 'sha256:4be1…'],
+  ['budget', 'budget', 5, 'genlayerlabs/genswarms-llm-proxy@0.4.2', 'sha256:c07a…'],
+  ['browser', 'browser', 5, 'genlayerlabs/browser@0.2.4', 'sha256:51d3…'],
+];
+const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
 
 // ---------- helpers ----------
 function shorten(x1, y1, x2, y2, r1, r2) {
@@ -125,8 +130,33 @@ const hex = (x, y, r) => {
   return `<path class="hex" d="${d}Z"/>`;
 };
 const text = (x, y, s, cls = 't', anchor = 'start') => `<text class="${cls}" x="${f(x)}" y="${f(y)}" text-anchor="${anchor}">${s}</text>`;
-const diamond = (x, y, r = 11) => `<path class="dia" d="M${x} ${y - r}L${x + r} ${y}L${x} ${y + r}L${x - r} ${y}Z"/>`;
-const person = (x, y, cls = 'hum') => `<g class="${cls}" transform="translate(${x} ${y})"><circle class="hum-o" r="19"/><circle class="hum-g" cy="-5" r="5"/><path class="hum-g" d="M-9 11a9 8 0 0 1 18 0Z"/></g>`;
+// an object: a square with a square core (agents are circles)
+const obj = (x, y, r = 15) => `<rect class="ob" x="${x - r}" y="${y - r}" width="${2 * r}" height="${2 * r}" rx="3"/><rect class="ob-c" x="${x - 5}" y="${y - 5}" width="10" height="10" rx="1"/>`;
+const agentGlyph = (x, y) => `<circle class="lg-r" cx="${x}" cy="${y}" r="11"/><circle class="lg-c" cx="${x}" cy="${y}" r="6.5"/>`;
+// verified: a sage disc with a check
+const okBadge = (x, y) => `<circle class="okb" cx="${x}" cy="${y}" r="8.5"/><path class="okc" d="M${x - 4} ${y}l2.8 2.8l5-5.2"/>`;
+const noBadge = (x, y) => `<circle class="nob" cx="${x}" cy="${y}" r="8.5"/><path class="okc" d="M${x - 3.2} ${y - 3.2}l6.4 6.4m0 -6.4l-6.4 6.4"/>`;
+const cyl = (x, y, w = 26, h = 26) => { const ry = 5; return `<path class="db" d="M${x} ${y + ry}v${h - 2 * ry}a${w / 2} ${ry} 0 0 0 ${w} 0v${-(h - 2 * ry)}"/><ellipse class="db" cx="${x + w / 2}" cy="${y + ry}" rx="${w / 2}" ry="${ry}"/><path class="db" fill="none" d="M${x} ${y + h / 2}a${w / 2} ${ry} 0 0 0 ${w} 0"/>`; };
+// monospaced rows: [kind, rest, kindClass, restClass, [tail, tailClass]]. The kind is padded to `pad` columns; a
+// rest too long for `cols` wraps at spaces and continues under the rest column.
+function monoRows(x, y, lh, rows, pad, cols) {
+  let b = '';
+  rows.forEach(([kind, rest, kc, rc, tail]) => {
+    const lines = [];
+    let cur = '';
+    for (const w of rest.split(' ')) {
+      if (cur && (cur + ' ' + w).length > cols - pad) { lines.push(cur); cur = w; } else cur = cur ? cur + ' ' + w : w;
+    }
+    lines.push(cur);
+    lines.forEach((ln, j) => {
+      const k = j ? ' '.repeat(pad) : kind ? `<tspan class="${kc || 'k-' + kind}">${kind.padEnd(pad)}</tspan>` : ' '.repeat(pad);
+      const end = tail && j === lines.length - 1 ? `<tspan class="${tail[1]}">${tail[0]}</tspan>` : '';
+      b += `<text class="log" x="${x}" y="${f(y)}">${k}${ln ? `<tspan${rc ? ` class="${rc}"` : ''}>${ln}</tspan>` : ''}${end}</text>`;
+      y += lh;
+    });
+  });
+  return [b, y];
+}
 
 const bandH = Lo => (Lo.id === 'L' ? 19 : 16);
 function band(Lo, b, right) {
@@ -141,34 +171,29 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
   const T = Lo.team, A = T.a, live = /\blive\b/.test(extraClass);
   const grp = (stages, inner, extra = '') =>
     prune && !stages.includes(stage) ? '' : `<g class="${vis(stages)}${extra ? ' ' + extra : ''}">${inner}</g>`;
+  const lh = Math.round(Lo.fs.log * 1.5);
   let s = '';
-  // --- stage 7/8: organisation (outside the world group)
+  // --- stage 8: the organisation (outside the world group)
   s += `<g class="org">`;
-  const b7 = Lo.bar7;
-  // connectors from control layer to clusters
+  const b7 = Lo.bar7, SW = Lo.swarms || Lo.clusters;
+  // connectors from control layer to the swarms
   let con = '';
   if (Lo.id === 'L') {
-    Lo.clusters.forEach(([x, y]) => { con += `<line class="drop" x1="${x}" y1="${b7.y + bandH(Lo)}" x2="${x}" y2="${y - 38}"/>`; });
+    SW.forEach(([x, y]) => { con += `<line class="drop" x1="${x}" y1="${b7.y + bandH(Lo)}" x2="${x}" y2="${y - 38}"/>`; });
   } else {
-    const last = Lo.clusters[6];
+    const last = SW[6];
     con += `<line class="drop" x1="200" y1="${b7.y + bandH(Lo)}" x2="200" y2="${last[1] - 30}"/>`;
-    Lo.clusters.slice(0, 6).forEach(([x, y]) => { con += `<line class="drop" x1="200" y1="${y}" x2="${x < 200 ? x + 68 : x - 68}" y2="${y}"/>`; });
+    SW.slice(0, 6).forEach(([x, y]) => { con += `<line class="drop" x1="200" y1="${y}" x2="${x < 200 ? x + 68 : x - 68}" y2="${y}"/>`; });
   }
-  s += grp([7, 8], con + band(Lo, b7, 'control layer'));
-  Lo.clusters.forEach(([cx, cy], k) => {
-    if (prune && !([7, 8].includes(stage))) return;
+  s += grp([8], con + band(Lo, b7, 'control layer'));
+  let cls = '';
+  SW.forEach(([cx, cy], k) => {
     const sh = SHAPES[k];
-    let c = '';
-    sh.e.forEach(([i, j]) => { const a = sh.n[i], b = sh.n[j]; c += `<line class="ce" x1="${cx + a[0]}" y1="${cy + a[1]}" x2="${cx + b[0]}" y2="${cy + b[1]}"/>`; });
-    if (sh.arc) c += `<path class="ce" d="M${cx + sh.arc[0]} ${cy - 6}Q${cx} ${cy - 34} ${cx + sh.arc[1]} ${cy - 6}"/>`;
-    sh.n.forEach(([x, y]) => { c += `<circle class="cn" cx="${cx + x}" cy="${cy + y}" r="5"/>`; });
-    if (sh.h) c += `<line class="ce esc" x1="${cx + 44}" y1="${cy - 6}" x2="${cx + sh.h[0]}" y2="${cy + sh.h[1] + 5}"/><circle class="ch" cx="${cx + sh.h[0]}" cy="${cy + sh.h[1]}" r="5"/>`;
-    const cls = 'ts cl' + (k === 0 ? ' first' : ''), ly = cy + Lo.clusterLabelDy, two = live && TEAMS[k].includes(' ');
-    c += text(cx, ly, TEAMS[k], cls + (two ? ' clw' : ''), 'middle');
-    // two-line variant, shown where the live figure renders small and its labels step up
-    if (two) c += text(cx, ly, TEAMS[k].split(' ').map((w, i) => `<tspan x="${cx}" dy="${i ? '1.15em' : 0}">${w}</tspan>`).join(''), cls + ' cln', 'middle');
-    s += grp([7, 8], c, `cl${k}`);
+    sh.e.forEach(([i, j]) => { const a = sh.n[i], b = sh.n[j]; cls += `<line class="ce" x1="${cx + a[0]}" y1="${cy + a[1]}" x2="${cx + b[0]}" y2="${cy + b[1]}"/>`; });
+    if (sh.arc) cls += `<path class="ce" d="M${cx + sh.arc[0]} ${cy - 6}Q${cx} ${cy - 34} ${cx + sh.arc[1]} ${cy - 6}"/>`;
+    sh.n.forEach(([x, y]) => { cls += `<circle class="cn" cx="${cx + x}" cy="${cy + y}" r="5"/>`; });
   });
+  s += grp([8], cls + text(Lo.swarmsLabel[0], Lo.swarmsLabel[1], 'Swarms', 'tb tm'));
   // models row
   const m = Lo.models;
   let mr = `<line class="mline" x1="${m.x1}" y1="${m.y}" x2="${m.x2}" y2="${m.y}"/>`;
@@ -176,6 +201,40 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
   mr += text(m.label[0], m.label[1], 'Models', 'tb tm');
   s += grp([8], mr);
   s += `</g>`;
+
+  // --- stage 7: the swarm as a document (outside the world group, which folds into it)
+  {
+    const D = T.doc, pad = 20, x = D.x + pad;
+    let y = D.y + pad + Lo.fs.log;
+    let d = '';
+    const head = (name, note) => {
+      d += `<text class="log k-hd" x="${x}" y="${f(y)}">${name}</text>` + text(D.x + D.w - pad, y, note, 'ts', 'end');
+      y += lh;
+    };
+    head('swarm.state', 'seed');
+    let r;
+    [r, y] = monoRows(x + 18, y, lh, [
+      ['agents', 'triage, answer'],
+      ['objects', 'telegram, cron, budget, browser'],
+      ['edges', 'telegram → triage, triage → answer, …'.replace(/ → /g, '\u00a0→\u00a0')],
+    ], 9, D.cols - 2);
+    d += r;
+    y += lh * 0.45;
+    head('swarm.overlay', 'change log');
+    for (const [ok, op] of [[1, '1 add_agent research'], [1, '2 scale_agent_group answer 3'], [0, '3 add_topology_edges research → billing']]) {
+      d += (ok ? okBadge : noBadge)(x + 26, y - Lo.fs.log * 0.33);
+      [r, y] = monoRows(x + 42, y, lh, [['', op.replace(/ → /g, '\u00a0→\u00a0')]], 0, D.cols - 4);
+      d += r;
+    }
+    [r, y] = monoRows(x + 42, y, lh, [['', 'refused: no node named billing', '', 'k-no']], 0, D.cols - 4);
+    d += r;
+    y += lh * 0.45;
+    d += cyl(x, y - Lo.fs.log - 4) + `<text class="log" x="${x + 38}" y="${f(y)}">restore: seed + 2 changes</text>`;
+    y += lh * 0.5;
+    const h = y - D.y + 4, fold = 22;
+    d = `<path class="doc" d="M${D.x} ${D.y + 10}q0 -10 10 -10H${D.x + D.w - fold}L${D.x + D.w} ${D.y + fold}V${f(D.y + h - 10)}q0 10 -10 10H${D.x + 10}q-10 0 -10 -10Z"/><path class="doc-f" d="M${D.x + D.w - fold} ${D.y}V${D.y + fold}H${D.x + D.w}"/>` + d;
+    s += grp([7], d);
+  }
 
   // --- the world group
   s += `<g class="world">`;
@@ -187,7 +246,7 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
   Lo.scatter.forEach(([x, y], i) => { const [dx, dy] = stubs[i % stubs.length]; w += `<line class="sat" x1="${x}" y1="${y}" x2="${x + dx * .72}" y2="${y + dy * .72}"/>` + hex(x + dx, y + dy, 6); });
   s += grp([1], w);
 
-  // stage 2/3: organisation line, coordination bar, column connectors
+  // stage 2/3: organisation line, the GenSwarms band, column connectors
   const o = Lo.org, br = Lo.bar;
   let g2 = `<line class="orgline" x1="${o.x1}" y1="${o.y}" x2="${o.x2}" y2="${o.y}"/>`;
   const sq = Lo.id === 'L' ? [175, 262, 350, 450, 538, 625] : [60, 116, 172, 228, 284, 340];
@@ -197,14 +256,17 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
   Lo.grid.xs.forEach(x => { g2 += `<line class="col" x1="${x}" y1="${br.y + bh}" x2="${x}" y2="${Lo.grid.ys[2]}"/>`; });
   s += grp([2, 3], g2 + band(Lo, br, null));
   const bandR = (s, c = 'ts bandr') => text(br.x2 - 18, br.y + (Lo.id === 'L' ? 5.5 : 5), s, c, 'end');
-  s += grp([2], text(Lo.gridLabel[0], Lo.gridLabel[1], 'individual agents', 'ts', 'middle') + bandR('coordination layer'));
-  // stage 3: supervisor + annotations
+  s += grp([2], text(Lo.gridLabel[0], Lo.gridLabel[1], 'individual agents', 'ts', 'middle') + bandR('operating system'));
+  // stage 3: supervisor + annotations + one agent crashes and restarts
   // the diamond sits after the word, so it never depends on the label's rendered width
   let g3 = `<path class="dia-in" d="${(() => { const x = br.x2 - 22, y = br.y, r = 6; return `M${x} ${y - r}L${x + r} ${y}L${x} ${y + r}L${x - r} ${y}Z`; })()}"/>` + text(br.x2 - 36, br.y + (Lo.id === 'L' ? 5.5 : 5), 'supervisor', 'ts bandr', 'end');
   Lo.ann.forEach(a => {
     a.lines.forEach((ln, i) => { g3 += text(a.x, a.y + i * (Lo.fs.ts + 5), ln, 'ts ann', a.anchor); });
     if (a.lx1) g3 += `<line class="lead" x1="${a.lx1}" y1="${a.ly - 8}" x2="${a.lx2}" y2="${a.ly - 8}"/>`;
   });
+  const C = Lo.crash, [kx, ky] = pos[3][C.i];
+  g3 += `<g transform="translate(${kx} ${ky})"><circle class="burst" r="30"/><circle class="restart" r="23"/></g>`;
+  g3 += text(C.st[0], C.st[1], 'crashed, restarted', 'ts st', C.st[2]);
   s += grp([3], g3);
 
   // stage 0: satellites
@@ -224,66 +286,78 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
   }
   s += grp([0], g0);
 
-  // stages 4-6: the team topology
-  const R = T.R, O = T.out, H = T.H;
-  let e = '';
-  e += edge(R, A[0], 20, 22) + edge(A[0], A[1], 22, 22) + edge(A[1], A[2], 22, 22) + edge(A[2], A[3], 22, 22) + edge(A[2], A[4], 22, 22) + edge(A[3], A[5], 22, 22) + edge(A[4], A[5], 22, 22) + edge(A[5], O, 22, 20);
-  e += edge(A[5], H, 22, 24, 'e esc');
-  e += `<rect class="io" x="${R[0] - 17}" y="${R[1] - 12}" width="34" height="24" rx="4"/><path class="io-g" d="M${R[0] - 17} ${R[1] - 10}L${R[0]} ${R[1] + 2}L${R[0] + 17} ${R[1] - 10}"/>`;
-  e += `<rect class="io" x="${O[0] - 17}" y="${O[1] - 12}" width="34" height="24" rx="4"/><path class="io-g" d="M${O[0] - 7} ${O[1]}L${O[0] - 2} ${O[1] + 5}L${O[0] + 8} ${O[1] - 6}"/>`;
-  e += text(T.Rlabel[0], T.Rlabel[1], 'request', 't', T.Rlabel[2]) + text(T.outLabel[0], T.outLabel[1], 'reply', 't', T.outLabel[2]);
-  e += person(H[0], H[1]);
-  e += text(T.Hlabel[0], T.Hlabel[1], 'human', 't', T.Hlabel[2]);
-  if (T.Hsub) e += grp([6], text(T.Hsub[0], T.Hsub[1], T.Hsub[3], 'ts', T.Hsub[2]));
-  s += grp([4, 5, 6], e);
-  // stage 6: escalation highlight
-  s += grp([6], edge(A[5], H, 22, 24, 'eh') + `<circle class="block" cx="${A[5][0]}" cy="${A[5][1]}" r="24"/>`, 'escal');
-  // stage 5: supervisor, crash marks
-  const [sx, sy] = T.sup;
-  const [lx1, ly1, lx2, ly2] = shorten(sx, sy, A[2][0], A[2][1], 12, 26);
-  let g5 = `<line class="supline" pathLength="1" x1="${f(lx1)}" y1="${f(ly1)}" x2="${f(lx2)}" y2="${f(ly2)}"/>` + diamond(sx, sy) + text(T.supLabel[0], T.supLabel[1], 'supervisor', 'ts', T.supLabel[2]);
-  g5 += `<g transform="translate(${A[2][0]} ${A[2][1]})"><circle class="burst" r="30"/><circle class="restart" r="23"/></g>`;
-  g5 += text(T.status5[0], T.status5[1], T.status5[3], 'ts st', T.status5[2]);
-  s += grp([5], g5);
-  // event log (illustration)
-  const [gx, gy] = T.log, lh = Math.round(Lo.fs.log * 1.5);
-  const log5 = [['message', 'account_lookup → investigator'], ['crash', 'investigator'], ['restart', 'investigator'], ['message', 'investigator → technical_support']];
-  const log6 = [['message', 'billing → verifier'], ['agent_blocked', 'verifier, waiting on human input'], ['output', 'verifier → reply']];
-  const logBlock = (rows, k) => {
-    let b = text(gx, gy, 'event stream (illustration)', 'ts logcap');
-    // wrap a row's text at the figure edge (phones: the crop ends 12 units in), continuing under the text column
-    const cols = Math.floor((Lo.w - gx - 12) / (Lo.fs.log * 0.6)) - k;
-    let y = gy + lh;
-    rows.forEach(([kind, rest]) => {
-      // too long for one line: break at the space nearest the middle (two balanced lines)
-      const mid = rest.length / 2, sp = [...rest.matchAll(/ /g)].map(m => m.index).sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid))[0];
-      const parts = rest.length > cols && sp ? [rest.slice(0, sp), rest.slice(sp + 1)] : [rest];
-      parts.forEach((ln, j) => {
-        b += `<text class="log" x="${gx}" y="${y}">${j ? ' '.repeat(k) : `<tspan class="k-${kind}">${kind.padEnd(k)}</tspan>`}${ln}</text>`;
-        y += lh;
-      });
+  // stages 4-6: the support swarm. Declared edges (agent radius 22, object radius 19)
+  const [TR, AN, RE] = A, OB = { tg: T.tg, cron: T.cron, budget: T.budget, browser: T.browser };
+  s += grp([4, 5, 6], edge(OB.tg, TR, 19, 22) + edge(TR, AN, 22, 22) + edge(TR, RE, 22, 22) + edge(RE, AN, 22, 22) + edge(AN, OB.tg, 22, 19));
+  s += grp([5, 6], edge(TR, OB.cron, 22, 19) + edge(RE, OB.browser, 22, 19));
+  // stage 4: research tries telegram, which is off the graph: the message is dropped
+  {
+    const [dx, dy] = T.drop, [x1, y1] = shorten(RE[0], RE[1], dx, dy, 22, 0);
+    const u = 7;
+    let g = `<line class="edrop" x1="${f(x1)}" y1="${f(y1)}" x2="${dx}" y2="${dy}"/>`;
+    g += `<path class="xm" d="M${dx - u} ${dy - u}L${dx + u} ${dy + u}M${dx + u} ${dy - u}L${dx - u} ${dy + u}"/>`;
+    g += text(T.dropLabel[0], T.dropLabel[1], 'dropped', 'ts xl', T.dropLabel[2]);
+    s += grp([4], g);
+  }
+  // objects (squares), their labels, and at stage 6 the verified package mark
+  OBJECTS.forEach(([key, name, from]) => {
+    const [x, y] = OB[key], [lx, ly, la] = T.olabels[key];
+    s += grp(range(from, 6), obj(x, y) + text(lx, ly, name, 't', la));
+    s += grp([6], okBadge(x + 15, y - 15));
+  });
+  // stage 4: events (illustration)
+  {
+    const [gx, gy] = T.log;
+    let b = text(gx, gy, 'events (illustration)', 'ts logcap');
+    b += monoRows(gx, gy + lh, lh, [
+      ['message_routed', 'telegram → triage'],
+      ['message_routed', 'triage → research'],
+      ['invalid_route', 'research → telegram'],
+      ['message_routed', 'research → answer'],
+    ], 16, 99)[0];
+    s += grp([4], b);
+  }
+  // stage 5: legend
+  {
+    const [gx, gy] = T.legend, gap = Lo.id === 'L' ? 34 : 30, tx = gx + 28;
+    let b = agentGlyph(gx + 11, gy - 5) + text(tx, gy, 'agent, uses a model', 'ts lgt');
+    b += `<rect class="ob" x="${gx}" y="${gy + gap - 16}" width="22" height="22" rx="3"/><rect class="ob-c" x="${gx + 7}" y="${gy + gap - 9}" width="8" height="8" rx="1"/>` + text(tx, gy + gap, 'object, plain code', 'ts lgt');
+    s += grp([5], b);
+  }
+  // stage 6: the swarmidx index, each package verified on this machine
+  {
+    const [gx, gy] = T.index;
+    // header: the index, and what the mark means
+    // (the legend starts at a fixed x, so labels that step up in size grow away from the mark)
+    const kx = Lo.id === 'L' ? gx + 24 + 40 * Lo.fs.log * 0.6 : 300;
+    let b = text(gx, gy, 'swarmidx index', 'ts') + okBadge(kx + 8, gy - 5) + text(kx + 22, gy, 'verified', 'ts');
+    let y = gy + lh + 4;
+    OBJECTS.forEach(o => {
+      b += okBadge(gx + 8, y - Lo.fs.log * 0.33);
+      const rows = Lo.id === 'L' ? [[o[3], o[4], 'k-pkg', 'k-dg']] : [[o[3], '', 'k-pkg'], ['', o[4], '', 'k-dg']];
+      let r;
+      [r, y] = monoRows(gx + 24, y, lh, rows, Lo.id === 'L' ? 40 : 2, 99);
+      b += r;
     });
-    return b;
-  };
-  s += grp([5], logBlock(log5, 9)) + grp([6], logBlock(log6.slice(0, Lo.id === 'L' ? 3 : 2), 14));
+    s += grp([6], b);
+  }
 
   // agents
   pos[0].forEach((_, i) => {
     if (prune && !AGENT_VIS(i).includes(stage)) return;
-    const lab = i < 6 ? T.labels[i] : null;
     let a = `<g class="ag a${i} ${vis(AGENT_VIS(i))}" style="--i:${i}">`;
     a += (prune && !([3, 4, 5, 6].includes(stage))) ? '' : `<rect class="bnd ${vis([3, 4, 5, 6])}" x="-25" y="-25" width="50" height="50" rx="12"/>`;
     a += `<circle class="ring" r="16"/><circle class="core" r="10"/>`;
-    if (lab) {
-      const [x, y, anc, lines] = lab;
-      const rel = lines.map((ln, k) => text(x - A[i][0], y - A[i][1] + k * (Lo.fs.t + 2), ln, 't', anc)).join('');
-      a += grp([4, 5, 6], rel);
+    if (i < 3) {
+      const [x, y, anc] = T.labels[i];
+      a += grp([4, 5, 6], text(x - A[i][0], y - A[i][1], AGENT_NAMES[i], 't', anc));
     }
     a += `</g>`;
     s += a;
   });
-  // token
-  s += (prune && !([4, 5, 6].includes(stage))) ? '' : `<g class="tok ${vis([4, 5, 6])}"><circle r="7.5"/></g>`;
+  // work in motion: the routed message, and (stage 4) the one that is dropped
+  s += (prune && !([4, 5].includes(stage))) ? '' : `<g class="tok ${vis([4, 5])}"><circle r="7.5"/></g>`;
+  s += (prune && stage !== 4) ? '' : `<g class="tok tok2 ${vis([4])}"><circle r="7.5"/></g>`;
   s += `</g>`; // world
 
   // the live figure keeps one viewBox for every stage; a camera group recentres each drawing (figureCSS)
@@ -315,23 +389,24 @@ export function figureCSS(liveCrops = []) {
       });
     }
     for (const [d, sel] of rules) c += `${sel.join(',')}{${d}}`;
-    const [tx, ty] = Lo.worldTo, sc = 0.2;
-    const wc = Lo.id === 'L' ? [415, 330] : [200, 290];
+    const [tx, ty] = Lo.worldTo, sc = 0.2, wc = Lo.worldC;
     c += `.${Lo.id}[data-s="7"] .world,.${Lo.id}[data-s="8"] .world{transform:translate(${f(tx - wc[0] * sc)}px,${f(ty - wc[1] * sc)}px) scale(${sc});opacity:0}`;
     c += `.${Lo.id} .t{font-size:${Lo.fs.t}px}.${Lo.id} .ts{font-size:${Lo.fs.ts}px}.${Lo.id} .tb{font-size:${Lo.fs.tb}px}.${Lo.id} .log{font-size:${Lo.fs.log}px}`;
-    // token: static positions, then animated routes
-    const T = Lo.team, A = T.a, R = T.R, O = T.out, H = T.H;
+    // tokens: static positions, then animated routes
+    const T = Lo.team, [TR, AN, RE] = T.a, TG = T.tg;
     const mid = (p, q, t = 0.5) => [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t];
     const tp = p => `transform:translate(${f(p[0])}px,${f(p[1])}px)`;
-    c += `.${Lo.id}[data-s="4"] .tok{${tp(mid(A[1], A[2]))}}.${Lo.id}[data-s="5"] .tok{${tp(mid(A[2], A[4], 0.55))}}.${Lo.id}[data-s="6"] .tok{${tp(mid(A[5], H, 0.5))}}`;
-    c += `.${Lo.id}[data-s="7"] .tok,.${Lo.id}[data-s="8"] .tok,.${Lo.id}[data-s="3"] .tok{${tp(A[2])}}`;
+    // the dropped message stops just short of the cross
+    const [dx, dy] = T.drop, [, , ex, ey] = shorten(RE[0], RE[1], dx, dy, 0, 16), X = [ex, ey];
+    c += `.${Lo.id}[data-s="4"] .tok{${tp(mid(TR, RE))}}.${Lo.id}[data-s="5"] .tok{${tp(mid(TR, AN))}}.${Lo.id}[data-s="4"] .tok2{${tp(X)}}`;
+    c += [0, 1, 2, 3, 6, 7, 8].map(k => `.${Lo.id}[data-s="${k}"] .tok`).join(',') + `{${tp(TR)}}.${Lo.id} .tok2{${tp(RE)}}`;
     c += '\n@media (prefers-reduced-motion:no-preference){';
     // route helper: list of [point, pct, opacity]
     const kf = (name, frames) => `@keyframes ${name}{` + frames.map(([p, pct, op]) => `${pct}%{${tp(p)};opacity:${op}}`).join('') + '}';
-    c += kf(`t4${Lo.id}`, [[R, 0, 0], [R, 4, 1], [A[0], 16, 1], [A[1], 30, 1], [A[2], 44, 1], [A[3], 58, 1], [A[5], 72, 1], [O, 86, 1], [O, 94, 0], [O, 100, 0]]);
-    c += kf(`t5${Lo.id}`, [[R, 0, 0], [R, 3, 1], [A[0], 12, 1], [A[1], 22, 1], [A[2], 32, 1], [A[2], 34, 0], [A[2], 66, 0], [A[2], 68, 1], [A[4], 78, 1], [A[5], 88, 1], [O, 95, 1], [O, 100, 0]]);
-    c += kf(`t6${Lo.id}`, [[A[2], 0, 0], [A[2], 4, 1], [A[3], 18, 1], [A[5], 32, 1], [A[5], 46, 1], [H, 64, 1], [H, 96, 1], [H, 100, 0]]);
-    c += `.${Lo.id}[data-s="4"] .tok{animation:t4${Lo.id} 6.4s linear infinite}.${Lo.id}[data-s="5"] .tok{animation:t5${Lo.id} 7.2s linear infinite}.${Lo.id}[data-s="6"] .tok{animation:t6${Lo.id} 6.4s linear infinite}`;
+    c += kf(`t4${Lo.id}`, [[TG, 0, 0], [TG, 4, 1], [TR, 18, 1], [RE, 34, 1], [RE, 36, 1], [AN, 54, 1], [TG, 72, 1], [TG, 78, 0], [TG, 100, 0]]);
+    c += kf(`x4${Lo.id}`, [[RE, 0, 0], [RE, 38, 0], [RE, 40, 1], [X, 50, 1], [X, 64, 1], [X, 70, 0], [X, 100, 0]]);
+    c += kf(`t5${Lo.id}`, [[TG, 0, 0], [TG, 4, 1], [TR, 24, 1], [AN, 46, 1], [TG, 68, 1], [TG, 74, 0], [TG, 100, 0]]);
+    c += `.${Lo.id}[data-s="4"] .tok{animation:t4${Lo.id} 6.4s linear infinite}.${Lo.id}[data-s="4"] .tok2{animation:x4${Lo.id} 6.4s linear infinite}.${Lo.id}[data-s="5"] .tok{animation:t5${Lo.id} 5.6s linear infinite}`;
     c += '}\n';
   }
   return c;
