@@ -8,9 +8,17 @@
   var figN = document.getElementById('figN');
   var figCap = document.getElementById('figCap');
 
-  function mode() { root.classList.toggle('cine', mqW.matches && !mqR.matches); }
+  function current() {
+    var line = innerHeight * 0.46, best = 0;
+    for (var i = 0; i < steps.length; i++) if (steps[i].getBoundingClientRect().top <= line) best = i;
+    return best;
+  }
+  function sync() { setStage(current()); }
+  function mode() { root.classList.toggle('cine', mqW.matches && !mqR.matches); sync(); }
   mode();
   [mqW, mqR].forEach(function (m) { (m.addEventListener ? m.addEventListener('change', mode) : m.addListener(mode)); });
+  addEventListener('load', sync);
+  addEventListener('resize', sync, { passive: true });
 
   function setStage(k) {
     steps[k].classList.add('seen');

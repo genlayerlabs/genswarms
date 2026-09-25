@@ -10,15 +10,16 @@
   --ease:cubic-bezier(.65,0,.25,1);
 }
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth;scroll-padding-top:88px}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 body{margin:0;background:var(--sand);color:var(--ink);font:400 18px/1.58 var(--ft);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;overflow-x:hidden}
 a{color:inherit}
 :focus-visible{outline:2px solid var(--clay);outline-offset:3px;border-radius:4px}
 code{font:500 .86em/1 var(--fm);background:var(--sand-2);padding:.18em .4em;border-radius:4px;color:var(--ink);white-space:nowrap}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-.skip{position:absolute;left:-999px;top:8px;z-index:60;background:var(--ink);color:var(--sand);padding:8px 14px;border-radius:6px}
-.skip:focus{left:8px}
+.skip{position:absolute;left:16px;top:-60px;background:var(--ink);color:var(--sand);padding:10px 14px;border-radius:8px;z-index:100}
+.skip:focus{top:12px}
+.cine .step :focus-visible{scroll-margin-top:96px}
 
 /* ---------- header ---------- */
 .top{position:absolute;inset:0 0 auto 0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:22px var(--g)}

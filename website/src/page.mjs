@@ -38,7 +38,7 @@ ${figureCSS()}
 </style>
 </head>
 <body>
-<a class="skip" href="#main">Skip to content</a>
+<a class="skip" href="#os">Skip to how it works</a>
 <header class="top">
   <a class="brand" href="#s0" aria-label="GenSwarms home">${mark()}GenSwarms</a>
   <nav aria-label="Primary">
