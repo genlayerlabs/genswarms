@@ -1,4 +1,4 @@
-// Generator for 1-cinematic.html. One data model -> live stage + static stills (two layouts).
+// The system figure. One data model -> the live (pinned) figure + static stills (two layouts).
 
 const f = n => Math.round(n * 10) / 10;
 const vis = arr => 'fx ' + arr.map(k => 'v' + k).join(' ');
@@ -6,8 +6,8 @@ const vis = arr => 'fx ' + arr.map(k => 'v' + k).join(' ');
 // ---------- geometry per layout ----------
 export const L = {
   id: 'L', w: 800, h: 640,
-  s0: [400, 320, 1.9],
-  sat: { model: [225, 185], prompt: [590, 190], tools: [575, 470] },
+  s0: [400, 300, 1.9],
+  sat: { model: [400, 132], prompt: [630, 300], tools: [170, 300] },
   scatter: [[400, 320], [175, 140], [330, 92], [565, 118], [700, 222], [118, 300], [252, 425], [640, 372], [522, 488], [372, 562], [150, 530], [716, 548]],
   wires: [[1, 2, 250, 60], [2, 0, 300, 230], [0, 3, 520, 250], [3, 4, 680, 120], [5, 6, 120, 420], [6, 0, 360, 420], [7, 8, 640, 470], [8, 9, 420, 470], [10, 9, 260, 600], [4, 7, 760, 300], [5, 1, 80, 200], [0, 7, 520, 380], [6, 10, 200, 470], [1, 8, 250, 330], [3, 6, 470, 300], [2, 11, 640, 300], [9, 4, 600, 560]],
   grid: { xs: [250, 350, 450, 550], ys: [300, 390, 480] },
@@ -22,7 +22,7 @@ export const L = {
   team: {
     R: [36, 330], a: [[140, 330], [270, 330], [415, 330], [545, 245], [545, 415], [668, 330]], out: [760, 330], H: [668, 150],
     labels: [
-      [140, 294, 'middle', ['classifier']], [270, 294, 'middle', ['account lookup']], [415, 294, 'middle', ['investigator']],
+      [140, 294, 'middle', ['classifier']], [270, 294, 'middle', ['account lookup']], [415, 286, 'middle', ['investigator']],
       [545, 207, 'middle', ['billing']], [545, 464, 'middle', ['technical support']], [668, 380, 'middle', ['verifier']],
     ],
     Rlabel: [36, 294, 'middle'], outLabel: [760, 294, 'middle'],
@@ -37,12 +37,13 @@ export const L = {
   clusters: [[130, 240], [310, 240], [490, 240], [670, 240], [220, 405], [400, 405], [580, 405]],
   clusterLabelDy: 62,
   models: { y: 568, x1: 60, x2: 740, label: [60, 548], xs: [170, 250, 330, 410, 490, 570, 650, 730].slice(0, 7).map((x, i) => 175 + i * 80) },
-  fs: { t: 19, ts: 16, tb: 24, log: 14.5 },
+  fs: { t: 20, ts: 16, tb: 26, log: 16 },
+  ghostR: 34,
 };
 export const P = {
   id: 'P', w: 400, h: 660,
   s0: [200, 300, 1.7],
-  sat: { model: [70, 160], prompt: [330, 180], tools: [300, 460] },
+  sat: { model: [200, 168], prompt: [348, 300], tools: [52, 300] },
   scatter: [[200, 300], [70, 92], [190, 58], [322, 112], [352, 250], [48, 250], [108, 392], [312, 380], [252, 492], [130, 560], [40, 480], [352, 574]],
   wires: [[1, 2, 110, 20], [2, 0, 140, 180], [0, 3, 300, 220], [3, 4, 390, 150], [5, 6, 20, 330], [6, 0, 200, 380], [7, 8, 320, 460], [8, 9, 200, 470], [10, 9, 60, 560], [4, 7, 390, 320], [5, 1, 20, 150], [0, 7, 290, 300], [1, 8, 120, 300], [3, 6, 240, 250], [2, 11, 330, 400]],
   grid: { xs: [80, 160, 240, 320], ys: [300, 380, 460] },
@@ -70,7 +71,8 @@ export const P = {
   clusters: [[105, 142], [295, 142], [105, 262], [295, 262], [105, 382], [295, 382], [200, 508]],
   clusterLabelDy: 50,
   models: { y: 628, x1: 30, x2: 370, label: [30, 610], xs: [130, 180, 230, 280, 330] },
-  fs: { t: 15, ts: 13, tb: 19, log: 12.5 },
+  fs: { t: 16, ts: 14.5, tb: 20, log: 14.5 },
+  ghostR: 22,
 };
 export const LAYOUTS = [L, P];
 
@@ -126,16 +128,17 @@ const text = (x, y, s, cls = 't', anchor = 'start') => `<text class="${cls}" x="
 const diamond = (x, y, r = 11) => `<path class="dia" d="M${x} ${y - r}L${x + r} ${y}L${x} ${y + r}L${x - r} ${y}Z"/>`;
 const person = (x, y, cls = 'hum') => `<g class="${cls}" transform="translate(${x} ${y})"><circle class="hum-o" r="19"/><circle class="hum-g" cy="-5" r="5"/><path class="hum-g" d="M-9 11a9 8 0 0 1 18 0Z"/></g>`;
 
+const bandH = Lo => (Lo.id === 'L' ? 19 : 16);
 function band(Lo, b, right) {
-  const h = Lo.id === 'L' ? 17 : 15;
-  let o = `<rect class="band" x="${b.x1}" y="${b.y - h}" width="${b.x2 - b.x1}" height="${2 * h}" rx="${h}"/>`;
-  o += text(b.x1 + 18, b.y + (Lo.id === 'L' ? 7 : 6), 'GenSwarms', 'tb bandl');
-  if (right) o += text(b.x2 - 16, b.y + (Lo.id === 'L' ? 5 : 4.5), right, 'ts bandr', 'end');
+  const h = bandH(Lo);
+  let o = `<rect class="layer" x="${b.x1}" y="${b.y - h}" width="${b.x2 - b.x1}" height="${2 * h}" rx="${h}"/>`;
+  o += text(b.x1 + 20, b.y + (Lo.id === 'L' ? 9 : 7), 'GenSwarms', 'tb bandl');
+  if (right) o += text(b.x2 - 18, b.y + (Lo.id === 'L' ? 5.5 : 5), right, 'ts bandr', 'end');
   return o;
 }
 // ---------- the system SVG ----------
 export function system(Lo, stage, { extraClass = '', label = '', crop = null, prune = false } = {}) {
-  const T = Lo.team, A = T.a;
+  const T = Lo.team, A = T.a, live = /\blive\b/.test(extraClass);
   const grp = (stages, inner, extra = '') =>
     prune && !stages.includes(stage) ? '' : `<g class="${vis(stages)}${extra ? ' ' + extra : ''}">${inner}</g>`;
   let s = '';
@@ -145,10 +148,10 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
   // connectors from control layer to clusters
   let con = '';
   if (Lo.id === 'L') {
-    Lo.clusters.forEach(([x, y]) => { con += `<line class="drop" x1="${x}" y1="${b7.y + 17}" x2="${x}" y2="${y - 38}"/>`; });
+    Lo.clusters.forEach(([x, y]) => { con += `<line class="drop" x1="${x}" y1="${b7.y + bandH(Lo)}" x2="${x}" y2="${y - 38}"/>`; });
   } else {
     const last = Lo.clusters[6];
-    con += `<line class="drop" x1="200" y1="${b7.y + 15}" x2="200" y2="${last[1] - 30}"/>`;
+    con += `<line class="drop" x1="200" y1="${b7.y + bandH(Lo)}" x2="200" y2="${last[1] - 30}"/>`;
     Lo.clusters.slice(0, 6).forEach(([x, y]) => { con += `<line class="drop" x1="200" y1="${y}" x2="${x < 200 ? x + 68 : x - 68}" y2="${y}"/>`; });
   }
   s += grp([7, 8], con + band(Lo, b7, 'control layer'));
@@ -160,7 +163,10 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
     if (sh.arc) c += `<path class="ce" d="M${cx + sh.arc[0]} ${cy - 6}Q${cx} ${cy - 34} ${cx + sh.arc[1]} ${cy - 6}"/>`;
     sh.n.forEach(([x, y]) => { c += `<circle class="cn" cx="${cx + x}" cy="${cy + y}" r="5"/>`; });
     if (sh.h) c += `<line class="ce esc" x1="${cx + 44}" y1="${cy - 6}" x2="${cx + sh.h[0]}" y2="${cy + sh.h[1] + 5}"/><circle class="ch" cx="${cx + sh.h[0]}" cy="${cy + sh.h[1]}" r="5"/>`;
-    c += text(cx, cy + Lo.clusterLabelDy, TEAMS[k], 'ts cl' + (k === 0 ? ' first' : ''), 'middle');
+    const cls = 'ts cl' + (k === 0 ? ' first' : ''), ly = cy + Lo.clusterLabelDy, two = live && TEAMS[k].includes(' ');
+    c += text(cx, ly, TEAMS[k], cls + (two ? ' clw' : ''), 'middle');
+    // two-line variant, shown where the live figure renders small and its labels step up
+    if (two) c += text(cx, ly, TEAMS[k].split(' ').map((w, i) => `<tspan x="${cx}" dy="${i ? '1.15em' : 0}">${w}</tspan>`).join(''), cls + ' cln', 'middle');
     s += grp([7, 8], c, `cl${k}`);
   });
   // models row
@@ -185,24 +191,27 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
   const o = Lo.org, br = Lo.bar;
   let g2 = `<line class="orgline" x1="${o.x1}" y1="${o.y}" x2="${o.x2}" y2="${o.y}"/>`;
   const sq = Lo.id === 'L' ? [175, 262, 350, 450, 538, 625] : [60, 116, 172, 228, 284, 340];
-  const bh = Lo.id === 'L' ? 17 : 15;
+  const bh = bandH(Lo);
   sq.forEach(x => { g2 += `<rect class="dept" x="${x - 6}" y="${o.y - 6}" width="12" height="12" rx="2"/><line class="drop" x1="${x}" y1="${o.y + 6}" x2="${x}" y2="${br.y - bh}"/>`; });
   g2 += text(o.label[0], o.label[1], 'the organization', 'ts');
   Lo.grid.xs.forEach(x => { g2 += `<line class="col" x1="${x}" y1="${br.y + bh}" x2="${x}" y2="${Lo.grid.ys[2]}"/>`; });
   s += grp([2, 3], g2 + band(Lo, br, null));
-  s += grp([2], text(Lo.gridLabel[0], Lo.gridLabel[1], 'individual agents', 'ts', 'middle') + text(br.x2 - 16, br.y + (Lo.id === 'L' ? 5 : 4.5), 'coordination layer', 'ts bandr', 'end'));
+  const bandR = (s, c = 'ts bandr') => text(br.x2 - 18, br.y + (Lo.id === 'L' ? 5.5 : 5), s, c, 'end');
+  s += grp([2], text(Lo.gridLabel[0], Lo.gridLabel[1], 'individual agents', 'ts', 'middle') + bandR('coordination layer'));
   // stage 3: supervisor + annotations
-  const supW = Lo.id === 'L' ? 76 : 66;
-  let g3 = `<path class="dia-in" d="${(() => { const x = br.x2 - 16 - supW - 14, y = br.y, r = 6; return `M${x} ${y - r}L${x + r} ${y}L${x} ${y + r}L${x - r} ${y}Z`; })()}"/>` + text(br.x2 - 16, br.y + (Lo.id === 'L' ? 5 : 4.5), 'supervisor', 'ts bandr', 'end');
+  // the diamond sits after the word, so it never depends on the label's rendered width
+  let g3 = `<path class="dia-in" d="${(() => { const x = br.x2 - 22, y = br.y, r = 6; return `M${x} ${y - r}L${x + r} ${y}L${x} ${y + r}L${x - r} ${y}Z`; })()}"/>` + text(br.x2 - 36, br.y + (Lo.id === 'L' ? 5.5 : 5), 'supervisor', 'ts bandr', 'end');
   Lo.ann.forEach(a => {
-    a.lines.forEach((ln, i) => { g3 += text(a.x, a.y + i * 22, ln, 'ts ann', a.anchor); });
+    a.lines.forEach((ln, i) => { g3 += text(a.x, a.y + i * (Lo.fs.ts + 5), ln, 'ts ann', a.anchor); });
     if (a.lx1) g3 += `<line class="lead" x1="${a.lx1}" y1="${a.ly - 8}" x2="${a.lx2}" y2="${a.ly - 8}"/>`;
   });
   s += grp([3], g3);
 
   // stage 0: satellites
   const [cx, cy] = Lo.s0;
-  let g0 = `<circle class="halo" cx="${cx}" cy="${cy}" r="${Lo.id === 'L' ? 62 : 52}"/>`;
+  const gd = Lo.ghostR * 0.42;
+  let g0 = Lo.clusters.map(([x, y]) => `<circle class="org-ghost" cx="${x}" cy="${y}" r="${Lo.ghostR}"/><path class="org-ghost-m" d="M${f(x - gd)} ${f(y + gd * .6)}h0M${x} ${f(y - gd * .8)}h0M${f(x + gd)} ${f(y + gd * .6)}h0"/>`).join('');
+  g0 += `<circle class="halo" cx="${cx}" cy="${cy}" r="${Lo.id === 'L' ? 62 : 52}"/>`;
   const glyph = {
     model: (x, y) => hex(x, y, 12),
     prompt: (x, y) => `<rect class="glyph" x="${x - 13}" y="${y - 10}" width="26" height="20" rx="3"/><line class="glyph" x1="${x - 7}" y1="${y - 3}" x2="${x + 7}" y2="${y - 3}"/><line class="glyph" x1="${x - 7}" y1="${y + 3}" x2="${x + 3}" y2="${y + 3}"/>`,
@@ -211,8 +220,7 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
   for (const [k, [x, y]] of Object.entries(Lo.sat)) {
     const [x1, y1, x2, y2] = shorten(cx, cy, x, y, Lo.id === 'L' ? 66 : 56, 20);
     g0 += `<line class="sat" x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}"/>` + glyph[k](x, y);
-    const below = y > cy;
-    g0 += text(x, below ? y + 38 : y - 24, k, 't', 'middle');
+    g0 += text(x, y < cy ? y - 24 : y + 38, k, 't', 'middle');
   }
   s += grp([0], g0);
 
@@ -238,14 +246,22 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
   g5 += text(T.status5[0], T.status5[1], T.status5[3], 'ts st', T.status5[2]);
   s += grp([5], g5);
   // event log (illustration)
-  const [gx, gy] = T.log, lh = Lo.id === 'L' ? 24 : 20;
+  const [gx, gy] = T.log, lh = Math.round(Lo.fs.log * 1.5);
   const log5 = [['message', 'account_lookup → investigator'], ['crash', 'investigator'], ['restart', 'investigator'], ['message', 'investigator → technical_support']];
   const log6 = [['message', 'billing → verifier'], ['agent_blocked', 'verifier, waiting on human input'], ['output', 'verifier → reply']];
   const logBlock = (rows, k) => {
     let b = text(gx, gy, 'event stream (illustration)', 'ts logcap');
-    rows.forEach(([kind, rest], i) => {
-      const y = gy + 22 + i * lh;
-      b += `<text class="log" x="${gx}" y="${y}"><tspan class="k-${kind}">${kind.padEnd(k)}</tspan>${rest}</text>`;
+    // wrap a row's text at the figure edge (phones), continuing under the text column
+    const cols = Math.floor((Lo.w - 2 * gx) / (Lo.fs.log * 0.6)) - k;
+    let y = gy + lh;
+    rows.forEach(([kind, rest]) => {
+      // too long for one line: break at the space nearest the middle (two balanced lines)
+      const mid = rest.length / 2, sp = [...rest.matchAll(/ /g)].map(m => m.index).sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid))[0];
+      const parts = rest.length > cols && sp ? [rest.slice(0, sp), rest.slice(sp + 1)] : [rest];
+      parts.forEach((ln, j) => {
+        b += `<text class="log" x="${gx}" y="${y}">${j ? ' '.repeat(k) : `<tspan class="k-${kind}">${kind.padEnd(k)}</tspan>`}${ln}</text>`;
+        y += lh;
+      });
     });
     return b;
   };
@@ -270,19 +286,35 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
   s += (prune && !([4, 5, 6].includes(stage))) ? '' : `<g class="tok ${vis([4, 5, 6])}"><circle r="7.5"/></g>`;
   s += `</g>`; // world
 
+  // the live figure keeps one viewBox for every stage; a camera group recentres each drawing (figureCSS)
+  if (live) s = `<g class="cam">${s}</g>`;
   return `<svg class="sys ${Lo.id}${extraClass ? ' ' + extraClass : ''}" data-s="${stage}" viewBox="${crop || `0 0 ${Lo.w} ${Lo.h}`}" role="img" aria-label="${label}">${s}</svg>`;
 }
 
 // ---------- CSS generated from the model ----------
-export function figureCSS() {
+// liveCrops: the per-stage content boxes of the L layout ('x y w h'); the live camera centres each one
+export function figureCSS(liveCrops = []) {
   let c = '';
+  liveCrops.forEach((box, k) => {
+    const [, y, , h] = box.split(' ').map(Number);
+    c += `.live[data-s="${k}"] .cam{transform:translateY(${f(L.h / 2 - (y + h / 2))}px)}`;
+  });
   for (let k = 0; k <= 8; k++) c += `.sys[data-s="${k}"] .v${k}{opacity:1;visibility:visible}`;
+  // live morphs: arrivals wait for the agents to move; departures fade at once
+  c += [...Array(9).keys()].map(k => `.live[data-s="${k}"] .v${k}:not(.ag)`).join(',') + '{transition-delay:.35s}';
   c += '\n';
   for (const Lo of LAYOUTS) {
-    const pos = agentPos(Lo);
+    // one rule per distinct agent position, listing every stage that uses it. The live figure (L)
+    // needs every stage, so agents keep moving while they fade; phone stills only their own stages.
+    const pos = agentPos(Lo), rules = new Map();
     for (let k = 0; k <= 8; k++) {
-      pos[k].forEach(([x, y, s], i) => { c += `.${Lo.id}[data-s="${k}"] .a${i}{transform:translate(${x}px,${y}px)${s !== 1 ? ` scale(${s})` : ''}}`; });
+      pos[k].forEach(([x, y, s], i) => {
+        if (Lo.id === 'P' && !AGENT_VIS(i).includes(k)) return;
+        const d = `transform:translate(${x}px,${y}px)${s !== 1 ? ` scale(${s})` : ''}`;
+        rules.set(d, [...(rules.get(d) || []), `.${Lo.id}[data-s="${k}"] .a${i}`]);
+      });
     }
+    for (const [d, sel] of rules) c += `${sel.join(',')}{${d}}`;
     const [tx, ty] = Lo.worldTo, sc = 0.2;
     const wc = Lo.id === 'L' ? [415, 330] : [200, 290];
     c += `.${Lo.id}[data-s="7"] .world,.${Lo.id}[data-s="8"] .world{transform:translate(${f(tx - wc[0] * sc)}px,${f(ty - wc[1] * sc)}px) scale(${sc});opacity:0}`;

@@ -3,8 +3,16 @@ import { L, P, system, figureCSS } from './figures.mjs';
 import { STAGES, CROP, STEPS, OS, GLY, CMP } from './content.mjs';
 
 const here = new URL('.', import.meta.url);
-const css = readFileSync(new URL('page.css', here), 'utf8');
-const js = readFileSync(new URL('story.js', here), 'utf8');
+// Build-time minification, deliberately conservative (no external deps):
+// CSS loses comments and the whitespace around { } ; , (never around ':' — `.a :focus` is a
+// descendant selector); JS loses comment-only lines and indentation but keeps its line breaks
+// (no ASI hazards); markup loses indentation after line breaks (a newline run is still one
+// space to the HTML parser, so inline text keeps its spacing).
+const minCSS = c => c.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ').replace(/\s*([{};,])\s*/g, '$1').replace(/;}/g, '}').trim();
+const minJS = j => j.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('//')).join('\n');
+const minHTML = h => h.replace(/\n\s+/g, '\n');
+const css = minCSS(readFileSync(new URL('page.css', here), 'utf8'));
+const js = minJS(readFileSync(new URL('story.js', here), 'utf8'));
 
 const still = k => `<figure class="still" aria-label="Figure ${k + 1}">
   ${system(L, k, { label: STAGES[k].aria, crop: CROP.L[k], prune: true })}
@@ -33,8 +41,7 @@ export function renderPage() {
 <script>if(matchMedia('(min-width: 1000px)').matches&&!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('cine')</script>
 <style>
 ${css}
-/* generated: stage states */
-${figureCSS()}
+${minCSS(figureCSS(CROP.L))}
 </style>
 </head>
 <body>
@@ -155,5 +162,6 @@ ${js}
 </body>
 </html>
 `;
-  return html;
+  // minify markup outside the inlined style and script (already minified above)
+  return html.split(/(<style>[\s\S]*?<\/style>|<script>[\s\S]*?<\/script>)/).map((part, i) => (i % 2 ? part : minHTML(part))).join('');
 }

@@ -61,6 +61,89 @@ const ok = (c, m) => { if (!c) fail.push(m); };
     ok(await p.isVisible('text=Start with one team'), `${JSON.stringify(opts)}: close visible`);
     await c.close();
   }
+  // figure text is >= 13px where it renders; clay only for moving work, active state and failure
+  const CLAY = 'rgb(168, 78, 54)';
+  const smallText = sel => p.evaluate(sel => {
+    const out = [];
+    document.querySelectorAll(sel).forEach(svg => {
+      if (!svg.getClientRects().length) return;
+      const sc = svg.getScreenCTM().a;
+      svg.querySelectorAll('text').forEach(t => {
+        for (let e = t; e && e !== svg; e = e.parentElement) if (getComputedStyle(e).opacity === '0') return;
+        const px = parseFloat(getComputedStyle(t).fontSize) * sc;
+        if (px < 13) out.push(`${t.textContent.trim()} ${px.toFixed(1)}px`);
+      });
+    });
+    return out;
+  }, sel);
+  for (const [w, h] of [[1440, 900], [1280, 720], [1024, 768]]) {
+    p = await b.newPage({ viewport: { width: w, height: h } });
+    await p.goto(BASE); await p.waitForTimeout(300);
+    for (let k = 0; k <= 8; k++) {
+      await p.evaluate(k => document.getElementById('s' + k).scrollIntoView({ behavior: 'instant', block: 'start' }), k);
+      await p.waitForTimeout(1500);
+      ok(await p.getAttribute('.sys.live', 'data-s') === String(k), `${w}: stage ${k} shown`);
+      const small = await smallText('.sys.live');
+      ok(!small.length, `${w}x${h} stage ${k}: figure text under 13px: ${small.join(', ')}`);
+      const clay = await p.evaluate(CLAY => {
+        const svg = document.querySelector('.sys.live'), out = [];
+        svg.querySelectorAll('*').forEach(el => {
+          if (el.closest('.tok') || el.tagName === 'g') return;
+          for (let e = el; e && e !== svg; e = e.parentElement) if (getComputedStyle(e).opacity === '0') return;
+          const cs = getComputedStyle(el);
+          if (cs.fill === CLAY || cs.stroke === CLAY) out.push(el.getAttribute('class') || el.tagName);
+        });
+        return out;
+      }, CLAY);
+      // stage 6 is the escalation (active); the event stream names agent_blocked in clay there
+      if (k !== 6) ok(!clay.length, `${w}: stage ${k}: clay outside moving work: ${clay.join(', ')}`);
+    }
+    await p.close();
+  }
+  for (const w of [390, 360]) {
+    p = await b.newPage({ viewport: { width: w, height: 844 } });
+    await p.goto(BASE); await p.waitForTimeout(300);
+    const small = await smallText('.still svg.P');
+    ok(!small.length, `${w}: phone still text under 13px: ${small.join(', ')}`);
+    await p.close();
+  }
+  // step headings never meet the previous step's text or figure
+  for (const [w, h] of [[1440, 900], [1024, 768], [390, 844], [360, 740]]) {
+    p = await b.newPage({ viewport: { width: w, height: h } });
+    await p.goto(BASE); await p.waitForTimeout(500);
+    const hits = await p.evaluate(() => {
+      const out = [], steps = [...document.querySelectorAll('.step')];
+      const vis = e => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden';
+      for (let k = 1; k < steps.length; k++) {
+        let bottom = -1e9;
+        steps[k - 1].querySelectorAll('.copy *, figure.still svg *, figcaption').forEach(e => {
+          if (!vis(e)) return;
+          const r = e.getBoundingClientRect(); if (r.height) bottom = Math.max(bottom, r.bottom);
+        });
+        const first = steps[k].querySelector('.copy > *').getBoundingClientRect().top;
+        if (first - bottom < 48) out.push(`step ${k} starts ${Math.round(first - bottom)}px after step ${k - 1}`);
+      }
+      return out;
+    });
+    ok(!hits.length, `${w}x${h}: ${hits.join('; ')}`);
+    await p.close();
+  }
+  // the story text never runs under the pinned figure (h1 has an unbreakable "AI workforces.")
+  for (const w of [1000, 1024, 1280, 1440, 1920]) {
+    p = await b.newPage({ viewport: { width: w, height: 900 } });
+    await p.goto(BASE); await p.waitForTimeout(500);
+    const over = await p.evaluate(() => {
+      const edge = document.querySelector('.stage .sys').getBoundingClientRect().left, out = [];
+      document.querySelectorAll('.step .copy > *').forEach(e => {
+        const r = document.createRange(); r.selectNodeContents(e);
+        const right = Math.max(...[...r.getClientRects()].map(x => x.right));
+        if (right > edge - 16) out.push(`${e.tagName}.${e.className} ends at ${Math.round(right)} (figure at ${Math.round(edge)})`);
+      });
+      return out;
+    });
+    ok(!over.length, `${w}: ${over.join('; ')}`);
+    await p.close();
+  }
   await b.close();
   if (fail.length) { console.log(fail.join('\n')); process.exit(1); }
   console.log('story ok');
