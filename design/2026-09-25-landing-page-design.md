@@ -125,15 +125,18 @@ website/
     index.template.html   page markup and all copy (English source for i18n)
     styles.css            page styles (inlined at build)
     story.js              scroll/figure controller (inlined at build)
-    figures/fig-1.svg … fig-9.svg   one source per figure; text as <text> elements
-    figures/fig-5-portrait.svg …    portrait variants where the layout differs
+    figures.mjs           one data model draws the system figure at stages 0–8, in a landscape (L)
+                          and a portrait (P) layout; all figure text as SVG <text>
+    content.mjs           section copy, figure captions and alt text, proof-section rows
+    page.mjs              assembles the page from the modules above
   build.mjs               Node ≥ 20, no dependencies: inlines CSS/JS/figures into website/index.html
   index.html              built output (committed; what Pages serves)
   404.html, llms.txt, robots.txt, sitemap.xml, favicon.svg, favicon-32.png, apple-touch-icon.png, og-image.png
 ```
 
-- **One source per figure.** The same SVG serves the pinned animated figure and its static in-flow fallback (the
-  prototype duplicated 18 drawings; target total HTML < 150 KB before compression).
+- **One source for all figures.** `figures.mjs` draws both the pinned animated figure and the static in-flow stills.
+  Each still contains only the elements visible at its stage (the prototype repeated 18 full drawings with hidden
+  parts); target total HTML < 150 KB before compression.
 - **No-JS baseline:** the built HTML shows every section with its static figure in flow. JavaScript upgrades to the
   pinned, animated story only when the viewport is ≥ 1000px wide and motion is allowed.
 - **Translation-ready:** every visible string is in `index.template.html` or in figure `<text>` elements, never
