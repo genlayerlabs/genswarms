@@ -7,8 +7,8 @@ const css = readFileSync(new URL('page.css', here), 'utf8');
 const js = readFileSync(new URL('story.js', here), 'utf8');
 
 const still = k => `<figure class="still" aria-label="Figure ${k + 1}">
-  ${system(L, k, { label: STAGES[k].aria, crop: CROP.L[k] })}
-  ${system(P, k, { label: STAGES[k].aria, crop: CROP.P[k] })}
+  ${system(L, k, { label: STAGES[k].aria, crop: CROP.L[k], prune: true })}
+  ${system(P, k, { label: STAGES[k].aria, crop: CROP.P[k], prune: true })}
   <figcaption><span class="fig-n">Figure ${k + 1}</span> ${STAGES[k].cap}</figcaption>
 </figure>`;
 
@@ -134,7 +134,7 @@ ${stepsHTML}
     <div class="ctas"><a class="btn btn-primary" href="/docs/">Read the docs</a><a class="btn btn-ghost" href="https://github.com/genlayerlabs/genswarms">View on GitHub</a></div>
     <div class="handoff">
       <p id="handoff-l">Or hand it to your agent:</p>
-      <div class="prompt"><code id="prompt">Read https://genswarms.com/skill.md and set up a production-ready swarm.</code><button type="button" id="copy" aria-describedby="handoff-l">Copy</button></div>
+      <div class="prompt"><code id="prompt">Read https://genswarms.com/skill.md and set up a production-ready swarm.</code><button type="button" id="copy" aria-describedby="handoff-l" data-idle="Copy" data-copied="Copied" data-fallback="Select and copy">Copy</button></div>
     </div>
   </div>
 </section>
@@ -149,8 +149,6 @@ ${stepsHTML}
 </footer>
 
 <script>
-const CAPS = ${JSON.stringify(STAGES.map(s => s.cap))};
-const ARIA = ${JSON.stringify(STAGES.map(s => s.aria))};
 ${js}
 </script>
 </body>

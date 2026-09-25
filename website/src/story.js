@@ -16,9 +16,10 @@
     steps[k].classList.add('seen');
     if (stage.getAttribute('data-s') === String(k)) return;
     stage.setAttribute('data-s', k);
-    stage.setAttribute('aria-label', ARIA[k]);
+    var still = steps[k].querySelector('figure.still');
+    stage.setAttribute('aria-label', still.querySelector('svg').getAttribute('aria-label'));
     figN.textContent = 'Figure ' + (k + 1);
-    figCap.textContent = CAPS[k];
+    figCap.textContent = still.querySelector('figcaption').lastChild.textContent.trim();
     rail.forEach(function (b, i) { if (i === k) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current'); });
   }
 
@@ -39,7 +40,8 @@
   var copy = document.getElementById('copy');
   if (copy) copy.addEventListener('click', function () {
     var t = document.getElementById('prompt').textContent;
-    var done = function () { copy.textContent = 'Copied'; setTimeout(function () { copy.textContent = 'Copy'; }, 1800); };
-    if (navigator.clipboard) navigator.clipboard.writeText(t).then(done, function () { copy.textContent = 'Select and copy'; });
+    var idle = copy.getAttribute('data-idle');
+    var done = function () { copy.textContent = copy.getAttribute('data-copied'); setTimeout(function () { copy.textContent = idle; }, 1800); };
+    if (navigator.clipboard) navigator.clipboard.writeText(t).then(done, function () { copy.textContent = copy.getAttribute('data-fallback'); });
   });
 })();

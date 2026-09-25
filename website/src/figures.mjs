@@ -136,6 +136,8 @@ function band(Lo, b, right) {
 // ---------- the system SVG ----------
 export function system(Lo, stage, { extraClass = '', label = '', crop = null, prune = false } = {}) {
   const T = Lo.team, A = T.a;
+  const grp = (stages, inner, extra = '') =>
+    prune && !stages.includes(stage) ? '' : `<g class="${vis(stages)}${extra ? ' ' + extra : ''}">${inner}</g>`;
   let s = '';
   // --- stage 7/8: organisation (outside the world group)
   s += `<g class="org">`;
@@ -149,8 +151,9 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
     con += `<line class="drop" x1="200" y1="${b7.y + 15}" x2="200" y2="${last[1] - 30}"/>`;
     Lo.clusters.slice(0, 6).forEach(([x, y]) => { con += `<line class="drop" x1="200" y1="${y}" x2="${x < 200 ? x + 68 : x - 68}" y2="${y}"/>`; });
   }
-  s += `<g class="${vis([7, 8])}">${con}${band(Lo, b7, 'control layer')}</g>`;
+  s += grp([7, 8], con + band(Lo, b7, 'control layer'));
   Lo.clusters.forEach(([cx, cy], k) => {
+    if (prune && !([7, 8].includes(stage))) return;
     const sh = SHAPES[k];
     let c = '';
     sh.e.forEach(([i, j]) => { const a = sh.n[i], b = sh.n[j]; c += `<line class="ce" x1="${cx + a[0]}" y1="${cy + a[1]}" x2="${cx + b[0]}" y2="${cy + b[1]}"/>`; });
@@ -158,14 +161,14 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
     sh.n.forEach(([x, y]) => { c += `<circle class="cn" cx="${cx + x}" cy="${cy + y}" r="5"/>`; });
     if (sh.h) c += `<line class="ce esc" x1="${cx + 44}" y1="${cy - 6}" x2="${cx + sh.h[0]}" y2="${cy + sh.h[1] + 5}"/><circle class="ch" cx="${cx + sh.h[0]}" cy="${cy + sh.h[1]}" r="5"/>`;
     c += text(cx, cy + Lo.clusterLabelDy, TEAMS[k], 'ts cl' + (k === 0 ? ' first' : ''), 'middle');
-    s += `<g class="${vis([7, 8])} cl${k}">${c}</g>`;
+    s += grp([7, 8], c, `cl${k}`);
   });
   // models row
   const m = Lo.models;
   let mr = `<line class="mline" x1="${m.x1}" y1="${m.y}" x2="${m.x2}" y2="${m.y}"/>`;
   m.xs.forEach(x => { mr += hex(x, m.y, 9); });
   mr += text(m.label[0], m.label[1], 'Models', 'tb tm');
-  s += `<g class="${vis([8])}">${mr}</g>`;
+  s += grp([8], mr);
   s += `</g>`;
 
   // --- the world group
@@ -176,7 +179,7 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
   Lo.wires.forEach(([i, j, qx, qy]) => { const a = Lo.scatter[i], b = Lo.scatter[j]; w += `<path class="wire" d="M${a[0]} ${a[1]}Q${qx} ${qy} ${b[0]} ${b[1]}"/>`; });
   const stubs = [[-24, -22], [26, -18], [-28, 12], [22, 24], [-20, 26], [28, -4]];
   Lo.scatter.forEach(([x, y], i) => { const [dx, dy] = stubs[i % stubs.length]; w += `<line class="sat" x1="${x}" y1="${y}" x2="${x + dx * .72}" y2="${y + dy * .72}"/>` + hex(x + dx, y + dy, 6); });
-  s += `<g class="${vis([1])}">${w}</g>`;
+  s += grp([1], w);
 
   // stage 2/3: organisation line, coordination bar, column connectors
   const o = Lo.org, br = Lo.bar;
@@ -186,8 +189,8 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
   sq.forEach(x => { g2 += `<rect class="dept" x="${x - 6}" y="${o.y - 6}" width="12" height="12" rx="2"/><line class="drop" x1="${x}" y1="${o.y + 6}" x2="${x}" y2="${br.y - bh}"/>`; });
   g2 += text(o.label[0], o.label[1], 'the organization', 'ts');
   Lo.grid.xs.forEach(x => { g2 += `<line class="col" x1="${x}" y1="${br.y + bh}" x2="${x}" y2="${Lo.grid.ys[2]}"/>`; });
-  s += `<g class="${vis([2, 3])}">${g2}${band(Lo, br, null)}</g>`;
-  s += `<g class="${vis([2])}">${text(Lo.gridLabel[0], Lo.gridLabel[1], 'individual agents', 'ts', 'middle')}${text(br.x2 - 16, br.y + (Lo.id === 'L' ? 5 : 4.5), 'coordination layer', 'ts bandr', 'end')}</g>`;
+  s += grp([2, 3], g2 + band(Lo, br, null));
+  s += grp([2], text(Lo.gridLabel[0], Lo.gridLabel[1], 'individual agents', 'ts', 'middle') + text(br.x2 - 16, br.y + (Lo.id === 'L' ? 5 : 4.5), 'coordination layer', 'ts bandr', 'end'));
   // stage 3: supervisor + annotations
   const supW = Lo.id === 'L' ? 76 : 66;
   let g3 = `<path class="dia-in" d="${(() => { const x = br.x2 - 16 - supW - 14, y = br.y, r = 6; return `M${x} ${y - r}L${x + r} ${y}L${x} ${y + r}L${x - r} ${y}Z`; })()}"/>` + text(br.x2 - 16, br.y + (Lo.id === 'L' ? 5 : 4.5), 'supervisor', 'ts bandr', 'end');
@@ -195,7 +198,7 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
     a.lines.forEach((ln, i) => { g3 += text(a.x, a.y + i * 22, ln, 'ts ann', a.anchor); });
     if (a.lx1) g3 += `<line class="lead" x1="${a.lx1}" y1="${a.ly - 8}" x2="${a.lx2}" y2="${a.ly - 8}"/>`;
   });
-  s += `<g class="${vis([3])}">${g3}</g>`;
+  s += grp([3], g3);
 
   // stage 0: satellites
   const [cx, cy] = Lo.s0;
@@ -211,7 +214,7 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
     const below = y > cy;
     g0 += text(x, below ? y + 38 : y - 24, k, 't', 'middle');
   }
-  s += `<g class="${vis([0])}">${g0}</g>`;
+  s += grp([0], g0);
 
   // stages 4-6: the team topology
   const R = T.R, O = T.out, H = T.H;
@@ -223,17 +226,17 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
   e += text(T.Rlabel[0], T.Rlabel[1], 'request', 't', T.Rlabel[2]) + text(T.outLabel[0], T.outLabel[1], 'reply', 't', T.outLabel[2]);
   e += person(H[0], H[1]);
   e += text(T.Hlabel[0], T.Hlabel[1], 'human', 't', T.Hlabel[2]);
-  if (T.Hsub) e += `<g class="${vis([6])}">${text(T.Hsub[0], T.Hsub[1], T.Hsub[3], 'ts', T.Hsub[2])}</g>`;
-  s += `<g class="${vis([4, 5, 6])}">${e}</g>`;
+  if (T.Hsub) e += grp([6], text(T.Hsub[0], T.Hsub[1], T.Hsub[3], 'ts', T.Hsub[2]));
+  s += grp([4, 5, 6], e);
   // stage 6: escalation highlight
-  s += `<g class="${vis([6])} escal">${edge(A[5], H, 22, 24, 'eh')}<circle class="block" cx="${A[5][0]}" cy="${A[5][1]}" r="24"/></g>`;
+  s += grp([6], edge(A[5], H, 22, 24, 'eh') + `<circle class="block" cx="${A[5][0]}" cy="${A[5][1]}" r="24"/>`, 'escal');
   // stage 5: supervisor, crash marks
   const [sx, sy] = T.sup;
   const [lx1, ly1, lx2, ly2] = shorten(sx, sy, A[2][0], A[2][1], 12, 26);
   let g5 = `<line class="supline" pathLength="1" x1="${f(lx1)}" y1="${f(ly1)}" x2="${f(lx2)}" y2="${f(ly2)}"/>` + diamond(sx, sy) + text(T.supLabel[0], T.supLabel[1], 'supervisor', 'ts', T.supLabel[2]);
   g5 += `<g transform="translate(${A[2][0]} ${A[2][1]})"><circle class="burst" r="30"/><circle class="restart" r="23"/></g>`;
   g5 += text(T.status5[0], T.status5[1], T.status5[3], 'ts st', T.status5[2]);
-  s += `<g class="${vis([5])}">${g5}</g>`;
+  s += grp([5], g5);
   // event log (illustration)
   const [gx, gy] = T.log, lh = Lo.id === 'L' ? 24 : 20;
   const log5 = [['message', 'account_lookup → investigator'], ['crash', 'investigator'], ['restart', 'investigator'], ['message', 'investigator → technical_support']];
@@ -246,24 +249,25 @@ export function system(Lo, stage, { extraClass = '', label = '', crop = null, pr
     });
     return b;
   };
-  s += `<g class="${vis([5])}">${logBlock(log5, 9)}</g><g class="${vis([6])}">${logBlock(log6.slice(0, Lo.id === 'L' ? 3 : 2), 14)}</g>`;
+  s += grp([5], logBlock(log5, 9)) + grp([6], logBlock(log6.slice(0, Lo.id === 'L' ? 3 : 2), 14));
 
   // agents
   pos[0].forEach((_, i) => {
+    if (prune && !AGENT_VIS(i).includes(stage)) return;
     const lab = i < 6 ? T.labels[i] : null;
     let a = `<g class="ag a${i} ${vis(AGENT_VIS(i))}" style="--i:${i}">`;
-    a += `<rect class="bnd ${vis([3, 4, 5, 6])}" x="-25" y="-25" width="50" height="50" rx="12"/>`;
+    a += (prune && !([3, 4, 5, 6].includes(stage))) ? '' : `<rect class="bnd ${vis([3, 4, 5, 6])}" x="-25" y="-25" width="50" height="50" rx="12"/>`;
     a += `<circle class="ring" r="16"/><circle class="core" r="10"/>`;
     if (lab) {
       const [x, y, anc, lines] = lab;
       const rel = lines.map((ln, k) => text(x - A[i][0], y - A[i][1] + k * (Lo.fs.t + 2), ln, 't', anc)).join('');
-      a += `<g class="${vis([4, 5, 6])}">${rel}</g>`;
+      a += grp([4, 5, 6], rel);
     }
     a += `</g>`;
     s += a;
   });
   // token
-  s += `<g class="tok ${vis([4, 5, 6])}"><circle r="7.5"/></g>`;
+  s += (prune && !([4, 5, 6].includes(stage))) ? '' : `<g class="tok ${vis([4, 5, 6])}"><circle r="7.5"/></g>`;
   s += `</g>`; // world
 
   return `<svg class="sys ${Lo.id}${extraClass ? ' ' + extraClass : ''}" data-s="${stage}" viewBox="${crop || `0 0 ${Lo.w} ${Lo.h}`}" role="img" aria-label="${label}">${s}</svg>`;
