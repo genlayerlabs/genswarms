@@ -179,10 +179,13 @@ test('each writing system gets its fonts, and loads only the Google fonts it use
   assert.match(o['zh/index.html'], /--fd:'PingFang SC','Hiragino Sans GB','Noto Sans SC','Microsoft YaHei',sans-serif/);
   for (const f of ['ko/index.html', 'zh/index.html']) assert.match(o[f], /\.sys \.tb:not\(\.bandl\)\{letter-spacing:0\}/, f);
   for (const f of ['ru/index.html', 'tr/index.html']) assert.match(o[f], /hyphens:auto/, f);
-  // Spanish: no Korean line breaking and no title hyphenation; the table hyphenates only where its columns are narrow
+  // Spanish: no Korean line breaking and no title hyphenation. The comparison table's cells never hyphenate (brand names
+  // broke as "Gen-Swarms"): their long words only break when a column is narrower than the word
   assert.doesNotMatch(o['es/index.html'], /keep-all|\.cmp tbody th\{hyphens:auto/);
-  for (const f of ['es/index.html', 'ru/index.html', 'tr/index.html'])
-    assert.match(o[f], /\.cmp th,\.cmp td\{overflow-wrap:break-word\}@media \(min-width:1000px\) and \(max-width:1279px\)\{\.cmp th,\.cmp td\{hyphens:auto/, f);
+  for (const f of ['es/index.html', 'ru/index.html', 'tr/index.html']) {
+    assert.match(o[f], /\.cmp th,\.cmp td\{overflow-wrap:break-word\}/, f);
+    assert.doesNotMatch(o[f], /max-width:1279px\)\{\.cmp th,\.cmp td\{hyphens:auto/, f);
+  }
 });
 test('the sitemap lists every version with the full set of alternates', () => {
   const s = full.outputs['sitemap.xml'];

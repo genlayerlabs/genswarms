@@ -39,9 +39,9 @@ const LONG = `${TITLES.replace('.sys .tb:not(.bandl)', '.cmp tbody th')}{hyphens
 @media (max-width:759px){h1{font-size:clamp(34px,10.6vw,64px)}.step h2{font-size:clamp(28px,8.4vw,52px)}.band-head h2{font-size:clamp(26px,7.4vw,46px)}.close h2{font-size:clamp(32px,9.6vw,104px)}.triad span{font-size:clamp(26px,7vw,54px)}}`;
 // CJK: no negative tracking on titles, taller title lines, upright example lines
 const CJK_CSS = `${TITLES}{letter-spacing:0}h1{line-height:1.12}.step h2,.close h2,.triad span{line-height:1.16}.band-head h2{line-height:1.2}.copy .ex,.sys .logcap{font-style:normal}`;
-// the comparison table's five columns share ~580px at 1000-1279px: long words must be able to break there.
-// Elsewhere the columns are wide enough, so words stay whole (hyphenating everywhere split "agen-te", "Lang-Smith")
-const TABLE = `.cmp th,.cmp td{overflow-wrap:break-word}@media (min-width:1000px) and (max-width:1279px){.cmp th,.cmp td{hyphens:auto;-webkit-hyphens:auto;overflow-wrap:anywhere}}`;
+// the comparison table: words stay whole (hyphenating split "agen-te", "Lang-Smith", "Gen-Swarms"); at 1000-1279px the
+// table takes the band's full width (page.css), so its columns are wide enough. A word longer than its column still breaks
+const TABLE = `.cmp th,.cmp td{overflow-wrap:break-word}`;
 const TYPE = {
   es: { fonts: [FONTS_ALL], css: TABLE },
   // the desktop hero is ~20% smaller in Russian so «Операционная» stays one word at 1000-1440px
@@ -132,7 +132,7 @@ export function renderPage({ lang: code = 'en', langs = null, bar = null, ogImag
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 ${type.fonts.map(h => `<link href="${h}" rel="stylesheet">`).join('\n')}
-<script>if(matchMedia('(min-width: 1000px) and (min-height: 600px)').matches&&!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('cine')</script>
+<script>if(matchMedia('(min-width: 1000px) and (min-height: 600px) and (orientation: landscape)').matches&&!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('cine')</script>
 <style>
 ${css}
 ${minCSS(figureCSS(CROP.L))}${multi ? '\n' + i18nCSS + navCSS([navHow, navCmp, navSec, docs]) : ''}${type.css ? '\n' + minCSS(type.css) : ''}

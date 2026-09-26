@@ -1,6 +1,6 @@
 (function () {
   var root = document.documentElement;
-  var mqW = matchMedia('(min-width: 1000px) and (min-height: 600px)');
+  var mqW = matchMedia('(min-width: 1000px) and (min-height: 600px) and (orientation: landscape)');
   var mqR = matchMedia('(prefers-reduced-motion: reduce)');
   var stage = document.querySelector('.sys.live');
   var steps = Array.prototype.slice.call(document.querySelectorAll('.step'));

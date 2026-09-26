@@ -1,6 +1,6 @@
 {
  "_about": "Written by `node website/build.mjs` after a successful build; `--check` (CI, deploy) refuses when the English source, a translation or a built file no longer matches it.",
- "source": "0f8407c87a789f7eab04b414d116847beb6150df99ce228e62b5b5d1496b3af4",
+ "source": "8750e5f1e5de77798d3f7097321000cce0cbf373ff323eaacdfe8bb7c1b2e72a",
  "i18n": {
   "en.json": "008aba17942dc62dd028be23f7d10decd6bcfa45c7c0b5562ad125c7a9b7f167",
   "es.json": "d6f8fb5e40b2b648e84d26797695e4980c06bc93fccd1431e47f78d132f1fa63",
@@ -10,23 +10,23 @@
   "tr.json": "77ee2eed0207e2d90957107d89b32e8b9227d58a4333476f9cc755819f67c730"
  },
  "outputs": {
-  "index.html": "76636356a15af6ff1951c26d4ca77bf3da2296ff877473d21f7772684af13c2d",
-  "es/index.html": "7e7094d3d2308a920ad26803f5cf9c14189335cfd5a98f79d8b412d3ec5ff36c",
-  "ko/index.html": "4070657430e22baaf24775df143b09296a6fc3f9ec788c4a17698216816bb606",
-  "zh/index.html": "08c2614e5778c39dfaa1843de79c00d7092752005511732676b4da67f6aa43ab",
-  "ru/index.html": "b0d0c9b3dd7d7c2ef48d40dd099153da2b04ea6d32b24947cce79ef046b26586",
-  "tr/index.html": "01fdb701d6f41bc3c058793a3fd7fa3fd7b9559fa835281cf474bf53335f7afc",
+  "index.html": "3d852e8e60a4caab1788d9a781e74f518a2bb793bb8a167cf0ba83b3c86c81d6",
+  "es/index.html": "b2c376ffb93ed8f8695a4366aa1ce6ac28e8b1f0e554ac4516390f60796a1d69",
+  "ko/index.html": "05f0659097971e6e920aa5246f9eaa57d329593233642dc827300a443aaa96c6",
+  "zh/index.html": "a5a95f0bcf01d45cd34ee72186653fe02014e6b1f45679aa5b4a8032671f78ca",
+  "ru/index.html": "56120cb99e41f87b52a14c8e53fd812813b6f875b0d8ae7a886726df379b8583",
+  "tr/index.html": "add06e27cd74bb5202b8f78786628725278af259c8c25fa709a01887e44041b4",
   "404.html": "15fc02007ec42ca773e6e44b123f566fe993fe6c34ab735a3dddd94125d8e896",
-  "sitemap.xml": "29e8962955f2e4fbf244b8f0838f4afeab2d6cefeca905d3f45070e43554f00d",
+  "sitemap.xml": "ecd4ede796950117845859991119a783998b0445583268ec97575e0a0ef75b38",
   "llms.txt": "001fad65364fef111475b284facd760455f0ae2b9d0fcc1a56b11d9a7dc60e6c"
  },
  "lastmod": {
-  "index.html": "2026-09-25",
-  "es/index.html": "2026-09-25",
-  "ko/index.html": "2026-09-25",
-  "zh/index.html": "2026-09-25",
-  "ru/index.html": "2026-09-25",
-  "tr/index.html": "2026-09-25"
+  "index.html": "2026-09-26",
+  "es/index.html": "2026-09-26",
+  "ko/index.html": "2026-09-26",
+  "zh/index.html": "2026-09-26",
+  "ru/index.html": "2026-09-26",
+  "tr/index.html": "2026-09-26"
  },
  "og": {
   "en": {
