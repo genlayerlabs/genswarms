@@ -1,6 +1,6 @@
 {
  "_about": "Written by `node website/build.mjs` after a successful build; `--check` (CI, deploy) refuses when the English source, a translation or a built file no longer matches it.",
- "source": "8750e5f1e5de77798d3f7097321000cce0cbf373ff323eaacdfe8bb7c1b2e72a",
+ "source": "6e9fbd8ef331bdbe7e9537beab0e49ab99ec2a248c955b8c25e3ba275c0c3db1",
  "i18n": {
   "en.json": "008aba17942dc62dd028be23f7d10decd6bcfa45c7c0b5562ad125c7a9b7f167",
   "es.json": "d6f8fb5e40b2b648e84d26797695e4980c06bc93fccd1431e47f78d132f1fa63",
@@ -10,13 +10,13 @@
   "tr.json": "77ee2eed0207e2d90957107d89b32e8b9227d58a4333476f9cc755819f67c730"
  },
  "outputs": {
-  "index.html": "3d852e8e60a4caab1788d9a781e74f518a2bb793bb8a167cf0ba83b3c86c81d6",
-  "es/index.html": "b2c376ffb93ed8f8695a4366aa1ce6ac28e8b1f0e554ac4516390f60796a1d69",
-  "ko/index.html": "05f0659097971e6e920aa5246f9eaa57d329593233642dc827300a443aaa96c6",
-  "zh/index.html": "a5a95f0bcf01d45cd34ee72186653fe02014e6b1f45679aa5b4a8032671f78ca",
-  "ru/index.html": "56120cb99e41f87b52a14c8e53fd812813b6f875b0d8ae7a886726df379b8583",
-  "tr/index.html": "add06e27cd74bb5202b8f78786628725278af259c8c25fa709a01887e44041b4",
-  "404.html": "15fc02007ec42ca773e6e44b123f566fe993fe6c34ab735a3dddd94125d8e896",
+  "index.html": "be3e94b51477f30b3110655a9e353061d078ef4207f0b0ef1b0d35ab41e318b3",
+  "es/index.html": "67ca2f668b815eae1ed326789a0542691086ae2165f8ff0ef9c290cb95afaafd",
+  "ko/index.html": "2d57f22910dca4fab4b68eede584f7c2e2e134409cd03637bceb06faca1788b1",
+  "zh/index.html": "cc08b73153b9ffba967725934d6d867cb00dbbb30820615184a25472b8eeda7a",
+  "ru/index.html": "a608ed6c3d263010fe2301268e32d4aecab2945502a2e0f2957046ea8f0e71ad",
+  "tr/index.html": "8adcb45f344588a1759fd4fc5c1c2f7165bafeae362b5840b828adcbcfac32ef",
+  "404.html": "40bce6c072a672f2f4a53271801bd1d30ebbb5e0ba1c797021ce108e09b38955",
   "sitemap.xml": "ecd4ede796950117845859991119a783998b0445583268ec97575e0a0ef75b38",
   "llms.txt": "001fad65364fef111475b284facd760455f0ae2b9d0fcc1a56b11d9a7dc60e6c"
  },

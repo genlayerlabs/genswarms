@@ -184,7 +184,8 @@ test('each writing system gets its fonts, and loads only the Google fonts it use
   assert.doesNotMatch(o['es/index.html'], /keep-all|\.cmp tbody th\{hyphens:auto/);
   for (const f of ['es/index.html', 'ru/index.html', 'tr/index.html']) {
     assert.match(o[f], /\.cmp th,\.cmp td\{overflow-wrap:break-word\}/, f);
-    assert.doesNotMatch(o[f], /max-width:1279px\)\{\.cmp th,\.cmp td\{hyphens:auto/, f);
+    // nor do its heads, its row questions or its heading in Russian and Turkish ("Lang-Graph", "Auto-Gen'den")
+    assert.doesNotMatch(o[f], /(\.cmp|#cmp-h)[^{}]*\{[^}]*hyphens:auto/, f);
   }
 });
 test('the sitemap lists every version with the full set of alternates', () => {

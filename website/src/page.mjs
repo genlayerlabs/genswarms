@@ -34,8 +34,11 @@ const SYS = {
 };
 // titles: every display-type element on the page
 const TITLES = 'h1,h2,h3,.triad span,.spec dt,.cmp thead th,.sys .tb:not(.bandl)';
-// long words (Russian, Turkish): hyphenate titles and scale the display sizes with the phone's width
-const LONG = `${TITLES.replace('.sys .tb:not(.bandl)', '.cmp tbody th')}{hyphens:auto;-webkit-hyphens:auto;overflow-wrap:break-word}
+// long words (Russian, Turkish): hyphenate titles and scale the display sizes with the phone's width. The comparison's
+// heading, row questions and column heads are not hyphenated (brand names broke: "Lang-Graph", "Auto-Gen'den"); from
+// 1280px the row questions' column is a little wider instead, so «затрагивает» stays whole
+const LONG = `h1,h2,h3,.triad span,.spec dt{hyphens:auto;-webkit-hyphens:auto;overflow-wrap:break-word}
+#cmp-h{hyphens:manual;-webkit-hyphens:manual}@media (min-width:1280px){.cmp tbody th{width:20%}}
 @media (max-width:759px){h1{font-size:clamp(34px,10.6vw,64px)}.step h2{font-size:clamp(28px,8.4vw,52px)}.band-head h2{font-size:clamp(26px,7.4vw,46px)}.close h2{font-size:clamp(32px,9.6vw,104px)}.triad span{font-size:clamp(26px,7vw,54px)}}`;
 // CJK: no negative tracking on titles, taller title lines, upright example lines
 const CJK_CSS = `${TITLES}{letter-spacing:0}h1{line-height:1.12}.step h2,.close h2,.triad span{line-height:1.16}.band-head h2{line-height:1.2}.copy .ex,.sys .logcap{font-style:normal}`;
@@ -46,10 +49,13 @@ const TYPE = {
   es: { fonts: [FONTS_ALL], css: TABLE },
   // the desktop hero is ~20% smaller in Russian so «Операционная» stays one word at 1000-1440px
   ru: { fonts: FONTS_SYS, css: `:root{--fd:${SYS.ru};--ft:${SYS.ru}}${WORDMARK}${LONG}${TABLE}@media (min-width:1000px){h1,.cine h1{font-size:4.3vw}}` },
-  tr: { fonts: [FONTS_ALL], css: LONG + TABLE },
+  // the desktop hero tops out at 96px in Turkish: at 104px «işletim&nbsp;sistemi.» is wider than the hero's column and
+  // its full stop wrapped onto a line of its own (1920px and up)
+  tr: { fonts: [FONTS_ALL], css: `${LONG}${TABLE}@media (min-width:1280px){h1{font-size:clamp(50px,5.8vw,96px)}}` },
   ko: { fonts: FONTS_SYS, css: `:root{--fd:${SYS.ko};--ft:${SYS.ko}}${WORDMARK}body{word-break:keep-all;overflow-wrap:break-word}${CJK_CSS}` },
-  // Chinese wraps between any two characters: keep paragraphs from ending on one stranded character
-  'zh-Hans': { fonts: FONTS_SYS, css: `:root{--fd:${SYS['zh-Hans']};--ft:${SYS['zh-Hans']}}${WORDMARK}${CJK_CSS}.lead,.close p,.sec-col li{text-wrap:pretty}` },
+  // Chinese wraps between any two characters: paragraphs never end on one stranded character (text-wrap:pretty, page.css
+  // does that for every language) and the two-line lead is balanced, so it doesn't end on a three-character tail
+  'zh-Hans': { fonts: FONTS_SYS, css: `:root{--fd:${SYS['zh-Hans']};--ft:${SYS['zh-Hans']}}${WORDMARK}${CJK_CSS}.copy .lead{text-wrap:balance}` },
 };
 
 const still = k => `<figure class="still" aria-label="${escAttr(tf('Figure {n}', { n: k + 1 }, 'story figures: accessible name of each drawing ({n} = 1…9)', { kind: 'attr' }))}">

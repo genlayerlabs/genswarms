@@ -49,6 +49,8 @@ code{font:500 .86em/1 var(--fm);background:var(--sand-2);padding:.18em .4em;bord
 .step-hero{border-top:0;padding-top:120px}
 .copy{max-width:38rem}
 .copy p{color:var(--ink-2);margin:0 0 18px;max-width:34em}
+/* running text never ends on a lone word (a version number, one CJK character) */
+.copy p,.spec dd,.cmp td,.sec-col li,.close p,.foot p{text-wrap:pretty}
 h1,h2,h3{font-family:var(--fd);color:var(--ink);margin:0;text-wrap:balance}
 h1{font-weight:780;font-size:clamp(44px,13.2vw,64px);line-height:.92;letter-spacing:-.042em;margin-bottom:30px;font-variation-settings:"opsz" 96}
 .step h2{font-weight:730;font-size:clamp(34px,9.4vw,52px);line-height:.98;letter-spacing:-.034em;margin-bottom:26px;font-variation-settings:"opsz" 96}
