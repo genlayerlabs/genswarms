@@ -1,4 +1,4 @@
-// website/tests/browser/i18n-audit.cjs — every language version × 14 screen sizes (playbook §10), plus the
+// website/tests/browser/i18n-audit.cjs — every language version × 18 screen sizes (playbook §10), plus the
 // suggestion bar and the no-JS language picker.
 //
 //   NODE_PATH=<dir with playwright-core> node website/tests/browser/i18n-audit.cjs            pseudo-locales
@@ -8,7 +8,8 @@
 // site's static files and serves that itself, so it passes before any real translation exists. With BASE (e.g.
 // http://localhost:8790/) it audits the versions that site lists in its hreflang links.
 //
-// Per language and size: no sideways overflow; header items inside the bar and not overlapping; the pinned figure
+// Per language and size: no sideways overflow; no brand name split across lines, no wrapped button label, no headline
+// or lead ending on a stranded scrap; pinned step text that fits the screen; header items inside the bar and not overlapping; the pinned figure
 // fits; step text never under the figure; no HTML text under 12px; 44px tap targets on phones; in every figure
 // (stills, and the pinned figure at each of its nine stages) no label overlapping another, running outside the
 // drawing or rendering under 12px; the picker marks the current language; no console errors or failed requests.
@@ -21,7 +22,7 @@ const os = require('os');
 const path = require('path');
 
 const WEB = path.resolve(__dirname, '../..');
-const SIZES = [[320,720],[360,780],[375,812],[390,844],[414,896],[480,900],[600,900],[768,1024],[820,1180],[1024,768],[1280,800],[1440,900],[1440,640],[844,390]];
+const SIZES = [[320,720],[360,780],[375,812],[390,844],[414,896],[480,900],[600,900],[768,1024],[820,1180],[1024,768],[1024,1366],[1280,720],[1280,800],[1440,900],[1440,640],[1920,1080],[2560,1440],[844,390]];
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
 const TYPES = { '.html': 'text/html; charset=utf-8', '.xml': 'application/xml', '.txt': 'text/plain; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.md': 'text/markdown' };
 
@@ -82,6 +83,49 @@ function figureProblems() {
       if (ox > 1 && oy > 2) out.push(`${name}: "${texts[i].s}" overlaps "${texts[j].s}"`);
     }
   });
+  return out;
+}
+
+// runs in the page: line breaks a reader notices (the responsive pass). A brand or product name split across two lines
+// (hyphenated or broken); a button whose label wraps; a headline or lead whose last line is a stranded scrap (one short
+// word, or one or two CJK characters)
+function typeProblems() {
+  // (visible: rendered, and not inside a screen-reader-only box such as the phone table's 1px-wide header row)
+  const vis = e => { if (!e.getClientRects().length || getComputedStyle(e).visibility === 'hidden') return false;
+    for (let x = e; x; x = x.parentElement) if (x.getBoundingClientRect().width <= 1) return false; return true; };
+  const out = [];
+  const tops = r => new Set([...r.getClientRects()].filter(x => x.width > 0.5).map(x => Math.round(x.top)));
+  const NAMES = /GenSwarms|LangGraph|LangSmith|CrewAI|AutoGen|Microsoft|Telegram|WhatsApp|GitHub|swarmidx/g;
+  const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n; (n = tw.nextNode());) {
+    const e = n.parentElement;
+    if (!e || e.closest('svg,.sr,.skip,script,style') || !vis(e)) continue;
+    for (const m of n.textContent.matchAll(NAMES)) {
+      const r = document.createRange(); r.setStart(n, m.index); r.setEnd(n, m.index + m[0].length);
+      if (tops(r).size > 1) out.push(`"${m[0]}" is split across lines in <${e.tagName.toLowerCase()}> "${e.textContent.trim().slice(0, 30)}"`);
+    }
+  }
+  for (const b of document.querySelectorAll('.btn, .prompt button, .langbar a')) {
+    if (!vis(b)) continue;
+    const r = document.createRange(); r.selectNodeContents(b);
+    if (tops(r).size > 1) out.push(`button label wraps: "${b.textContent.trim().slice(0, 30)}"`);
+  }
+  // the last line of a headline or lead: its characters, grouped by line
+  const CJK = /[\u2e80-\u9fff\uac00-\ud7af\uf900-\ufaff]/;
+  for (const h of document.querySelectorAll('h1, h2, .triad span, .copy .lead')) {
+    if (!vis(h)) continue;
+    const chars = [], w = document.createTreeWalker(h, NodeFilter.SHOW_TEXT);
+    for (let t; (t = w.nextNode());) for (let i = 0; i < t.textContent.length; i++) {
+      const r = document.createRange(); r.setStart(t, i); r.setEnd(t, i + 1);
+      const rect = r.getClientRects()[0]; if (rect) chars.push([Math.round(rect.top + rect.height / 2), t.textContent[i]]);
+    }
+    if (!chars.length) continue;
+    const lines = []; for (const [y, ch] of chars) { const l = lines.find(l => Math.abs(l.y - y) < 4); if (l) l.s += ch; else lines.push({ y, s: ch }); }
+    if (lines.length < 2) continue;
+    const last = lines.sort((a, b) => a.y - b.y).pop().s.trim(), letters = last.replace(/[^\p{L}\p{N}]/gu, '');
+    const scrap = CJK.test(last) && !/\s/.test(last) ? [...letters].length <= 2 : !/\s/.test(last) && [...letters].length <= 3;
+    if (scrap) out.push(`"${last}" stranded on the last line of "${h.textContent.trim().slice(0, 30)}"`);
+  }
   return out;
 }
 
@@ -148,6 +192,17 @@ function figureProblems() {
         return o;
       }, { phone })).forEach(m => problems.push(`${at}: ${m}`));
       (await p.evaluate(figureProblems)).forEach(m => problems.push(`${at}: ${m}`));
+      (await p.evaluate(typeProblems)).forEach(m => problems.push(`${at}: ${m}`));
+      // pinned: each step's text fits the screen (a reader never has to scroll past the pinned drawing to finish it), and
+      // the rail sits inside the screen, below the caption
+      if (await p.$('.cine .stage')) (await p.evaluate(() => {
+        const o = [], M = 8;
+        for (const c of document.querySelectorAll('.step .copy')) if (c.getBoundingClientRect().height > innerHeight - 2 * M) o.push(`pinned step text taller than the screen: "${c.textContent.trim().slice(0, 30)}"`);
+        const st = document.querySelector('.stage').getBoundingClientRect(), rail = document.querySelector('.rail').getBoundingClientRect(), cap = document.querySelector('.stage-cap').getBoundingClientRect();
+        if (rail.bottom - st.top > innerHeight + 1) o.push('pinned rail below the screen');
+        if (cap.height && cap.bottom > rail.top + 1) o.push('pinned caption overlaps the rail');
+        return o;
+      })).forEach(m => problems.push(`${at}: ${m}`));
       const H = await p.evaluate(() => document.documentElement.scrollHeight);
       for (let y = 0; y < H; y += h) {
         await p.evaluate(y => scrollTo(0, y), y); await p.waitForTimeout(80);
