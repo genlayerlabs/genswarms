@@ -36,7 +36,7 @@ A configuration is a map with the following keys.
 
 The `agents` key is always required. Use `agents: []` to explicitly start an
 object-only or dynamically managed swarm; a missing key or non-list value is
-still rejected. See the [dynamic swarm example](../examples/dynamic-swarm/seed.exs).
+still rejected. See the [dynamic swarm example](https://github.com/genlayerlabs/genswarms/blob/main/examples/dynamic-swarm/seed.exs).
 
 ## Agent configuration
 
