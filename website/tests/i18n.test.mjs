@@ -7,7 +7,8 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 import { LANGS, ORIGIN, PROTECT, sid, textRuns, validate } from '../src/i18n.mjs';
-import { catalogue, catalogueFile, build, check, verify, ogSource, ogFile } from '../src/site.mjs';
+import { catalogue, catalogueFile, build, check, verify, ogSource, ogFile, ogKey } from '../src/site.mjs';
+import { CARD } from '../src/card.mjs';
 import { createServer } from 'node:http';
 import { renderPage } from '../src/page.mjs';
 import { system, L, P } from '../src/figures.mjs';
@@ -137,10 +138,12 @@ test('every version has its own head: lang, canonical, reciprocal hreflang, og, 
     assert.ok(h.includes(`<meta property="og:locale" content="${l.og}">`));
     assert.ok(h.includes(`<meta property="og:url" content="${u}">`));
     assert.ok(h.includes(`<meta property="og:image" content="${ORIGIN}${ogFile(l)}">`));
+    assert.ok(h.includes('<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">'), `${l.code} og:image size`);
     const ld = JSON.parse(h.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
     assert.equal(ld.inLanguage, l.code); assert.equal(ld.url, u); assert.equal(ld.name, 'GenSwarms');
     const title = h.match(/<title>([^<]+)<\/title>/)[1], desc = h.match(/<meta name="description" content="([^"]+)"/)[1];
     assert.ok(h.includes(`<meta property="og:title" content="${title}">`));
+    assert.ok(h.includes(`<meta property="og:image:alt" content="${title}">`), `${l.code} og:image:alt is the page title`);
     if (l.code !== 'en') {
       assert.notEqual(title, 'GenSwarms: the operating system for AI workforces');
       assert.notEqual(ld.description, JSON.parse(full.outputs['index.html'].match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]).description);
@@ -165,6 +168,35 @@ test('every version has its own head: lang, canonical, reciprocal hreflang, og, 
     for (const m of h.matchAll(/href="#([^"]+)"/g)) assert.ok(h.includes(`id="${m[1]}"`), `${l.code}: #${m[1]}`);
   }
 });
+// the share cards, from the committed translations
+const site = build({ i18nDir: new URL('i18n/', WEB), outDir: WEB });
+const plain = s => s.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ');
+test('each version has its own share card: the translated headline and triad, the drawing, no buttons', () => {
+  assert.deepEqual(site.errors, []);
+  for (const l of LANGS) {
+    const c = site.cards[ogKey(l)];
+    const tx = l.file ? JSON.parse(readFileSync(new URL(`i18n/${l.file}.json`, WEB), 'utf8')) : {};
+    const tr = en => tx[sid(en)] || en;
+    assert.match(c, new RegExp(`^<!doctype html>\\n<html lang="${l.code}">`));
+    assert.equal(plain(c.match(/<p class="og-h">([\s\S]*?)<\/p>/)[1]), plain(tr('The operating system for AI&nbsp;workforces.')), `${l.code} headline`);
+    const triad = [...c.match(/<ul class="og-k">([\s\S]*?)<\/ul>/)[1].matchAll(/<li>([\s\S]*?)<\/li>/g)].map(m => m[1]);
+    assert.deepEqual(triad, ['Models provide intelligence.', 'Agents perform work.', 'GenSwarms runs the organization.'].map(tr), `${l.code} triad`);
+    // "Open source, MIT." without the version
+    const foot = c.match(/<p class="og-foot"><b>genswarms\.com<\/b>([^<]+)<\/p>/)[1];
+    assert.ok(tr('Open source, MIT. Version 0.2.0.').startsWith(foot) && foot.includes('MIT') && !foot.includes('0.2.0'), `${l.code} footer: ${foot}`);
+    // step 9's drawing with its translated labels
+    assert.match(c, /<svg class="sys L" data-s="8"/);
+    for (const en of ['control layer', 'Swarms', 'Models']) assert.ok(c.includes(`>${tr(en)}</text>`), `${l.code} ${en}`);
+    // a card, not a page: no buttons, links or page chrome
+    assert.doesNotMatch(c, /<a[\s>]|<button|class="btn|class="ctas|<nav|<header|<footer/, `${l.code} card has page chrome`);
+    // the page's type for that writing system
+    assert.ok(c.includes(site.pages[l.code].match(/<link href="https:\/\/fonts[^>]+>/)[0]), `${l.code} fonts`);
+    assert.ok(c.includes(`width:${CARD.w}px;height:${CARD.h}px`));
+  }
+  // Russian keeps «ИИ-персонала» whole (a break after its hyphen reads as hyphenation)
+  assert.match(site.cards.ru, /<span class="nw">ИИ-персонала\.<\/span>/);
+});
+
 test('each writing system gets its fonts, and loads only the Google fonts it uses', () => {
   const o = full.outputs;
   for (const f of ['index.html', 'es/index.html', 'tr/index.html']) assert.match(o[f], /family=Bricolage\+Grotesque:opsz,wght@12\.\.96,400\.\.800&family=Instrument\+Sans/);
@@ -262,7 +294,7 @@ test('--check verifies the outputs, the lock and the share images', () => {
   writeFileSync(join(i18n, 'build.lock.json'), JSON.stringify(r.lock));
   const sha = b => createHash('sha256').update(b).digest('hex');
   const og = {};
-  for (const l of r.langs) { const png = Buffer.from('png ' + l.code); writeFileSync(join(out, ogFile(l)), png); og[l.file || 'en'] = { source: ogSource(r.outputs[`${l.dir}index.html`]), png: sha(png) }; }
+  for (const l of r.langs) { const png = Buffer.from('png ' + l.code); writeFileSync(join(out, ogFile(l)), png); og[ogKey(l)] = { source: ogSource(r.cards[ogKey(l)]), png: sha(png) }; }
   writeFileSync(join(i18n, 'og.lock.json'), JSON.stringify(og));
   const ck = () => check({ i18nDir: url(i18n), outDir: url(out) });
   assert.deepEqual(ck(), []);
@@ -281,11 +313,27 @@ test('--check verifies the outputs, the lock and the share images', () => {
   writeFileSync(join(i18n, 'build.lock.json'), JSON.stringify({ ...r.lock, source: 'x' }));
   assert.match(ck().join('\n'), /build\.lock\.json does not match the English source/);
   writeFileSync(join(i18n, 'build.lock.json'), JSON.stringify(r.lock));
-  // a share image edited, or showing an old hero
+  // a share image edited, or rendered from another card
   writeFileSync(join(out, 'og-es.png'), 'other');
   assert.match(ck().join('\n'), /og-es\.png changed since tools\/og\.cjs rendered it/);
+  writeFileSync(join(out, 'og-es.png'), 'png es');
   writeFileSync(join(i18n, 'og.lock.json'), JSON.stringify({ ...og, ko: { ...og.ko, source: 'old' } }));
-  assert.match(ck().join('\n'), /og-ko\.png shows an old hero/);
+  assert.match(ck().join('\n'), /og-ko\.png shows an old card/);
+  writeFileSync(join(i18n, 'og.lock.json'), JSON.stringify(og));
+  assert.deepEqual(ck(), []);
+  // a new triad line: the pages are rebuilt (build.lock.json too) but the image was not re-rendered, so only the
+  // share image of that language is stale
+  const kicker = byEn('GenSwarms runs the organization.').id, es = JSON.parse(readFileSync(join(i18n, 'es.json'), 'utf8'));
+  es[kicker] = 'GenSwarms dirige la organización.';
+  writeFileSync(join(i18n, 'es.json'), JSON.stringify(es));
+  const r2 = build({ i18nDir: url(i18n), outDir: url(out) });
+  assert.deepEqual(r2.errors, []);
+  for (const [f, v] of Object.entries(r2.outputs)) writeFileSync(join(out, f), v);
+  writeFileSync(join(i18n, 'build.lock.json'), JSON.stringify(r2.lock));
+  assert.ok(r2.cards.es.includes('<li>GenSwarms dirige la organización.</li>'));
+  assert.deepEqual(ck(), ['website/og-es.png shows an old card (or was never rendered): run `node website/tools/og.cjs`']);
+  // and so does a change to the card template alone (here: its CSS), with every page unchanged
+  assert.notEqual(ogSource(r2.cards.en.replace('.og-k li:last-child{color:var(--clay)}', '.og-k li:last-child{color:var(--ink)}')), r2.lock.og.en.source);
   rmSync(d, { recursive: true, force: true });
 });
 test('the committed site passes --check', () => {

@@ -9,10 +9,10 @@ const here = new URL('.', import.meta.url);
 // descendant selector); JS loses comment-only lines and indentation but keeps its line breaks
 // (no ASI hazards); markup loses indentation after line breaks (a newline run is still one
 // space to the HTML parser, so inline text keeps its spacing).
-const minCSS = c => c.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ').replace(/\s*([{};,])\s*/g, '$1').replace(/;}/g, '}').trim();
+export const minCSS = c => c.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ').replace(/\s*([{};,])\s*/g, '$1').replace(/;}/g, '}').trim();
 const minJS = j => j.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('//')).join('\n');
 const minHTML = h => h.replace(/\n\s+/g, '\n');
-const css = minCSS(readFileSync(new URL('page.css', here), 'utf8'));
+export const css = minCSS(readFileSync(new URL('page.css', here), 'utf8'));
 const js = minJS(readFileSync(new URL('story.js', here), 'utf8'));
 // only on multilingual builds: the language picker, the footer's language links and the suggestion bar
 const i18nCSS = minCSS(readFileSync(new URL('i18n.css', here), 'utf8'));
@@ -23,7 +23,7 @@ const langbarJS = minJS(readFileSync(new URL('langbar.js', here), 'utf8'));
 // in good system faces and load only what they still use (JetBrains Mono for code and identifiers, and the Latin
 // wordmark "GenSwarms" in Bricolage, fetched for those nine letters only). CJK pages do not load Instrument Sans for
 // Latin runs: the system CJK faces carry matching Latin glyphs, and mixing faces inside one sentence reads worse.
-const FONTS_ALL = 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap';
+export const FONTS_ALL = 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap';
 const FONTS_SYS = ['https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap',
   'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&text=GenSwarms&display=swap'];
 const WORDMARK = `.brand,.sys .tb.bandl{font-family:'Bricolage Grotesque',ui-sans-serif,system-ui,sans-serif}`;
@@ -45,7 +45,7 @@ const CJK_CSS = `${TITLES}{letter-spacing:0}h1{line-height:1.12}.step h2,.close 
 // the comparison table: words stay whole (hyphenating split "agen-te", "Lang-Smith", "Gen-Swarms"); at 1000-1279px the
 // table takes the band's full width (page.css), so its columns are wide enough. A word longer than its column still breaks
 const TABLE = `.cmp th,.cmp td{overflow-wrap:break-word}`;
-const TYPE = {
+export const TYPE = {
   es: { fonts: [FONTS_ALL], css: TABLE },
   // the desktop hero is ~20% smaller in Russian so «Операционная» stays one word at 1000-1440px
   ru: { fonts: FONTS_SYS, css: `:root{--fd:${SYS.ru};--ft:${SYS.ru}}${WORDMARK}${LONG}${TABLE}@media (min-width:1000px){h1,.cine h1{font-size:4.3vw}}` },
@@ -70,7 +70,7 @@ const note = () => t('illustration', 'small caption under figures 5-8, which sho
 // page and translate with it
 const headline = c => c.match(/<h[12]>([\s\S]*?)<\/h[12]>/)[1].replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
 
-const mark = (cls = '') => `<svg class="mark ${cls}" viewBox="0 0 26 26" aria-hidden="true"><g stroke="currentColor" stroke-width="1.3"><line x1="6" y1="6" x2="20" y2="9"/><line x1="6" y1="6" x2="9" y2="20"/><line x1="20" y1="9" x2="20" y2="20"/><line x1="9" y1="20" x2="20" y2="20"/><line x1="6" y1="6" x2="20" y2="20"/></g><g fill="currentColor"><circle cx="6" cy="6" r="2.6"/><circle cx="20" cy="9" r="2.6"/><circle cx="9" cy="20" r="2.6"/><circle cx="20" cy="20" r="2.6"/></g></svg>`;
+export const mark = (cls = '') => `<svg class="mark ${cls}" viewBox="0 0 26 26" aria-hidden="true"><g stroke="currentColor" stroke-width="1.3"><line x1="6" y1="6" x2="20" y2="9"/><line x1="6" y1="6" x2="9" y2="20"/><line x1="20" y1="9" x2="20" y2="20"/><line x1="9" y1="20" x2="20" y2="20"/><line x1="6" y1="6" x2="20" y2="20"/></g><g fill="currentColor"><circle cx="6" cy="6" r="2.6"/><circle cx="20" cy="9" r="2.6"/><circle cx="9" cy="20" r="2.6"/><circle cx="20" cy="20" r="2.6"/></g></svg>`;
 
 // The header on a multilingual page carries the language picker too. Translated link names differ in length, so the
 // breakpoints where the section links, and then "Docs", leave the header are computed from their estimated widths
@@ -132,6 +132,7 @@ export function renderPage({ lang: code = 'en', langs = null, bar = null, ogImag
 <meta property="og:title" content="${escAttr(title)}">
 <meta property="og:description" content="${escAttr(ogDesc)}">
 <meta property="og:url" content="${url}"><meta property="og:image" content="${ORIGIN}${ogImage}">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="${escAttr(title)}">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/favicon-32.png" sizes="32x32"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>

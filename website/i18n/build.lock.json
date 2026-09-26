@@ -1,6 +1,6 @@
 {
  "_about": "Written by `node website/build.mjs` after a successful build; `--check` (CI, deploy) refuses when the English source, a translation or a built file no longer matches it.",
- "source": "6e9fbd8ef331bdbe7e9537beab0e49ab99ec2a248c955b8c25e3ba275c0c3db1",
+ "source": "79a510fe7a3c297edf784ff367097f0ce882cc78517649ab82b20d525074e6c4",
  "i18n": {
   "en.json": "008aba17942dc62dd028be23f7d10decd6bcfa45c7c0b5562ad125c7a9b7f167",
   "es.json": "d6f8fb5e40b2b648e84d26797695e4980c06bc93fccd1431e47f78d132f1fa63",
@@ -10,12 +10,12 @@
   "tr.json": "77ee2eed0207e2d90957107d89b32e8b9227d58a4333476f9cc755819f67c730"
  },
  "outputs": {
-  "index.html": "be3e94b51477f30b3110655a9e353061d078ef4207f0b0ef1b0d35ab41e318b3",
-  "es/index.html": "67ca2f668b815eae1ed326789a0542691086ae2165f8ff0ef9c290cb95afaafd",
-  "ko/index.html": "2d57f22910dca4fab4b68eede584f7c2e2e134409cd03637bceb06faca1788b1",
-  "zh/index.html": "cc08b73153b9ffba967725934d6d867cb00dbbb30820615184a25472b8eeda7a",
-  "ru/index.html": "a608ed6c3d263010fe2301268e32d4aecab2945502a2e0f2957046ea8f0e71ad",
-  "tr/index.html": "8adcb45f344588a1759fd4fc5c1c2f7165bafeae362b5840b828adcbcfac32ef",
+  "index.html": "2c0d5ee153b9a44ff91b4884900444b7d770621b85c21eb54a21114f1bbe6d5f",
+  "es/index.html": "207323a0ee690127cde9aaffe26a8d138a80792e97ebb98b54a94855e411c402",
+  "ko/index.html": "a7f32ccf98519c55f7d64870e2ba8f21b0010c0ed173e63132d9dc8c2f6d2509",
+  "zh/index.html": "06c0c7c4b9616b694e3fdbd2a31a17ef663c99b1ad24fc979d06604f4f8a4911",
+  "ru/index.html": "465f1ddfc78985fb47d9a7ab530fa8f812035e847598a3b97ade3256c801920e",
+  "tr/index.html": "18a8b3885e11b2e6020994925fb3381fa7ecf4d72c650011c0ac807a584513d2",
   "404.html": "40bce6c072a672f2f4a53271801bd1d30ebbb5e0ba1c797021ce108e09b38955",
   "sitemap.xml": "ecd4ede796950117845859991119a783998b0445583268ec97575e0a0ef75b38",
   "llms.txt": "001fad65364fef111475b284facd760455f0ae2b9d0fcc1a56b11d9a7dc60e6c"
@@ -31,27 +31,27 @@
  "og": {
   "en": {
    "image": "og-image.png",
-   "source": "747f878e51d4925d392a1b0ec3a629795e31e65b25b85885fc269502ef8dcc0c"
+   "source": "bfac690c69d4bb2197cdd77366fa73d44105805baf6e20959aa179907bc36f2c"
   },
   "es": {
    "image": "og-es.png",
-   "source": "f2b11889a89f2f73b4bba7644f38e61da6664eeb73c4c5bb532ed3f19ab8f813"
+   "source": "15fc6862bfe808d590ae1ca1ec39b03062555c713ac3141095f3a33a4358b43f"
   },
   "ko": {
    "image": "og-ko.png",
-   "source": "90ed2a4171a05703994550d9ae58ff0b3bc7fe788734a6f01605c1023557a56c"
+   "source": "2314ae51f64801970ad140123e3c6c7d3c3a3767dc4f674307b394ea428fa93b"
   },
   "zh": {
    "image": "og-zh.png",
-   "source": "d749f9ea40616d35ccab044542bb14f7adcacb04300d2a9ab7dbbf57f7317887"
+   "source": "d0b60c5468cc31837802a0bd8293a04c584c14e2599bd7c58959325cfa638ae9"
   },
   "ru": {
    "image": "og-ru.png",
-   "source": "874aebc991b264fd655943b944a2d57485c7e30434474d5ada10bc9499b9c250"
+   "source": "78f9a17a730589f5073ca4270c16bf5a35fa5ec5e0c3917252c3ce9f661f9e80"
   },
   "tr": {
    "image": "og-tr.png",
-   "source": "f287c4f34e2bc0bd78fb51342b85bc24aec7ff755ab2841df964beeb920e6c4e"
+   "source": "bfc1f154e94e7f904aa46652081a37cca13ab8bd625fcc3f757db43ea8278522"
   }
  }
 }

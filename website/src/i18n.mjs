@@ -173,7 +173,7 @@ export function textRuns(html) {
   if (ld) add(JSON.parse(ld[1]).description);
   const body = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, '');
   for (const m of body.matchAll(/<(title)>([\s\S]*?)<\/title>/g)) add(m[2]);
-  for (const m of body.matchAll(/<meta (?:name|property)="(description|og:title|og:description|twitter:title|twitter:description)" content="([^"]*)"/g)) add(m[2]);
+  for (const m of body.matchAll(/<meta (?:name|property)="(description|og:title|og:description|og:image:alt|twitter:title|twitter:description)" content="([^"]*)"/g)) add(m[2]);
   const inBody = body.slice(body.indexOf('<body'));
   for (const m of inBody.matchAll(/>([^<]+)</g)) add(m[1]);
   for (const m of inBody.matchAll(new RegExp(`\\s(?:${RUN_ATTRS.join('|')})="([^"]*)"`, 'g'))) add(m[1]);

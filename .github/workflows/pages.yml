@@ -32,7 +32,7 @@ jobs:
           node-version: "22"
 
       # Every language version must be built from the current English source and translations, with share
-      # images rendered from the current headlines (website/i18n/build.lock.json, og.lock.json). On a mismatch
+      # images rendered from the current share cards (website/i18n/build.lock.json, og.lock.json). On a mismatch
       # the job stops here and the last good version stays live.
       - name: Landing page and its translations are built from their sources and pass their tests
         run: |

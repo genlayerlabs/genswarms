@@ -8,6 +8,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { LANGS, ORIGIN, PROTECT, withLang, t, validate, staleIds, textRuns, decode } from './i18n.mjs';
 import { renderPage } from './page.mjs';
+import { renderOgCard } from './card.mjs';
 import { render404, strings404 } from './notfound.mjs';
 
 export const WEB = new URL('../', import.meta.url);             // website/
@@ -46,6 +47,7 @@ export function catalogue() {
   const rec = new Map();
   withLang({ rec }, () => {
     renderPage({ langs: LANGS, bar: {} });
+    renderOgCard();
     strings404();
     barStrings();
   });
@@ -53,11 +55,11 @@ export function catalogue() {
 }
 export const catalogueFile = entries => JSON.stringify({ _about: ABOUT, _protect: PROTECT, _languages: Object.fromEntries(LANGS.slice(1).map(l => [l.file, `${l.name} (${l.code}): website/${l.dir}`])), entries }, null, 1) + '\n';
 
-const ogKey = l => l.file || 'en';
+export const ogKey = l => l.file || 'en';
 export const ogFile = l => (l.file ? `og-${l.file}.png` : 'og-image.png');
-// what a share image shows: the hero (headline, lead, buttons and its drawing), hashed. tools/og.cjs records the
-// same hash for each image it renders, so a changed headline makes its image stale.
-export const ogSource = html => sha(html.match(/<article class="step step-hero" id="s0"[\s\S]*?<\/article>/)[0]);
+// what a share image shows: its card's HTML (src/card.mjs), hashed. tools/og.cjs renders that HTML and records the
+// same hash for the image, so a changed headline, triad, drawing or card template makes the image stale.
+export const ogSource = card => sha(card);
 
 const segments = html => html.split(/<[^>]+>/).map(s => decode(s).replace(/\s+/g, ' ').trim()).filter(Boolean);
 
@@ -76,7 +78,8 @@ function llms(src, langs) {
   return base.replace(/^(Current version: .*\n)/m, `$1${line}`);
 }
 
-// build({ i18nDir, outDir }) -> { outputs: { 'es/index.html': string | null (delete) , … }, lock, langs, errors, notes }
+// build({ i18nDir, outDir }) -> { outputs: { 'es/index.html': string | null (delete) , … }, lock, langs, errors, notes,
+//   pages, cards: { en|es|…: the share card's HTML } }
 // today: the date a page whose output changed gets as its sitemap lastmod (tests pass a fixed one)
 export function build({ i18nDir, outDir, today = new Date().toISOString().slice(0, 10) } = defaults()) {
   const errors = [], notes = [];
@@ -106,10 +109,11 @@ export function build({ i18nDir, outDir, today = new Date().toISOString().slice(
   // 3. render every version
   const tableOf = l => (l.code === 'en' ? null : tables[l.code]);
   const bar = Object.fromEntries(langs.map(l => [l.code, { ...withLang({ lang: l.code, table: tableOf(l) }, barStrings), href: '/' + l.dir }]));
-  const outputs = {}, pages = {};
+  const outputs = {}, pages = {}, cards = {};
   for (const l of langs) {
     const html = withLang({ lang: l.code, table: tableOf(l) }, () => renderPage({ lang: l.code, langs, bar, ogImage: ogFile(l) }));
     pages[l.code] = html;
+    cards[ogKey(l)] = withLang({ lang: l.code, table: tableOf(l) }, () => renderOgCard({ lang: l.code }));
     outputs[`${l.dir}index.html`] = html;
     if (Buffer.byteLength(html) >= MAX_BYTES) errors.push(`${l.code}: ${l.dir}index.html is ${Buffer.byteLength(html)} bytes, over the ${MAX_BYTES}-byte budget`);
   }
@@ -147,13 +151,13 @@ export function build({ i18nDir, outDir, today = new Date().toISOString().slice(
     i18n: files,
     outputs: Object.fromEntries(Object.entries(outputs).filter(([, v]) => v !== null).map(([k, v]) => [k, sha(v)])),
     lastmod,
-    og: Object.fromEntries(langs.map(l => [ogKey(l), { image: ogFile(l), source: ogSource(pages[l.code]) }])),
+    og: Object.fromEntries(langs.map(l => [ogKey(l), { image: ogFile(l), source: ogSource(cards[ogKey(l)]) }])),
   };
-  return { outputs, lock, langs, errors, notes, pages };
+  return { outputs, lock, langs, errors, notes, pages, cards };
 }
 
 // check: the committed outputs and the lock are what the current sources build, and every share image was
-// rendered from its page's current hero and not edited since (i18n/og.lock.json, written by tools/og.cjs)
+// rendered from its current card (src/card.mjs) and not edited since (i18n/og.lock.json, written by tools/og.cjs)
 export function check({ i18nDir, outDir } = defaults()) {
   const r = build({ i18nDir, outDir });
   if (r.errors.length) return r.errors;
@@ -176,7 +180,7 @@ export function check({ i18nDir, outDir } = defaults()) {
   const ogl = og ? JSON.parse(og) : {};
   for (const [k, { image, source }] of Object.entries(r.lock.og)) {
     const png = read(new URL(image, outDir)), got = ogl[k] || {};
-    if (got.source !== source) bad.push(`website/${image} shows an old hero (or was never rendered): run \`node website/tools/og.cjs\` with the site served`);
+    if (got.source !== source) bad.push(`website/${image} shows an old card (or was never rendered): run \`node website/tools/og.cjs\``);
     else if (!png || sha(png) !== got.png) bad.push(`website/${image} changed since tools/og.cjs rendered it`);
   }
   return bad;
