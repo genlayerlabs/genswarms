@@ -183,7 +183,9 @@
         a = key === 'tg' ? vis(V.tg, q) : j > 3 ? vis(V.objs, q) : 1;
         if (a < 0.01) continue;
         var L = SUP.labels[key]; g.globalAlpha = nA * a;
-        lab(g, st, SUP.names[key], LX(L[0]), LY(L[1]) + 4, L[2] === 'end' ? 'right' : 'left', F.w125, C.ink, true, 'name');
+        // (browser and budget make room for their package seal, top right of the square)
+        var shift = kA > 0.01 && (key === 'browser' || key === 'budget') ? kA * 8 : 0;
+        lab(g, st, SUP.names[key], LX(L[0]) + shift, LY(L[1]) + 4, L[2] === 'end' ? 'right' : 'left', F.w125, C.ink, true, 'name');
       }
     }
     var mA = vis(V.calls, q);

@@ -248,8 +248,11 @@ test('head metadata', () => {
   assert.equal(ld.softwareVersion, '0.2.0');
   assert.doesNotMatch(html, /FAQPage/);
   // Geist and Geist Mono only, swapped in, with preconnect
-  const fonts = [...html.matchAll(/<link href="(https:\/\/fonts\.googleapis\.com[^"]+)"/g)].map(m => m[1]);
-  assert.deepEqual(fonts, ['https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400..600&family=Geist:wght@400..600&display=swap']);
+  const F = 'https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400..600&family=Geist:wght@400..600&display=swap';
+  assert.deepEqual([...html.matchAll(/<link href="(https:\/\/fonts\.googleapis\.com[^"]+)"/g)].map(m => m[1]), [F, F]);
+  // loaded without blocking the first paint, and the usual way without JavaScript
+  assert.ok(html.includes(`<link href="${F}" rel="stylesheet" media="print" onload="this.media='all'">\n<noscript><link href="${F}" rel="stylesheet"></noscript>`));
+  assert.match(src('zoom-run.js'), /D\.fonts\.addEventListener\('loadingdone', onResize\)/);
   assert.match(html, /<link rel="preconnect" href="https:\/\/fonts\.gstatic\.com" crossorigin>/);
   // landmarks and the skip link
   for (const re of [/<a class="skip" href="#main">Skip to content<\/a>/, /<header class="top">/, /<nav aria-label="Primary">/, /<main id="main">/, /<footer class="foot">/, /<nav aria-label="Footer">/]) assert.match(html, re);

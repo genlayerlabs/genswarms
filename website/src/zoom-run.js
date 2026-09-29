@@ -134,7 +134,7 @@
   // the labels of the support team that stick out of its camera frames, per keyframe (local coordinates)
   function labelItems(k, narrow) {
     var F = st.F, out = [], L = SUP.labels, T = SUP.T, key, w;
-    function nm(key) { var a = L[key]; w = width(F.w125, SUP.names[key]) + 6; out.push(a[2] === 'end' ? [a[0], a[1], w, 0, 14, 6] : [a[0], a[1], 0, w, 14, 6]); }
+    function nm(key) { var a = L[key]; w = width(F.w125, SUP.names[key]) + 6 + (k === 8 && (key === 'browser' || key === 'budget') ? 8 : 0); out.push(a[2] === 'end' ? [a[0], a[1], w, 0, 14, 6] : [a[0], a[1], 0, w, 14, 6]); }
     if (k >= 6 && k <= 9) { nm('triage'); nm('answer'); nm('research'); nm('tg'); }
     if (k >= 7 && k <= 9) { nm('cron'); nm('browser'); nm('budget'); }
     if (k === 6) { w = width(F.w12, S.dropped) / 2 + 4; out.push([SUP.dropLine[4], SUP.dropLine[5], w, w, 10, 32]); }
@@ -172,6 +172,8 @@
     var T = SUP.T;
     // camera for each keyframe
     var ob = W.box, padO = 60, ox = W.sx, oy = W.sy, narrow = vw < 600;
+    // the document (K9) fills the frame on narrow or short stages, where the whole team would set it too small to read
+    var docFocus = narrow || safe[9][3] < 520;
     cams[0] = fitL([ob[0] - padO, ob[1] - padO, ob[2] + padO, ob[3] + padO], safe[0], []);
     s0 = cams[0].s;
     // the control layer over the whole organization (drawn at K10)
@@ -187,21 +189,21 @@
         var ap = T.answer, sf = safe[k], s = Math.min(sf[2], sf[3]) * (narrow ? 0.37 : 0.31) / A;
         cams[k] = { ux: ap[0] + ox, uy: ap[1] + oy + 1.2, s: s, sf: sf };
       } else {
-        if (k === 9 && narrow) c = [280, 500, 790, 990];
+        if (k === 9 && docFocus) c = [280, 500, 790, 990];
         // phones: the team's frames are horizontally just the drawing (its labels are fitted as items)
         else if (narrow && SUP.camX[k]) c = [SUP.camX[k][0], c[1], SUP.camX[k][1], c[3]];
-        var items = (k === 9 && narrow ? [] : labelItems(k, narrow)).map(function (it) { return [it[0] + ox, it[1] + oy, it[2], it[3], it[4], it[5]]; });
+        var items = (k === 9 && docFocus ? [] : labelItems(k, narrow)).map(function (it) { return [it[0] + ox, it[1] + oy, it[2], it[3], it[4], it[5]]; });
         cams[k] = fitL([c[0] + ox, c[1] + oy, c[2] + ox, c[3] + oy], safe[k], items, narrow && k !== 9 ? 30 : 0);
       }
     }
     cams[10] = fitL([W.ctl.x1 - 40, W.ctl.y - 40, ob[2] + padO, ob[3] + padO], safe[10], []);
     // the database note under the cylinder, wrapped to the room left of the document (wide stages only)
     var s9 = cams[9].s, room = Math.min(220, (SUP.doc.x - SUP.db[0] - 26) * 2 * s9);
-    st.doc.dbLines = !narrow && room > 60 ? wrap(ZS.restores, room, st.F.f115) : [];
+    st.doc.dbLines = !docFocus && room > 60 ? wrap(ZS.restores, room, st.F.f115) : [];
     paths = [];
     for (k = 0; k < 10; k++) paths.push(zpath([cams[k].ux, cams[k].uy, 1000 / cams[k].s], [cams[k + 1].ux, cams[k + 1].uy, 1000 / cams[k + 1].s]));
     // scroll anchors: where the reading line must be for each keyframe
-    var y0 = scrollY, rl = readLine(), copy = function (i) { var c = steps[i].querySelector('.copy'), b = c.getBoundingClientRect(); return [b.top + y0, b.height]; };
+    var y0 = scrollY, rl = readLine(0), copy = function (i) { var c = steps[i].querySelector('.copy'), b = c.getBoundingClientRect(); return [b.top + y0, b.height]; };
     anchors = [rl];
     var c1 = copy(1), vhh = vhStable;
     if (cine) { anchors[2] = c1[0] + c1[1] * 0.5 - vhh * 0.2; anchors[3] = c1[0] + c1[1] * 0.5 + vhh * 0.24; }
@@ -212,9 +214,10 @@
     kShown = -1; capKey = -1;
     render(performance.now() / 1000);
   }
-  // the reading line: the middle of the screen beside the pinned stage; on phones, just under the stage
-  function readLine() {
-    var y = scrollY;
+  // the reading line (at scroll position y): the middle of the screen beside the pinned stage; on phones, just under
+  // the stage
+  function readLine(y) {
+    if (y == null) y = scrollY;
     if (cine) return y + navH + (vhStable - navH) * 0.5;
     var sb = Math.max(colTop - y, navH) + colH;
     return y + sb + (vhStable - sb) * 0.2;
@@ -358,6 +361,8 @@
   q = target(); if (rm) q = Math.round(q);
   kick();
   if (D.fonts && D.fonts.ready) D.fonts.ready.then(function () { layout(); kick(); });
+  // the fonts arrive after the first paint: measure and draw the labels again in them
+  if (D.fonts && D.fonts.addEventListener) D.fonts.addEventListener('loadingdone', onResize);
   addEventListener('load', function () { layout(); kick(); });
 
   // for the browser checks (tests/browser): the scroll position of a keyframe, and a composed still of any keyframe

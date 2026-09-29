@@ -36,7 +36,7 @@
   Z.fonts = function (fam) {
     var F = { px: {} };
     function mk(key, w, px) { F[key] = w + ' ' + px + 'px ' + fam; F.px[F[key]] = px; }
-    mk('f11', 400, 11); mk('f115', 400, 11.5); mk('f12', 400, 12); mk('w115', 600, 11.5); mk('w12', 500, 12); mk('w125', 500, 12.5); mk('w13', 600, 13);
+    mk('f11', 400, 12); mk('f115', 400, 12); mk('f12', 400, 12); mk('w115', 600, 12); mk('w12', 500, 12); mk('w125', 500, 12.5); mk('w13', 600, 13);
     // the document's text is set at the camera's scale: font strings are made once per size step and reused
     var memo = {};
     F.doc = function (wt) { return function (px) { var k = wt + ':' + Math.round(px * 4); return memo[k] || (memo[k] = wt + ' ' + (Math.round(px * 4) / 4) + 'px ' + fam); }; };
@@ -46,16 +46,18 @@
 
   // ---------- labels: measured (any script), kept inside the canvas, recorded for the layout audit ----------
   // lab(g, st, text, x, y, align, font, colour, bg): draws one line; bg paints the page colour behind it so it reads
-  // over lines. Returns the drawn width. x is clamped so the box never leaves the canvas.
+  // over lines. Returns its width. x is clamped so the box never leaves the canvas sideways.
   var PAD = 4;
   function lab(g, st, s, x, y, align, font, col, bg, kind) {
     if (g.font !== font) g.font = font;
     var w = g.measureText(s).width, x0 = align === 'right' ? x - w : align === 'center' ? x - w / 2 : x;
     if (x0 < PAD) x0 = PAD; else if (x0 + w > st.vw - PAD) x0 = st.vw - PAD - w;
     var fs = st.F.px[font] || 12, top = y - fs * 0.8, bot = y + fs * 0.25;
+    // a label that would be cut by the top or bottom edge is left out (it is only ever there in passing)
+    if (top < 1 || bot > st.vh - 1) return w;
     if (bg) { var a = g.globalAlpha; g.fillStyle = st.C.bg; g.fillRect(x0 - 3, top - 2, w + 6, bot - top + 4); g.globalAlpha = a; }
     g.fillStyle = col; g.textAlign = 'left'; g.fillText(s, x0, y);
-    if (st.audit && g.globalAlpha > 0.5) st.audit.push({ k: kind || 'label', s: s, x0: x0, y0: top, x1: x0 + w, y1: bot });
+    if (st.audit && g.globalAlpha > 0.5) st.audit.push({ k: kind || 'label', s: s, x0: x0, y0: top, x1: x0 + w, y1: bot, px: fs, c: col });
     return w;
   }
   Z.lab = lab;

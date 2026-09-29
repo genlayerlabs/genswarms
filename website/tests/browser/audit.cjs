@@ -23,24 +23,17 @@ const SIZES = [[320,720],[360,780],[375,812],[390,844],[414,896],[480,900],[600,
         if (de.scrollWidth > innerWidth) o.push(`overflow ${de.scrollWidth}`);
         const fig = document.querySelector('.cine .stage');
         if (fig) { const f = fig.getBoundingClientRect();
-          // the stage box itself is fixed at 100vh by CSS and can never overflow the viewport;
-          // measure what the reader actually sees instead — the rendered live figure (and its
-          // caption, part of the same pinned block) — but only while `.stage` is actually
-          // pinned (sticky top:0). Near the top and bottom of the story column `.stage` is in
-          // its normal (unstuck) flow position and legitimately scrolls off-screen with the
-          // rest of the page; that's not an overflow bug.
-          const pinned = Math.abs(f.top) < 2;
-          const liveSvg = document.querySelector('.cine .sys.live');
-          if (pinned && liveSvg) {
-            const s = liveSvg.getBoundingClientRect();
-            const cap = document.querySelector('.cine .stage-cap');
-            const capBottom = cap && cap.offsetParent ? cap.getBoundingClientRect().bottom : s.bottom;
-            if (s.top < -1 || Math.max(s.bottom, capBottom) > innerHeight + 1) o.push('pinned figure taller than viewport');
-          }
+          // the pinned stage (sticky under the header) always fits the screen; measure it only while it is pinned:
+          // near the top and bottom of the story it scrolls with the page, as it should
+          const nav = document.querySelector('.top').getBoundingClientRect().bottom;
+          const pinned = Math.abs(f.top - nav) < 2;
+          if (pinned && (f.bottom > innerHeight + 1)) o.push('pinned stage taller than the screen');
           for (const t of document.querySelectorAll('.step .copy')) { const b = t.getBoundingClientRect();
-            if (b.bottom > 0 && b.top < innerHeight && b.left < f.right && f.left < b.right && b.top < f.bottom && f.top < b.bottom) o.push('step text under figure'); } }
+            if (b.bottom > 0 && b.top < innerHeight && b.right > f.left + 1 && b.top < f.bottom && f.top < b.bottom) o.push('step text under the stage'); } }
         const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-        for (let n; (n = tw.nextNode());) { const e = n.parentElement; if (!n.textContent.trim() || !e.offsetParent || e.closest('svg,.skip')) continue;
+        for (let n; (n = tw.nextNode());) { const e = n.parentElement; if (!n.textContent.trim() || !e.offsetParent || e.closest('svg,.skip,.sr')) continue;
+          // (text inside a screen-reader-only box, such as the pinned layout's readout copies, is not shown)
+          if ((x => { for (; x; x = x.parentElement) if (x.getBoundingClientRect().width <= 1) return true; return false; })(e)) continue;
           if (parseFloat(getComputedStyle(e).fontSize) < 12) o.push('text < 12px: ' + n.textContent.trim().slice(0, 20)); }
         if (phone) for (const a of document.querySelectorAll('a,button')) { if (!a.offsetParent || a.classList.contains('skip')) continue;
           // only inline links inside running text or prose lists are exempt (not primary tap

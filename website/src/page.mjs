@@ -40,11 +40,12 @@ const SYS = {
 const cjkVars = sys => `:root{--fs:${sys};--fh:${sys};--fm:'Geist Mono',${sys.replace(/,sans-serif$/, '')},ui-monospace,monospace;--fc:'Geist Mono',${sys.replace(/,sans-serif$/, '')},monospace}`;
 // titles: every display-type element on the page
 const TITLES = 'h1,h2,h3,.triad span,.spec dt,.cmp tbody th';
-// long words (Russian, Turkish): hyphenate titles and set the phone's display sizes a step smaller. The comparison's
+// long words (Russian, Turkish): hyphenate titles and set the phone's and the pinned hero's display sizes a step smaller. The comparison's
 // heading, row questions and column heads are not hyphenated (brand names broke: "Lang-Graph", "Auto-Gen'den")
 const LONG = `h1,h2,h3,.triad span,.spec dt{hyphens:auto;-webkit-hyphens:auto;overflow-wrap:break-word}
 #cmp-h{hyphens:manual;-webkit-hyphens:manual}
-@media (max-width:759px){h1{font-size:clamp(30px,8.6vw,64px)}.step h2{font-size:clamp(25px,6.6vw,40px)}.sec-head h2{font-size:clamp(26px,6.2vw,40px)}}`;
+@media (max-width:759px){h1{font-size:clamp(30px,8.6vw,64px)}.step h2{font-size:clamp(25px,6.6vw,40px)}.sec-head h2{font-size:clamp(26px,6.2vw,40px)}}
+@media (min-height:640px){.cine h1{font-size:clamp(34px,min(3.7vw,7.4vh),54px)}}`;
 // CJK: no negative tracking on titles, taller title lines
 const CJK_CSS = `${TITLES}{letter-spacing:0}h1{line-height:1.14}.step h2,.close h2,.sec-head h2{line-height:1.2}.triad span{line-height:1.4}`;
 // the comparison table: words stay whole (hyphenating split "agen-te", "Lang-Smith", "Gen-Swarms"); a word longer
@@ -100,6 +101,8 @@ function navCSS(labels) {
     (some > 320 ? `@media (max-width:${some - 1}px){.top nav>a[href="/docs/"]{display:none}}` : '');
 }
 
+// The fonts load without blocking the first paint (display=swap: the fallback face shows until they arrive; the
+// drawing measures its labels again once they have); without JavaScript, <noscript> loads them the usual way.
 const langLinks = (langs, code) => langs.map(l => `<a href="/${l.dir}" hreflang="${l.code}" lang="${l.code}"${l.code === code ? ' aria-current="page"' : ''}>${l.name}</a>`);
 const json = o => JSON.stringify(o).replace(/</g, '\\u003c');
 
@@ -180,7 +183,8 @@ export function renderPage({ lang: code = 'en', langs = null, bar = null, ogImag
 <script type="application/ld+json">${json(ld)}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-${type.fonts.map(h => `<link href="${h}" rel="stylesheet">`).join('\n')}
+${type.fonts.map(h => `<link href="${h}" rel="stylesheet" media="print" onload="this.media='all'">`).join('\n')}
+<noscript>${type.fonts.map(h => `<link href="${h}" rel="stylesheet">`).join('')}</noscript>
 <script>(function(){var d=document.documentElement;d.classList.add('js');if(matchMedia('${CINE}').matches)d.classList.add('cine')})()</script>
 <style>
 ${css}${multi ? '\n' + i18nCSS + navCSS([navHow, navCmp, navSec, docs]) : ''}${type.css ? '\n' + minCSS(type.css) : ''}

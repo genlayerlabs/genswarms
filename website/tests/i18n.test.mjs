@@ -197,7 +197,7 @@ test('each version has its own share card: the translated headline, the organiza
     // a card, not a page: no buttons, links or page chrome
     assert.doesNotMatch(c, /<a[\s>]|<button|class="btn|class="ctas|<nav|<header|<footer/, `${l.code} card has page chrome`);
     // the page's type for that writing system
-    assert.ok(c.includes(full.pages[l.code].match(/<link href="https:\/\/fonts[^>]+>/)[0]), `${l.code} fonts`);
+    assert.ok(c.includes(`<link href="${full.pages[l.code].match(/<link href="(https:\/\/fonts[^"]+)"/)[1]}" rel="stylesheet">`), `${l.code} fonts`);
     assert.ok(c.includes(`width:${CARD.w}px;height:${CARD.h}px`));
   }
   // a hyphenated compound (Russian «ИИ-персонала») stays whole on the card (a break after its hyphen reads as hyphenation)
@@ -207,13 +207,13 @@ test('each version has its own share card: the translated headline, the organiza
 
 test('each writing system gets its fonts, and loads only the Google fonts it uses', () => {
   const o = full.outputs;
-  const ALL = /<link href="https:\/\/fonts\.googleapis\.com\/css2\?family=Geist\+Mono:wght@400\.\.600&family=Geist:wght@400\.\.600&display=swap" rel="stylesheet">/;
+  const ALL = /<link href="https:\/\/fonts\.googleapis\.com\/css2\?family=Geist\+Mono:wght@400\.\.600&family=Geist:wght@400\.\.600&display=swap" rel="stylesheet" media="print"/;
   // Geist and Geist Mono cover Latin (Turkish too) and Cyrillic
   for (const f of ['index.html', 'es/index.html', 'tr/index.html', 'ru/index.html']) assert.match(o[f], ALL, f);
   // Korean and Chinese: Geist Mono only (the wordmark, identifiers, readouts, the drawing), the rest in system faces
   for (const f of ['ko/index.html', 'zh/index.html']) {
     assert.doesNotMatch(o[f], /family=Geist:/, f);
-    assert.match(o[f], /<link href="https:\/\/fonts\.googleapis\.com\/css2\?family=Geist\+Mono:wght@400\.\.600&display=swap" rel="stylesheet">/, f);
+    assert.match(o[f], /<link href="https:\/\/fonts\.googleapis\.com\/css2\?family=Geist\+Mono:wght@400\.\.600&display=swap" rel="stylesheet" media="print"/, f);
   }
   assert.match(o['ko/index.html'], /--fh:'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif/);
   assert.match(o['ko/index.html'], /--fc:'Geist Mono','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',monospace/);

@@ -10,9 +10,9 @@
 //
 // Per language and size: no sideways overflow; no brand name split across lines, no wrapped button label, no headline
 // or lead ending on a stranded scrap; pinned step text that fits the screen; header items inside the bar and not overlapping; the pinned figure
-// fits; step text never under the figure; no HTML text under 12px; 44px tap targets on phones; in every figure
-// (stills, and the pinned figure at each of its nine stages) no label overlapping another, running outside the
-// drawing or rendering under 12px; the picker marks the current language; no console errors or failed requests.
+// fits; step text never under the stage; no HTML text under 12px; 44px tap targets on phones; in the zoom drawing, at
+// each of its eleven keyframes, no label overlapping another or a node, leaving the canvas, sitting under the caption
+// or the readout, or rendering under 12px; the picker marks the current language; no console errors or failed requests.
 // The larger-font pass stays in audit.cjs (English only): with every language it would take too long.
 // Languages run three at a time (AUDIT_JOBS); AUDIT_LANGS=ru,ko limits the run to those versions.
 const { chromium } = require('playwright-core');
@@ -58,33 +58,9 @@ async function pseudoSite() {
   return { base: `http://127.0.0.1:${server.address().port}/`, close: () => { server.close(); fs.rmSync(tmp, { recursive: true, force: true }); } };
 }
 
-// runs in the page: label problems inside every visible system figure
-function figureProblems() {
-  const out = [];
-  const hidden = (e, svg) => { for (let x = e; x && x !== svg.parentNode; x = x.parentElement) { const cs = getComputedStyle(x); if (cs.opacity === '0' || cs.display === 'none' || cs.visibility === 'hidden') return true; } return false; };
-  document.querySelectorAll('svg.sys').forEach(svg => {
-    const sr = svg.getBoundingClientRect();
-    if (!sr.width || hidden(svg, svg)) return;
-    const name = `${svg.classList.contains('live') ? 'pinned figure' : 'figure ' + (+svg.getAttribute('data-s') + 1)} (${svg.classList.contains('P') ? 'phone' : 'desktop'} drawing, stage ${svg.getAttribute('data-s')})`;
-    const sc = svg.getScreenCTM().a;
-    const texts = [...svg.querySelectorAll('text')].filter(t => t.getClientRects().length && !hidden(t, svg)).map(t => ({ t, r: t.getBoundingClientRect(), s: t.textContent.trim() }));
-    for (const { t, r, s } of texts) {
-      // (the English design renders its phone figures at 11.5px on a 320px screen: the floor there is 11px, and 12px
-      // from 360px, where story.cjs holds English to 13px)
-      const px = parseFloat(getComputedStyle(t).fontSize) * sc;
-      if (px < (innerWidth < 360 ? 11 : 12)) out.push(`${name}: "${s}" renders at ${px.toFixed(1)}px`);
-      if (r.left < sr.left - 1 || r.right > sr.right + 1) out.push(`${name}: "${s}" runs outside the drawing`);
-      // a label's box includes the font's full ascent and descent: compare roughly where its glyphs are
-      if (!svg.classList.contains('live') && (r.top + r.height * 0.15 < sr.top - 1 || r.bottom - r.height * 0.25 > sr.bottom + 1)) out.push(`${name}: "${s}" is cut off by the crop`);
-    }
-    for (let i = 0; i < texts.length; i++) for (let j = i + 1; j < texts.length; j++) {
-      const a = texts[i].r, b = texts[j].r;
-      const ox = Math.min(a.right, b.right) - Math.max(a.left, b.left), oy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
-      if (ox > 1 && oy > 2) out.push(`${name}: "${texts[i].s}" overlaps "${texts[j].s}"`);
-    }
-  });
-  return out;
-}
+// runs in the page: the zoom drawing's labels at every keyframe (story.cjs): no overlaps, nothing outside the canvas or
+// under the caption and readout, nothing under 12px (11px under 360px), orange only for failure
+const { canvasProblems } = require('./story.cjs');
 
 // runs in the page: line breaks a reader notices (the responsive pass). A brand or product name split across two lines
 // (hyphenated or broken); a button whose label wraps; a headline or lead whose last line is a stranded scrap (one short
@@ -105,10 +81,12 @@ function typeProblems() {
       if (tops(r).size > 1) out.push(`"${m[0]}" is split across lines in <${e.tagName.toLowerCase()}> "${e.textContent.trim().slice(0, 30)}"`);
     }
   }
-  for (const b of document.querySelectorAll('.btn, .prompt button, .langbar a')) {
+  for (const b of document.querySelectorAll('.btn, .cmd button, .langbar a')) {
     if (!vis(b)) continue;
-    const r = document.createRange(); r.selectNodeContents(b);
-    if (tops(r).size > 1) out.push(`button label wraps: "${b.textContent.trim().slice(0, 30)}"`);
+    // (its text only: an icon beside the label is not a line of its own)
+    const ls = new Set(), w = document.createTreeWalker(b, NodeFilter.SHOW_TEXT);
+    for (let n; (n = w.nextNode());) if (n.textContent.trim()) { const r = document.createRange(); r.selectNodeContents(n); tops(r).forEach(x => ls.add(x)); }
+    if (ls.size > 1) out.push(`button label wraps: "${b.textContent.trim().slice(0, 30)}"`);
   }
   // the last line of a headline or lead: its characters, grouped by line
   const CJK = /[\u2e80-\u9fff\uac00-\ud7af\uf900-\ufaff]/;
@@ -184,6 +162,7 @@ function typeProblems() {
         const o = [];
         const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
         for (let n; (n = tw.nextNode());) { const e = n.parentElement; if (!n.textContent.trim() || !e.offsetParent || e.closest('svg,.skip,.sr')) continue;
+          if ((x => { for (; x; x = x.parentElement) if (x.getBoundingClientRect().width <= 1) return true; return false; })(e)) continue;
           if (parseFloat(getComputedStyle(e).fontSize) < 12) o.push('text < 12px: ' + n.textContent.trim().slice(0, 20)); }
         // (inline links inside running text or prose lists are exempt, as in audit.cjs; the picker's links are not)
         if (phone) for (const a of document.querySelectorAll('a,button,summary')) { if (!a.offsetParent || a.classList.contains('skip')) continue;
@@ -191,18 +170,23 @@ function typeProblems() {
           const r = a.getBoundingClientRect(); if (r.height < 44) o.push('tap target ' + Math.round(r.height) + 'px: ' + a.textContent.trim().slice(0, 20)); }
         return o;
       }, { phone })).forEach(m => problems.push(`${at}: ${m}`));
-      (await p.evaluate(figureProblems)).forEach(m => problems.push(`${at}: ${m}`));
       (await p.evaluate(typeProblems)).forEach(m => problems.push(`${at}: ${m}`));
-      // pinned: each step's text fits the screen (a reader never has to scroll past the pinned drawing to finish it), and
-      // the rail sits inside the screen, below the caption
+      // pinned: each step's text fits the screen beside the drawing (a reader never scrolls past the pinned stage to
+      // finish it), and the zoom caption and the readouts stay inside the stage
       if (await p.$('.cine .stage')) (await p.evaluate(() => {
-        const o = [], M = 8;
-        for (const c of document.querySelectorAll('.step .copy')) if (c.getBoundingClientRect().height > innerHeight - 2 * M) o.push(`pinned step text taller than the screen: "${c.textContent.trim().slice(0, 30)}"`);
-        const st = document.querySelector('.stage').getBoundingClientRect(), rail = document.querySelector('.rail').getBoundingClientRect(), cap = document.querySelector('.stage-cap').getBoundingClientRect();
-        if (rail.bottom - st.top > innerHeight + 1) o.push('pinned rail below the screen');
-        if (cap.height && cap.bottom > rail.top + 1) o.push('pinned caption overlaps the rail');
+        const o = [], M = 8, nav = document.querySelector('.top').offsetHeight;
+        // (the readouts that follow a step's text on short screens are not part of it: they continue below)
+        for (const c of document.querySelectorAll('.step:not(.hero) .copy')) if ([...c.children].filter(e => !e.classList.contains('ro-in')).reduce((h, e) => Math.max(h, e.getBoundingClientRect().bottom), 0) - c.getBoundingClientRect().top > innerHeight - nav - 2 * M) o.push(`pinned step text taller than the screen: "${c.textContent.trim().slice(0, 30)}"`);
+        const st = document.querySelector('.stage').getBoundingClientRect();
+        for (const e of [document.querySelector('.zcap'), ...document.querySelectorAll('.ros [data-at]')]) {
+          if (!e.offsetParent) continue;
+          const r = e.getBoundingClientRect();
+          if (r.width && (r.left < st.left - 1 || r.right > st.right + 1)) o.push(`${e.className} runs outside the stage`);
+        }
         return o;
       })).forEach(m => problems.push(`${at}: ${m}`));
+      // the drawing at every keyframe
+      (await p.evaluate(canvasProblems, w < 360 ? 11 : 12)).forEach(m => problems.push(`${at}: ${m}`));
       const H = await p.evaluate(() => document.documentElement.scrollHeight);
       for (let y = 0; y < H; y += h) {
         await p.evaluate(y => scrollTo(0, y), y); await p.waitForTimeout(80);
@@ -211,27 +195,14 @@ function typeProblems() {
           if (de.scrollWidth > innerWidth) o.push(`overflow ${de.scrollWidth}`);
           const fig = document.querySelector('.cine .stage');
           if (fig) {
-            const f = fig.getBoundingClientRect(), liveSvg = document.querySelector('.cine .sys.live');
-            if (Math.abs(f.top) < 2 && liveSvg) {
-              const s = liveSvg.getBoundingClientRect(), cap = document.querySelector('.cine .stage-cap');
-              const capBottom = cap && cap.offsetParent ? cap.getBoundingClientRect().bottom : s.bottom;
-              if (s.top < -1 || Math.max(s.bottom, capBottom) > innerHeight + 1) o.push('pinned figure taller than viewport');
-            }
+            const f = fig.getBoundingClientRect(), nav = document.querySelector('.top').getBoundingClientRect().bottom;
+            if (Math.abs(f.top - nav) < 2 && f.bottom > innerHeight + 1) o.push('pinned stage taller than the screen');
             for (const t of document.querySelectorAll('.step .copy')) { const b = t.getBoundingClientRect();
-              if (b.bottom > 0 && b.top < innerHeight && b.left < f.right && f.left < b.right && b.top < f.bottom && f.top < b.bottom) o.push('step text under figure'); }
+              if (b.bottom > 0 && b.top < innerHeight && b.right > f.left + 1 && b.top < f.bottom && f.top < b.bottom) o.push('step text under the stage'); }
           }
           return o;
         }, { phone });
         r.forEach(m => problems.push(`${at}: ${m}`));
-      }
-      // the pinned figure at every stage (transitions off, so each drawing is measured as it settles)
-      if (await p.$('.cine .sys.live')) {
-        await p.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important}' });
-        await p.evaluate(() => scrollTo(0, document.querySelector('.story').offsetTop + 50));
-        for (let k = 0; k <= 8; k++) {
-          await p.evaluate(k => document.querySelector('.sys.live').setAttribute('data-s', k), k);
-          (await p.evaluate(figureProblems)).forEach(m => problems.push(`${at}: ${m}`));
-        }
       }
       errs.forEach(m => problems.push(`${at}: ${m}`));
       await c.close();
