@@ -87,9 +87,9 @@ export const WORD = `genswarms<span class="cur" aria-hidden="true"></span>`;
 
 // The header on a multilingual page carries the language picker too. Translated link names differ in length, so the
 // breakpoints where the section links, and then "Docs", leave the header are computed from their estimated widths.
-// English keeps page.css's 719px. These numbers mirror page.css (measured in Chrome), keep them in step with it:
-// 112 = .brand (the wordmark at 600 19px Geist Mono and its cursor), 20 = .top-in's gap, 76 = the .gh link
-// ("GitHub", 500 13px Geist Mono, 12px padding, 1px border), 44 = the picker's summary (i18n.css), 14px = the links'
+// English keeps page.css's 719px. These numbers mirror page.css (measured in Chrome, rounded up), keep them in step:
+// 112 = .brand (106px: the wordmark at 600 19px Geist Mono and its cursor), 20 = .top-in's gap, 76 = the .gh link (72px:
+// "GitHub", 500 13px Geist Mono, 12px padding, 1px border), 44 = the picker's summary (i18n.css), 14px = the links'
 // size, g() = --g and gap() = .top nav's gap. i18n-audit.cjs catches drift (header items overlapping or leaving the screen).
 function navCSS(labels) {
   const g = W => Math.max(16, Math.min(48, 0.034 * W)), gap = W => Math.max(12, Math.min(30, 0.022 * W));
