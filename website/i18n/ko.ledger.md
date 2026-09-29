@@ -139,3 +139,56 @@ Translator's other doubts: the **meta description** noun fragment reads fine as 
 | 938739e1 (close) | 지금도 채팅 어시스턴트, …, 그리고 다른 스웜을 지켜보는 스웜에 쓰이고 있습니다. | 현재 채팅 어시스턴트, …, 다른 스웜을 지켜보는 스웜에 쓰이고 있습니다. | 지금도 means "still / even now", but "In use today" is neutral, so 현재 fits. The English-style "그리고" before the last item is dropped. |
 
 Checked after the changes: the temp-dir build is clean, and I re-read screenshots of every changed string at 1440×900 and 390×844.
+
+## Redesign pass (2026-09)
+
+The v4 "zoom" design replaces the SVG figures and the story rail with one canvas drawing, a zoom caption, readouts under the drawing, a legend and a hero facts row. 91 ids are new or changed; the 50 stale ids (old figures, their alt texts, the rail, the lowercase spec and list lines) are deleted. All earlier term decisions still hold; none was changed.
+
+### New terms
+
+| Concept | English | ko | Note |
+|---|---|---|---|
+| Zoom caption: scale | organization / team / agent | 조직 / 팀 / 에이전트 | One word each, as in the English. 조직 matches "AI 조직" (step 9) and "조직을 운영합니다"; 팀 matches 지원팀. |
+| Zoom caption: counts | {swarms} swarms · {agents} agents | 스웜 {swarms}개 · 에이전트 {agents}개 | Noun + number + counter, the natural Korean order. Numbers stay placeholders. |
+| The four OS jobs (bar + readout rows) | start · isolate · route · restart | 시작 · 격리 · 라우팅 · 재시작 | Same verbs as step 3's paragraph (시작하고, 격리하고, 라우팅하고, 재시작합니다), so bar, readout and prose read as one list. |
+| Process-tree callouts | supervisor / process / sandbox | 슈퍼바이저 / 프로세스 / 샌드박스 | Ledger terms. |
+| Crash states (canvas + event log) | crashed → restarted | 크래시됨 → 재시작됨 | ~됨 state form, like the existing 폐기됨 and 검증됨. |
+| Event-log rows | agent {n} / {n} others / running / restarted by its supervisor | 에이전트 {n} / 나머지 {n}개 / 실행 중 / 슈퍼바이저가 재시작 | 나머지 echoes step 4 ("나머지는 계속 일합니다"); "슈퍼바이저가 재시작" is the comparison cell's wording. |
+| Swarm document notes | seed / log of changes / {n} declared / never logged | 시드 / 변경 로그 / {n}개 선언됨 / 기록되지 않음 | Ledger terms (변경 로그, 기록되다, 선언된). |
+| Arrow document → swarm | defines | 정의 | A noun on the arrow; it also echoes step 8's "스웜의 정의는 데이터". |
+| Database note | restores from its database | 데이터베이스에서 복원 | 복원 per ledger; wraps to two lines on the canvas. |
+| Legend | agent / object / supervisor / message on a declared path | 에이전트 / 오브젝트 / 슈퍼바이저 / 선언된 경로 위의 메시지 | |
+| Readout row labels (objects) | agents / objects; {names}: use a model / plain code | 에이전트 / 오브젝트; {names}: 모델 사용 / 일반 코드 | Carried over from the old legend strings. |
+| Readout: one agent | decides the next step / says what the job is / do the work | 다음 단계를 결정 / 할 일을 지시 / 작업을 수행 | Three parallel noun fragments (결정/지시/수행), as in the spec sheet. |
+| Readout: wired by hand | who talks to whom / where each one runs / when one fails | 누가 누구와 대화하나 / 각자 어디서 실행되나 / 하나가 실패하면 | Questions in the plain ~나 form; answers are fragments (에이전트마다 코드에 직접 작성 / 시작된 곳 아무 데서나 / 아무도 재시작하지 않음). |
+| Readout headings | packages / (illustration) / one event stream | 패키지 / (예시) / 통합 이벤트 스트림 | "one event stream" = every swarm's events in one stream: 통합 is how Korean says it; "하나의 이벤트 스트림" reads translated. |
+| Hero facts | license / version / runtime; Open source, MIT | 라이선스 / 버전 / 런타임; 오픈소스, MIT | |
+| Canvas alt texts | Illustration: … | 그림: … | 그림 is the plain alt-text prefix. 예시 stays the visible "illustration" tag (simulated data). |
+| Skip link | Skip to content | 본문으로 건너뛰기 | The standard Korean skip-link wording. |
+| Copy fallback | Selected | 선택됨 | |
+
+**Spec rows and lists.** The English now sets them as capitalized lines with full stops. Korean has no capitals, so the ko lines keep their noun-fragment (개조식) form and only gain the full stop; where the English splits with a semicolon or a period (State row, live-swap limit), ko splits with a period too.
+
+### Changes to existing strings
+
+The old ids were deleted and re-created under new ids; this table lists every case where the ko text changed beyond adding a full stop.
+
+| id (new, was) | before | after | reason |
+|---|---|---|---|
+| 7a956af2 (was cf800878) | 모든 에이전트는 슈퍼바이저가 관리하는 OTP 프로세스: 역할, 모델, 백엔드는 따로 설정 | 에이전트마다 슈퍼바이저가 관리하는 OTP 프로세스. 역할, 모델, 백엔드는 따로 설정. | A topic-marked clause (…는) followed by a colon reads unnatural as a spec fragment; 에이전트마다 … 프로세스 is a clean noun phrase. |
+| bff34e70 (was 36e77013) | 시드와 변경 로그, 잘못된 변경은 거부, 데이터베이스에서 복원 | 시드와 변경 로그. 잘못된 변경은 거부. 데이터베이스에서 복원. | The English now uses three sentences; commas become periods. |
+| 90361c3e (was 7c9e677f) | 패키지를 업데이트하면 에이전트가 재시작됨, 실행 중 교체는 아직 없음 | 패키지를 업데이트하면 에이전트가 재시작됨. 실행 중 교체는 아직 없음. | Same (English semicolon). |
+| c39d7104 (was 4713393e) | 한 팀으로 시작하세요. 에이전트&nbsp;수천&nbsp;개로 확장하세요. | `<span>`한 팀으로 시작하세요.`</span>` `<span>`에이전트&nbsp;수천&nbsp;개로 확장하세요.`</span>` | New markup (one line per sentence); the &nbsp; still keeps "에이전트 수천 개로" together on phones. |
+| 9a976fc2 (was 7b7d0d74) | 선택해서 복사하세요 | 선택됨 | The English changed from an instruction to a state. |
+| 0a4470d6 (was 6ce82780) | 작동 방식으로 건너뛰기 | 본문으로 건너뛰기 | The English target changed ("Skip to content"). |
+| e071ace2 (was 3229609e) | 라이선스 | 라이선스 (MIT) | English changed. |
+| cad9c020 (was 9967a2e3) | 오픈소스, MIT. 버전 0.2.0. | 오픈소스, MIT | Split into the facts row (라이선스 / 버전 / 런타임 labels). |
+| 88127da4, 9a24dc0c (were 4390d133, 411a8f28) | 에이전트, 모델 사용 / 오브젝트, 일반 코드 | {names}: 모델 사용 / {names}: 일반 코드 | Now templates after the names; wording kept. |
+
+Unchanged ids (headlines, step paragraphs, comparison, 404, meta) were re-read cold in the new layout and kept: none sounded translated next to the new labels, and the step 3 paragraph already uses the four job verbs.
+
+### Layout check
+
+Temp-dir build clean. `/ko/` screenshotted at 1440×900, 1024×768 and 390×844: every keyframe (0–10), every step, the sections and the footer. No label collides or clips; the drawing keeps the English framing. The database note is left out at 390 px, as in the English. `i18n-audit.cjs` (ko × 18 sizes, canvas label audit included): ok.
+
+Budgets (Korean counted as two): 크래시됨 8/12, 재시작됨 8/14, 조직 4/14, 팀 2/14, 에이전트 8/14, 스웜 36개 · 에이전트 2,861개 ≈26/30, 시작 · 격리 · 라우팅 · 재시작 29/36, 프로세스 8/15, 샌드박스 8/15, 변경 로그 9/22, 4개 선언됨 10/20, 기록되지 않음 13/22, 정의 4/12, 데이터베이스에서 복원 21/20×2 (wraps to two lines), 오브젝트 8/14, 선언된 경로 위의 메시지 25/30. Over by one: 에이전트 {n} 11/10 and 나머지 {n}개 11/10, both readout rows in the event log, where the column fits them at every size.

@@ -131,3 +131,67 @@ I read `/ru/` cold at 1440×900 and 390×844 first, then compared it with the En
 | id | before | after | reason |
 |---|---|---|---|
 | 2caa6242 | операционная система | ОС | Figure 3's band label must fit beside the "GenSwarms" wordmark in the phone drawing; the long form rendered at 9.7–11.6px at 320–375px (audit floor 11/12px). «ОС» is the standard abbreviation, and the step headline next to the drawing spells out «операционная система». |
+
+## Redesign pass (2026-09)
+
+The v4 "zoom" design replaces the SVG figures with one canvas world, adds readouts under it, a legend, a facts row and a zoom caption, and capitalizes the spec rows and the guarantee lists. Every earlier term decision above still holds; none had to change. The per-agent «границы» (boundary) and the band label «ОС» are gone with the old figures: the new drawing says "sandbox", which is «песочница» as before.
+
+### New terms
+
+| Where | English | RU | Why |
+|---|---|---|---|
+| Zoom caption, scale | organization / team / agent | **организация / команда / агент** | One lower-case word each, as in English. «Команда» is the ledger's plain word for one swarm; «организация» matches the triad («управляет организацией»). |
+| Zoom caption, counts | {swarms} swarms · {agents} agents | **роёв: {swarms} · агентов: {agents}** | The counter form («Товаров: 5») avoids number agreement: the world has 2 861 agents, and «2 861 агентов» is wrong (it must be «агент»). 25 characters, within 30. |
+| Layer bar | start · isolate · route · restart | **запуск · изоляция · маршруты · перезапуск** | Nouns: Russian verbs are too long for the bar. «Маршруты» instead of «маршрутизация» to stay near the budget (41 vs 36; «маршрутизация» would be 46 and the bar hides the label on narrow screens, as it does in English at 390px). |
+| Readout rows, keyframe 4 | start / isolate / route / restart + what each means | **запуск / изоляция / маршрутизация / перезапуск** + a genitive continuation («запуск каждого агента как отдельного процесса», «перезапуск упавшего агента его супервизором») | Key and value read as one noun phrase, the way the English reads as one verb phrase. The readout has room for the full «маршрутизация». |
+| Callouts | process / sandbox / supervisor | **процесс / песочница / супервизор** | Ledger terms. |
+| Crash label | crashed → restarted | **упал → перезапущен** | Dev idiom for the process event; the same words in the keyframe-5 readout («агент 10 — упал»). |
+| Readout, others | {n} others · running | **ещё {n} · работают** | «ещё 11» is the short natural count (max 10); «работают» agrees with it. |
+| Agent readout | decides the next step / says what the job is / do the work | **выбирает следующий шаг / ставит задачу / выполняют работу** | «Ставит задачу» is how Russian says what a prompt does. |
+| Wiring readout | who talks to whom / where each one runs / when one fails | **кто с кем общается / где работает каждый / если один упадёт** | Answers: «прописано в каждом агенте» (dev idiom for hard-coded), «там, где его запустили», «его ничто не перезапустит». |
+| Document | log of changes / {n} declared / never logged / defines | **журнал изменений / объявлено: {n} / в журнал не попало / определяет** | «объявлено: 4» avoids agreement after the number; «в журнал не попало» reuses the ledger's «попадает в журнал». |
+| Database note | restores from its database | **восстановление из базы данных** | Noun caption under the cylinder, same noun as the readout row «восстановление». Wraps to two lines of ≤ 20. |
+| Restore order | seed, then changes 1, 2, 3 | **исходное, затем изменения 1, 2, 3** | «Исходное» as in the old monospace restore line; NBSPs keep «изменения 1, 2, 3» together (at 390px the «3» was stranded). |
+| Legend | agent / object / supervisor / message on a declared path | **агент / объект / супервизор / сообщение по объявленному маршруту** | Ledger terms. The last is 34 characters (budget 30); the legend is HTML and wraps exactly as the English does at 1024px. |
+| Facts row | license / version / runtime | **лицензия / версия / среда выполнения** | «Среда выполнения» is the ledger's runtime. The license value is «Открытый код, MIT», as in the meta description. |
+| Readout headings | packages · swarmidx (illustration) / one event stream | **пакеты · swarmidx (иллюстрация) / единый поток событий** | «Единый» as in «Единый слой управления». |
+| Text alternatives | Illustration: … | **Иллюстрация: …** | One per keyframe; agent and object names stay Latin. |
+| Skip link / copy fallback | Skip to content / Selected | **Перейти к содержимому / Выделено** | Standard Russian UI wording. |
+
+### Changes to existing strings
+
+New ids whose English only changed case or punctuation start from the old translation (the "was" id); they are listed here with it.
+
+| id | before | after | reason |
+|---|---|---|---|
+| cad9c020 (was 9967a2e3) | Открытый исходный код, MIT. Версия 0.2.0. | Открытый код, MIT | The facts row splits license and version; the short form matches the meta description. |
+| 7a956af2 (was cf800878) | каждый агент — OTP-процесс под супервизором: роль, модель и бэкенд задаются отдельно | Каждый агент — OTP-процесс под супервизором: роль, модель и бэкенд задаются отдельно. | Capital and full stop, as in the new English. |
+| a7b45c42 (was 760fd5b8) | bwrap, Docker или Apple container для каждого агента | bwrap, Docker или Apple container для каждого агента. | Full stop (bwrap stays lower case, as in English). |
+| b02df163 (was 39386aff) | изолированным агентам доступен только эндпоинт их модели | Изолированным агентам доступен только эндпоинт их модели. | Capital and full stop. |
+| ce5bafa3 (was d55a9496) | только по объявленным маршрутам, с проверкой на каждом шаге | Только по объявленным маршрутам, с проверкой на каждом шаге. | Capital and full stop. |
+| 837e43c3 (was 8403b415) | объекты: детерминированный код на том же графе | Объекты: детерминированный код на том же графе. | Capital and full stop. |
+| 620402be (was fa899489) | gsp и swarmidx: подписаны, адресуются по содержимому, проверяются на вашей машине | gsp и swarmidx: подписаны, адресуются по содержимому, проверяются на вашей машине. | Full stop. |
+| bff34e70 (was 36e77013) | исходное состояние плюс журнал изменений; недопустимые изменения отклоняются; восстановление из базы данных | Исходное состояние плюс журнал изменений. Недопустимые изменения отклоняются. Восстановление из базы данных. | Three sentences, as the English now has. |
+| dfac9de1 (was 3f22753b) | REST, WebSocket, CLI и файл навыка для вашего кодинг-агента | REST, WebSocket, CLI и файл навыка для вашего кодинг-агента. | Full stop. |
+| c2593f94 (was ce64624e) | каждое сообщение, сбой и перезапуск — в реальном времени | Каждое сообщение, сбой и перезапуск — в реальном времени. | Capital and full stop. |
+| 19b6c67d (was 32814eeb) | при сбое перезапускается один агент, а не весь рой | При сбое перезапускается один агент, а не весь рой. | Capital and full stop. |
+| 1de79ed2 (was 90dcde9c) | сообщения идут только по объявленным маршрутам | Сообщения идут только по объявленным маршрутам. | Capital and full stop. |
+| 817dc80f (was b1ae0f2b) | недопустимые конфигурации и изменения отклоняются до запуска | Недопустимые конфигурации и изменения отклоняются до&nbsp;запуска. | Capital and full stop; NBSP after «до» so «запуска.» is not left alone on the second line at 1440px. |
+| f294f1c2 (was 1f16f72f) | пакеты проверяются по подписанному журналу | Пакеты проверяются по подписанному журналу. | Capital and full stop. |
+| bf0dfbad (was 01f18cc0) | один токен оператора, без ролей для отдельных пользователей | Один токен оператора, без ролей для отдельных пользователей. | Capital and full stop. |
+| a1804765 (was 632855ea) | доставка «как минимум один раз», а не «ровно один раз» | Доставка «как минимум один раз», а не «ровно один раз». | Capital and full stop. |
+| c1071d66 (was 163d4e0f) | бюджеты расходов — в отдельном пакете, а не в ядре | Бюджеты расходов — в отдельном пакете, а не в ядре. | Capital and full stop. |
+| 90361c3e (was 7c9e677f) | обновление пакета перезапускает агента; горячей замены пока нет | Обновление пакета перезапускает агента; горячей замены пока нет. | Capital and full stop. |
+| 2944b590 (was e2855769) | по умолчанию 100 агентов на рой (настраивается) | По умолчанию 100 агентов на рой (настраивается). | Capital and full stop. |
+| 0a4470d6 (was 6ce82780) | Перейти к разделу «Как это работает» | Перейти к содержимому | The skip link now jumps to the page's content, not to one section. |
+| c39d7104 (was 4713393e) | Начните с одной команды. Дальше — тысячи агентов. | `<span>Сначала — одна команда.</span> <span>Дальше — тысячи агентов.</span>` | The close headline is now much larger. At 390px, «Начните с одной команды» broke as «Начните с од-/ной команды» (balanced wrapping with hyphenation). «Сначала — одна команда. Дальше — тысячи агентов.» is two parallel beats, breaks only at words, and claims no more than "Start with one team". |
+| 9a976fc2 (was 7b7d0d74) | Выделите и скопируйте | Выделено | The English is now a state ("Selected"), shown on the button after the prompt is selected. |
+| e071ace2 (was 3229609e) | Лицензия | Лицензия (MIT) | The English footer link now names the license. |
+
+No string with an unchanged id was edited. The cold read of `/ru/` found the carried-over copy consistent with the new labels. The step texts, the comparison and the 404 page still read as Russian written by a developer.
+
+### Layout notes (1440×900, 1024×768, 390×844)
+
+- Over budget: «инструменты» (11/10, unchanged id 0284c6ac). At 390px the agent close-up's circle outline runs through its first letter. No shorter Russian word names LLM tools, so it stays. The layer bar (41/36) fits at 1440 and 1024. At 390 it is hidden, as the English one is. The legend (34/30) wraps like the English.
+- Accepted hyphenation (balanced wrapping + `hyphens:auto` on titles, as before): «Это как опера-/ционная система.» (every width), «только по объяв-/ленным маршрутам.» (1440, 1024), «для ИИ-/персонала», «ИИ-/организацией», and «управле-/ния» at 1024. At 1024px the triad's third line breaks «GenSwarms управ-/ляет организацией.». Text can't fix this without changing the kicker. It needs `.triad span{hyphens:manual}` for ru (a page.mjs change, left to the controller).
+- `i18n-audit.cjs` on the built `/ru/`: ok, 18 sizes.

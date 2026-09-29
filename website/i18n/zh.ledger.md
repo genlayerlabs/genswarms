@@ -152,3 +152,51 @@ and 9 headline wordings listed under "Headline line breaks" are replaced. Build 
 
 At 320px the closing headline 从一个团队开始。扩至数千智能体。 wraps to three lines with breaks inside words. Every
 wording that says the same thing does this at 320px. It is clean from 360px up. Left as is.
+
+## Redesign pass (2026-09)
+
+The v4 "zoom" design: one canvas drawing that zooms from the whole organization into one agent and back, with a zoom
+caption, readouts under the drawing, a legend and a facts row. 91 ids new or changed, 50 stale ids deleted. Checked in
+a private build at 1440×900, 1024×768 and 390×844 (every keyframe, every section), and with
+`tests/browser/i18n-audit.cjs` (en + zh-Hans, 18 sizes, canvas labels at every keyframe): ok. The terms in the tables
+above still hold; nothing in the new design made one wrong.
+
+### New terms
+
+| Concept | English | zh | Note |
+|---|---|---|---|
+| zoom caption, scale | organization / team / agent | 组织 / 团队 / 智能体 | One word each, as the English. 组织 is the organization (as in 整个 AI 组织); 团队 is one swarm used as a plain word (ledger: team); 智能体 is also the legend's circle and the label under the agent up close. |
+| zoom caption, count | {swarms} swarms · {agents} agents | {swarms} 个集群 · {agents} 个智能体 | Numbers stay figures (2,861); 个 keeps it natural Chinese. 26 of 30. |
+| the four jobs | start · isolate · route · restart | 启动 · 隔离 · 路由 · 重启 | Same verbs as the step 3 body and the readout rows. |
+| callouts | process / sandbox / supervisor | 进程 / 沙箱 / 监督者 | Ledger terms. |
+| crash, restart | crashed → restarted | 崩溃 → 已重启 | 崩溃 is the event (orange); 已重启 the state after. The readout rows: 崩溃 / 已由其监督者重启 / 运行中. |
+| swarm document notes | log of changes; {n} declared; never logged; defines | 变更日志; 已声明 {n} 条; 不记入日志; 定义 | 变更日志 = ledger "change log". 已声明 4 条 sits after the `paths` key (量词 条 for paths). 不记入日志 under 已拒绝：… keeps refused ≠ dropped. 定义 on the arrow reads as the verb (the document defines the swarm). |
+| database note | restores from its database | 从数据库恢复 | Ledger term, one line (12 of 20). |
+| legend | agent / object / supervisor / message on a declared path | 智能体 / 对象 / 监督者 / 已声明路径上的消息 | 已声明路径 instead of 声明的路径上的 to avoid a double 的; 已声明 is the same word as the `paths` row. |
+| readout labels | model / prompt / tools; agents / objects; restore | 模型 / 提示词 / 工具; 智能体 / 对象; 恢复 | Same words as the canvas. |
+| readout headings | events (illustration); packages · swarmidx (illustration); one event stream (illustration) | 事件 (示意); 软件包 · swarmidx (示意); 统一事件流 (示意) | The page puts a space before the suffix, so a full-width （示意） left a 1.5-character gap; half-width parentheses in these mono labels, same in all three. 统一事件流 = every swarm's events in one stream. |
+| facts row | license / version / runtime; Open source, MIT | 许可证 / 版本 / 运行时; 开源，MIT | 运行时 as in the comparison table. |
+| alt text prefix | Illustration: | 示意图： | Same word as the corner caption 示意图. |
+| wired by hand | each wired to the others by hand; written into each agent | 彼此之间靠手工连线; 写死在每个智能体里 | 写死 is the developer word for hard-coded, which is what "written into each agent" means here. |
+| copy fallback, skip link, footer | Selected; Skip to content; License (MIT) | 已选中; 跳至主要内容; MIT 许可证 | 许可证（MIT） left a full-width gap before the next footer link. |
+
+Spec rows and guarantee lines: the English only gained a capital and a full stop, so each keeps its earlier translation
+with 。 added (cf800878 → 7a956af2, and so on). Closing headline: the same two sentences, one per `<span>`.
+
+### Changes to existing strings
+
+| id | before | after | reason |
+|---|---|---|---|
+| bc81483a | 事件（示意） | 事件 (示意) | Same form as the two new readout headings, whose suffix follows a space (see above). |
+| 84d5e16a | …以及其中一个出故障时的恢复办法。 | …以及某个出故障时的恢复办法。 | At 1440px the last line was a stranded 办法。; 某个 is shorter and is the same wording as the readout row 某个出故障时. |
+
+### Editor pass (whole page, cold)
+
+Read /zh/ top to bottom without the English. The steps now read as one argument with the readouts: the agent (模型 /
+提示词 / 工具), the wiring problem (谁和谁通信 / 各自在哪运行 / 某个出故障时), the OS answer (启动 / 隔离 / 路由 /
+重启, repeated in the layer bar), then the team. Within the new strings, reworded before settling: the restart row
+(出故障的智能体，由其监督者负责 → 出故障的智能体，交给它的监督者: the row label already says 重启, and 负责 left the
+sentence hanging), the comparison sub-line (独立的、受监督的 → 独立、受监督的, as in the meta description), the
+guarantees sub-line (…以及我们已知的限制 → 0.2.0 版现在提供什么，还有哪些已知限制。: mirrors the headline's 哪些…哪些
+and no longer strands 限制。 at 390px). Headlines unchanged: their breaks (tables above) hold in the new type at
+1440, 1024 and 390px.

@@ -114,3 +114,68 @@ Native editor read of `/tr/` at 1440×900 and 390×844, cold first, then against
 | id | before | after | reason |
 |---|---|---|---|
 | 97dfad27 | geri yükle: tanım + {n} değişiklik | geri yükleme: tanım + {n} değişiklik | Final review: the English label is a noun; the spec row already says «geri yükleme». |
+
+## Redesign pass (2026-09)
+
+The v4 "Zoom" page: one canvas that zooms from the organization to one agent and back, with readouts under it, a legend, a facts row and capitalized spec and list lines. 91 ids translated (new or changed), 50 stale ids deleted. Every existing term decision above still holds; none was changed. Checked in a private temp build at 1440×900, 1024×768 and 390×844 (every zoom keyframe, header, sections, footer); `i18n-audit.cjs` against the served temp build: ok (2 languages × 18 sizes, canvas labels, suggestion bar, no-JS picker, 404).
+
+### Zoom caption (the scale the camera is at)
+
+| Level | EN | TR | Why |
+|---|---|---|---|
+| organization | organization | organizasyon | Ledger term (never "kuruluş"). |
+| team | team | ekip | Ledger term for a swarm with a purpose ("destek ekibi"). |
+| agent | agent | ajan | Ledger term; also the label under the agent drawn up close and the legend's circle. |
+| counts | {swarms} swarms · {agents} agents | {swarms} sürü · {agents} ajan | Turkish keeps the noun singular after a number ("36 sürü", "2.861 ajan"). |
+
+### Canvas labels
+
+| id | EN | TR | Note |
+|---|---|---|---|
+| 7242d340 | start · isolate · route · restart | başlat · yalıt · yönlendir · yeniden başlat | The four OS jobs as bare imperatives, the way Turkish service controls are labelled (Başlat / Durdur / Yeniden başlat). 43 chars vs budget 36: "yeniden başlat" has no shorter form that still means restart ("yenile" is refresh). The bar has room at 1024 and 1440; at 390 it is hidden in English too. |
+| c2e2d662 | process | süreç | Ledger. |
+| 9ed037b8 | sandbox | sandbox | Ledger (as developers say it); listed under `_same_as_english`. |
+| 76d1bfb6 | crashed | çöktü | Ledger (çökmek). |
+| 545c357f | restarted | yeniden başladı | Intransitive, as in step 4 ("Biri çökerse yeniden başlar"). 15 vs budget 14; "yeniden başlatıldı" would be 18. |
+| d493c317 | log of changes | değişiklik kaydı | Ledger (change log). |
+| 09d607fd | {n} declared | {n} tanımlı | Ledger (declared → tanımlı); reads "paths 4 tanımlı". |
+| 2a4a3109 | never logged | hiç kayda geçmedi | Ledger (logged → kayda geçer). |
+| 039b47cb | defines | tanımlar | Same root as "tanımlı": the document defines the swarm. |
+| cb79fe53 | restores from its database | veritabanından geri gelir | Ledger ("veritabanından geri gelir", as in step 8). A no-break space in "geri gelir" makes the canvas wrap it "veritabanından / geri gelir" instead of stranding "gelir". |
+
+### Legend and facts row
+
+| EN | TR | Why |
+|---|---|---|
+| agent / object / supervisor | ajan / nesne / denetleyici | Ledger. |
+| message on a declared path | tanımlı yoldaki mesaj | Short, and keeps "tanımlı yol". |
+| license / version / runtime | lisans / sürüm / çalışma ortamı | "runtime" is "çalışma ortamı" everywhere (ledger), here over "Elixir / OTP". |
+| Open source, MIT | Açık kaynak, MIT | Also on the share card. |
+
+### Readouts
+
+| Concept | TR | Why |
+|---|---|---|
+| K2 rows (model / prompt / tools) | bir sonraki adıma karar verir / işin ne olduğunu söyler / işi yapar | Plain verbs; "iş" twice ties the prompt to the tools. |
+| K3 rows | kim kiminle konuşur → her ajanın içine yazılmış; her biri nerede çalışır → nerede başlatıldıysa orada; biri çöktüğünde → onu yeniden başlatan yok | Echo step 2 ("kimin kiminle konuşacağını", "biri çöktüğünde"). |
+| K4 rows | başlat / yalıt / yönlendir / yeniden başlat, each with an object in the accusative ("her ajanı ayrı bir süreç olarak", "mesajları yalnızca tanımlı yollardan", "çöken ajanı, denetleyicisi aracılığıyla") | Same verbs as the canvas bar; the row reads as one command. |
+| K5 rows | ajan {n} / diğer {n} / çalışıyor / denetleyicisi yeniden başlattı | "diğer 11" is the natural "the other 11"; active voice, the supervisor as the subject. |
+| K7 caption | "Model çağrılarını answer ve research, budget üzerinden yapar." | Avoids opening a sentence with a lower-case agent name; "üzerinden" avoids a suffix on the bold name. |
+| K9 | geri yükleme → "tanım, sonra değişiklik 1, 2, 3" | Short form "tanım" (ledger) keeps the readout as short as the English: a taller readout made the 1024 stage fall back to the document alone. |
+| headings | olaylar / paketler / tek olay akışı + "(temsilî)" | Ledger (illustration → temsilî). |
+| alt texts | "Çizim: …" | The canvas's text alternative names what is drawn; "temsilî" stays for the visible caption. |
+
+### Changes to existing strings
+
+| id | before | after | reason |
+|---|---|---|---|
+| 3b3ae940 | Yapay zekâ iş gücü için işletim&nbsp;sistemi. | Yapay zekâ iş&nbsp;gücü için işletim sistemi. | Geist Mono is wider: at 1440 and 768 the unbreakable "işletim sistemi." no longer fit the column and Chrome broke off the full stop (and at 768 "sistem / i."). Now it breaks between words ("işletim / sistemi.") at those two widths and stays three lines elsewhere. |
+| 3c7c53c0 | Bunu bir işletim sistemi gibi düşünün. | Bunu bir işletim&nbsp;sistemi gibi düşünün. | Line break only: at 1024, 768 and 390 the term split as "işletim / sistemi". |
+| c39d7104 (was 4713393e) | Tek bir ekiple başlayın. Binlerce ajana büyüyün. | `<span>Tek bir&nbsp;ekiple başlayın.</span> <span>Binlerce ajana büyüyün.</span>` | New two-span markup. The no-break space stops "Tek bir" standing alone on phones (390, 320). |
+| 837e43c3 (was 8403b415) | nesneler: aynı graf üzerinde deterministik kod | Nesneler: aynı graftaki deterministik kod. | Capitalized line; "graftaki" as in step 6 after the editor pass. |
+| bff34e70 (was 36e77013) | başlangıç tanımı ve değişiklik kaydı; hatalı değişiklikler reddedilir; veritabanından geri yükleme | Başlangıç tanımı ve değişiklik kaydı. Hatalı değişiklikler reddedilir. Veritabanından geri yükleme. | Follows the English's three sentences. |
+| 9a976fc2 (was 7b7d0d74) | Seçip kopyalayın | Seçildi | The English changed meaning: the button now reports the state ("Selected"), next to Kopyala / Kopyalandı. |
+| 0a4470d6 (was 6ce82780) | Nasıl çalışır bölümüne atla | İçeriğe atla | The link now jumps to the content. |
+| e071ace2 (was 3229609e) | Lisans | Lisans (MIT) | As the English. |
+
+The other capitalized spec and list lines (7a956af2, a7b45c42, b02df163, ce5bafa3, 620402be, dfac9de1, c2593f94, 19b6c67d, 1de79ed2, 817dc80f, f294f1c2, bf0dfbad, a1804765, c1071d66, 90361c3e, 2944b590) keep their old translation, capitalized and ending in a full stop. The cold read of the whole page found nothing else to change: the story, spec sheet, comparison and guarantees read as one argument with the new labels.

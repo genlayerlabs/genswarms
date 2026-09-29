@@ -143,3 +143,68 @@ Checked and left as they are: the h1 and its break ("fuerza / laboral de IA."), 
 | id | before | after | reason |
 |---|---|---|---|
 | 0991c336 | Leer | Leer en español | Final review: the suggestion-bar link should name the language (the catalogue asks for it, and a bare «Leer» is weak for screen readers). |
+
+## Redesign pass (2026-09)
+
+The v4 "zoom" design: a canvas that zooms from the organization to one agent and back, with readouts under it, a legend, a facts row under the hero, and capitalized spec rows and lists. 91 ids translated (new or changed), 50 stale ids deleted. Validated in a private temp build ("en, es: built", no notes) and `AUDIT_LANGS=es i18n-audit.cjs` against it: ok, 1 language × 18 sizes. Every zoom step, section and the footer read at 1440×900, 1024×768 and 390×844.
+
+### New terms
+
+| Concept | English | Spanish | Where | Why |
+|---|---|---|---|---|
+| Zoom scale: organization | organization | organización | zoom caption | Same word as the h1 lead and step 9. |
+| Zoom scale: team | team | equipo | zoom caption | The ledger's plain word for a swarm with a purpose. |
+| Zoom scale: agent | agent | agente | zoom caption, the agent up close, legend | |
+| Zoom count | {swarms} swarms · {agents} agents | {swarms} enjambres · {agents} agentes | zoom caption | 27 of 30 with "36" and "2861". |
+| The four jobs | start · isolate · route · restart | inicia · aísla · enruta · reinicia | layer bar (34/36) and K4 row labels | Third person, the same verbs as step 3 ("los inicia, los aísla, enruta sus mensajes y los reinicia"), so the bar reads as a sentence: *genswarms inicia · aísla · enruta · reinicia*. The infinitives are 38 characters, over the budget. |
+| Process callout | process | proceso | K4, K5 | |
+| Sandbox callout | sandbox | entorno aislado | K5 (15/15) | The ledger term. It fits exactly. "sandbox" is kept out of Spanish prose, as before. |
+| Crashed / restarted | crashed → restarted | caído → reiniciado | K5 label and event rows | "caído" was already the figure status. |
+| Running | running | en ejecución | K5 event rows | Matches "se ejecuta". |
+| Others | {n} others | otros {n} | K5 event rows | "otros 11" is the natural order in a list. "11 otros" reads as a calque. |
+| Agent n | agent {n} | agente {n} | K5 and K10 event rows | |
+| Log of changes | log of changes | registro de cambios | document note | The ledger term. |
+| Declared (paths) | {n} declared | {n} declaradas | document "paths" row | Agrees with *rutas*, the ledger's word for paths. The key `paths` stays English. |
+| Never logged | never logged | nunca se registra | under the refused change | The same verb as "queda registrado" in step 8. |
+| Defines | defines | define | arrow from the document to the swarm | |
+| Restores from its database | restores from its database | se restaura desde su base de&nbsp;datos (U+00A0) | under the database cylinder | The ledger phrase, identical to step 8. The canvas wraps at ASCII spaces only, so the no-break space keeps "de datos" together where the room is narrow. |
+| Legend: object | object | objeto | legend | |
+| Legend: message | message on a declared path | mensaje en una ruta declarada | legend (29/30) | |
+| Facts row | license / version / runtime | licencia / versión / entorno de ejecución | hero | "entorno de ejecución" is the ledger's word for runtime. It fits the row at 1440 and 390. At 1024 the "entorno de ejecución" item wraps to a second row of the facts list, which is clean. |
+| Readout: what each part does | decides the next step / says what the job is / do the work | decide el siguiente paso / dice cuál es la tarea / hacen el trabajo | K2 | "hacen el trabajo" echoes the triad. |
+| Readout: agents wired by hand | who talks to whom / where each one runs / when one fails | quién habla con quién / dónde se ejecuta cada uno / si uno falla | K3 | The same words as step 2's paragraph, so the readout answers it point by point. |
+| Restore row | restore | restauración | K9 | The ledger's noun. |
+| One event stream | one event stream | un solo flujo de eventos | K10 heading | "flujo de eventos" is the ledger term. "un solo" matches "Una sola capa de control". |
+| Known limits | the limits we know about | las limitaciones que conocemos | guarantees sub-line | The usual Spanish for *known limitations*. It keeps "límite" free for the 100-agent cap. |
+
+### Terms retired or changed
+
+- **su perímetro** (boundary) is gone with the old figure 4. The new drawing labels the dashed box "sandbox", so it gets the ledger's "entorno aislado".
+- **Convention change:** the spec sheet and the guarantee lists are no longer lowercase fragments. The English now capitalizes them and ends them with a full stop, and so does the Spanish. Identifiers keep their case ("bwrap, Docker…", "gsp y swarmidx…").
+
+### Changes to existing strings
+
+Strings whose English id changed (the text is the old translation, capitalized, unless noted) and strings kept under the same id that this pass edited:
+
+| id | before | after | reason |
+|---|---|---|---|
+| 7a956af2 (was cf800878) | cada agente, un proceso OTP supervisado: rol, modelo y backend se definen por separado | Cada agente, un proceso OTP supervisado: rol, modelo y backend se definen por separado. | Capital and full stop, as in the new English. |
+| a7b45c42, b02df163, ce5bafa3, 837e43c3, dfac9de1, c2593f94 (were 760fd5b8, 39386aff, d55a9496, 8403b415, 3f22753b, ce64624e) | lowercase fragments | same words, capitalized (except "bwrap"), full stop | Same reason. |
+| 620402be (was fa899489) | gsp y swarmidx: firmados, direccionados por contenido y verificados en tu máquina | …en tu máquina. | Full stop. "verificados" kept (the reserved package term) although the English says "checked". |
+| bff34e70 (was 36e77013) | una semilla más un registro de cambios; cambios no válidos rechazados; restauración desde la base de datos | Una semilla más un registro de cambios. Los cambios no válidos se rechazan. Se restaura desde la base de datos. | The English is now three sentences. Spanish needs a verb in each ("Cambios no válidos, rechazados." reads like a headline). |
+| 19b6c67d, 1de79ed2, 817dc80f, f294f1c2 (were 32814eeb, 90dcde9c, b1ae0f2b, 1f16f72f) | lowercase guarantees | same words, capitalized, full stop | New English. |
+| bf0dfbad, a1804765, c1071d66, 90361c3e, 2944b590 (were 01f18cc0, 632855ea, 163d4e0f, 7c9e677f, e2855769) | lowercase limits | same words, capitalized, full stop | New English. |
+| c39d7104 (was 4713393e) | Empieza con un equipo. Escala a miles de agentes. | `<span>Empieza con un equipo.</span> <span>Escala a miles de agentes.</span>` | Two lines, as in the new markup. |
+| 0a4470d6 (was 6ce82780) | Saltar a cómo funciona | Saltar al contenido | The skip link now jumps to the content. |
+| 9a976fc2 (was 7b7d0d74) | Selecciona y copia | Seleccionado | The button now reports a state, like "Copiado". |
+| e071ace2 (was 3229609e) | Licencia | Licencia (MIT) | New English. |
+| cad9c020 (was 9967a2e3) | Código abierto, MIT. Versión 0.2.0. | Código abierto, MIT | The facts row now splits license and version. |
+| 3407f33c | Instala lo que necesitan tus agentes. | Instala lo&nbsp;que necesitan tus&nbsp;agentes. | In Geist Mono at 1440, 1024 and 320 the headline broke as "Instala lo / que necesitan / tus agentes." Now it breaks as "Instala lo que / necesitan / tus agentes." Same words. |
+| 86d0513d | GenSwarms hace funcionar la&nbsp;organización. | GenSwarms hace&nbsp;funcionar la&nbsp;organización. | The balanced wrap split the verb ("GenSwarms hace / funcionar la organización."). Now it reads "GenSwarms hace funcionar / la organización." at every size, parallel to "Los modelos aportan / la inteligencia." |
+| e28ae737 | …o encárgaselo a tu agente de programación. | …o encárgaselo a tu agente. | Step 9 is pinned beside the drawing on phones held sideways. At 844×390 its text was 323 px against 317 of room (audit failure). Dropping "de programación" takes the paragraph to three lines (299 px). The closing section says the same thing the same way ("O encárgaselo a tu agente:"), and the spec sheet keeps "tu agente de programación". Rewording the first sentence ("en vivo", "al instante") didn't save a line. |
+
+Checked and left as they are: "herramientas" (12 against a budget of 10) on the agent up close. It renders whole at every size, just touching the circle on phones, and Spanish has no shorter word for *tools*. "llamadas al modelo" (18/16) fits under the dotted line at every size where the English shows it (phones leave it out in both languages). "Tus agentes / necesitan algo / más que modelos / y prompts." takes four lines at 1440, against three in English, and the breaks are clean. "Una sola capa de / control para tu / organización de IA." breaks where the English does ("One control / layer…").
+
+### For the controller (outside es.json)
+
+At 1440 and 1920 the hero h1 wraps to six lines: "El sistema / operativo / para la / fuerza / laboral / de IA." (60 px Geist Mono. "operativo para" and "fuerza laboral" each miss the column by one character.) No wording of the flagship term fixes this. Giving `es` the pinned-hero size step that `LONG` gives ru/tr (`@media (min-height:640px){.cine h1{font-size:clamp(34px,min(3.7vw,7.4vh),54px)}}` in `TYPE.es.css`) gives four lines at every width I tested: "El sistema / operativo para / la fuerza / laboral de IA." (1920 and 1280 too). I tested it by injecting the rule in the browser. No page code was changed.
