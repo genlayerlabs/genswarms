@@ -234,3 +234,68 @@ section, footer, 404, suggestion bar on the English page; plus meta, og, JSON-LD
 - 404 headline 这个页面跑出了集群。 breaks inside 跑出 at 320px only (one line from 390px).
 - Body lines at 320px end on a single character in two spec rows (实时呈/现。) and the limits list (可配/置）。). Normal
   CJK body wrapping at the narrowest size; shortening would cost meaning.
+
+## Transcreation pass (2026-09-29)
+
+A senior zh-Hans developer-tools product marketer read /zh/ cold. This pass didn't recheck accuracy. It asked of every string:
+would a Chinese dev-platform page have written this? Where this section disagrees with the tables above, this
+section wins. Checked in a private build: breaks measured at 13 sizes (1920 to 320px), screenshots at 1440×900,
+1024×768 and 390×844, and `i18n-audit.cjs` (zh-Hans, 18 sizes): ok. Build guard: clean.
+
+### "AI workforce" decision: AI 员工 → AI 智能体
+
+The headline, footer tagline, page title and JSON-LD now say **AI 智能体的操作系统** ("the operating system for AI
+agents"), the same choice Spanish made.
+
+Evidence:
+- **智能体操作系统 is the established Chinese name for this product category.** Chinese write-ups of AgentOS give
+  「AgentOS 是 Agent Operating System 的缩写，中文意思是'智能体操作系统'」 ("AgentOS stands for Agent Operating
+  System; in Chinese, 'agent operating system'") and describe it as 「专为 AI 智能体（AI Agent）设计的底层系统软件」
+  ("the system software underneath, designed for AI agents"). Products named under it: 钉钉 Agent OS, 科大讯飞玲珑
+  Agent OS, AIOS (which, like GenSwarms, 「将智能体当作操作系统中的'进程'治理」, "governs agents as processes of an
+  operating system"), 阿里云 Agentic OS (ai-indeed.com/encyclopedia/23070.html). A developer searching for this
+  product types 智能体 + 操作系统, and 智能体 is the word the rest of this page already uses 60+ times.
+- **AI 员工 / 数字员工 is a different market with a different register.** Chinese sources separate it from 智能体
+  explicitly: 数字员工 「起源于RPA（机器人流程自动化）」 ("comes from RPA") and is 「岗位导向：按照现有组织架构设计，
+  一对一替代特定岗位」 ("role-oriented: one-for-one replacement of a specific job"), summed up as 「数字员工 = 智能体 +
+  流程封装 + 组织角色」 (betteryeah.com, "数字员工vs智能体"). The sellers are enterprise-SaaS and RPA vendors (WEIBOT「AI
+  员工雇佣平台」, DIX AI「AI数字员工」, 实在智能). To a mainland developer, AI 员工的操作系统 reads like a low-code
+  HR/RPA product. It's the same problem the owner found in Spanish (fuerza laboral) and Korean (인력): the right word, but
+  in the wrong register.
+- **What is lost:** English "workforce" suggests many agents working as an organization's staff. The page keeps that
+  idea in the lead (数千个 AI 智能体), the zoom caption (组织 · 36 个集群 · 2,861 个智能体) and the closing line
+  (扩至数千智能体). The headline doesn't need to carry it too.
+- **Form:** 的 kept (AI 智能体的操作系统) so the h1 reads as a statement, not a bare category label. It contains the search
+  phrase 智能体…操作系统. The h1 breaks as AI 智能体的 / 操作系统。 at every width from 1920 to 320px (clean, after 的).
+
+### Changes
+
+| id | before | after | back-translation of after | why the before read as translated |
+|---|---|---|---|---|
+| 3b3ae940 | AI&nbsp;员工的操作系统。 | AI&nbsp;智能体的操作系统。 | The operating system for AI agents. | 员工 = RPA/HR "digital staff" register; see decision above. |
+| 37294ee3 | AI 员工的操作系统。 | AI 智能体的操作系统。 | The operating system for AI agents. | Same term as the h1. |
+| 836e01a9 | GenSwarms：AI 员工的操作系统 | GenSwarms：AI 智能体的操作系统 | GenSwarms: the operating system for AI agents | Same; the title now carries the search phrase. |
+| ffebc746 | AI 员工的操作系统：把每个 AI 智能体作为…，提供 REST + WebSocket API 与实时事件流。 | AI 智能体的操作系统：每个智能体都作为独立、受监督的进程运行，消息只沿声明的路径传递，并提供 REST + WebSocket API 和实时事件流。 | The operating system for AI agents: every agent runs as a separate, supervised process, messages pass only along declared paths, and it provides a REST + WebSocket API and a live event stream. | Headline term; avoids repeating "AI 智能体" twice in one line. |
+| 96a75294 | 在整个组织中部署、协调和控制数千个 AI 智能体。 | 为整个组织部署、协调和管控数千个 AI&nbsp;智能体。 | Deploy, coordinate and control thousands of AI agents for your whole organization. | 在整个组织中 is a calque of "across your organization"; 为整个组织 ("for the whole organization") is how a B2B page puts it. 管控 is the usual enterprise-IT word for "control", where 控制 sounds like a textbook. Breaks at 协调和 / 管控 on narrow screens, where the other wordings broke inside 智能体. |
+| 7b40834f | …提供 API 与实时事件流。开源，MIT 许可。 | …提供 API 和实时事件流。采用 MIT 许可证开源。 | …with an API and a live event stream. Open source under the MIT license. | "开源，MIT 许可。" was the English fragment copied as it stood. 73 characters (limit 80 CJK). |
+| be8ebc37 | 以独立、受监督的进程部署、协调和控制 AI 智能体。 | 把 AI 智能体作为独立、受监督的进程来部署、协调和管控。 | Deploy, coordinate and control AI agents as separate, supervised processes. | 以…进程部署…智能体 kept the English order (manner before verb, object at the end). The 把 construction is the natural Chinese order. |
+| 41acb76d | 整个 AI 组织，一个控制层。 | 所有智能体，一个控制层。 | All your agents, one control layer. | "AI 组织" is a calque; in Chinese it reads as "AI institutions/bodies". The organization of agents means all your agents. The drawing at this step shows every swarm under one layer. |
+| a34eb019 | 智能体执行工作。 | 智能体完成工作。 | Agents get the work done. | 执行工作 is the literal "perform work"; 完成工作 is the everyday phrase. |
+| ccb7b646 | 并非一切都需要模型。 | 不是所有事都要用模型。 | Not everything needs a model. | 并非一切 is a formal written calque of "not everything"; the spoken form suits a display headline. One line at every width. |
+| a895f8a4 | 它的定义就是数据，每次变更都有记录。…可以从自己的数据库中恢复。 | 定义即数据，每次变更都记录在案。…停止运行的集群，可以从自己的数据库恢复。 | Its definition is data; every change is on record. A bad change is refused before it runs; a stopped swarm can be restored from its own database. | Opening with 它的 is English subject-first scaffolding. 定义即数据 echoes the headline 集群即文档, and 记录在案 is the idiom for "logged". |
+| e28ae737 | …可以通过 API 或 CLI 操控，也可以交给你的编程智能体。 | …可以用 API 或 CLI 操控，也可以让你的编程智能体代劳。 | …Drive it with the API or CLI, or let your coding agent do it for you. | "交给你的编程智能体" left "hand it to" without an object. 代劳 ("do it on your behalf") is the natural verb. |
+| 3c90a001 | 或者交给你的智能体： | 或者，让你的智能体来搭建： | Or let your agent set it up: | Calque of "hand it to your agent". The prompt below says 搭建一个集群, so the label now names the job. |
+| 57e8c7e2 | 依据各项目自己的文档整理，2026 年 9 月。 | 信息来自各项目自己的文档，截至 2026 年 9 月。 | Information from each project's own documentation, as of September 2026. | A bare date tacked on after a comma is English. 截至 ("as of") is how Chinese dates a source. |
+| 19b6c67d | 一次崩溃只重启一个智能体，而不是整个集群。 | 崩溃时只重启一个智能体，而非整个集群。 | On a crash, only one agent is restarted, not the whole swarm. | 一次崩溃 + 而不是 followed the English "A crash … not the swarm". 崩溃时 / 而非 is the terse written form. One line down to 360px (the old one wrapped). |
+| 0d6fb0ce | 没有任何机制重启它 | 不会被重启 | it doesn't get restarted | "没有任何机制" (no mechanism whatsoever) was a heavy rendering of "nothing". |
+| aea03690 | 每个智能体作为独立进程 | 每个智能体一个独立进程 | one separate process per agent | 作为 dangled with no verb. "每个 X 一个 Y" is the native distributive phrase. |
+| 0487a062 | 被拒绝的变更从不记入日志。… | 被拒绝的变更不会记入日志。… | Rejected changes are not written to the log. … | 从不 ("never, ever") is the literal "never"; 不会 is the plain statement of behaviour. |
+| e08af9a7 | …每个集群都是一个小结构：智能体（圆圈）和对象（方块）沿声明的路径相连… | …每个集群由智能体（圆圈）和对象（方块）组成，沿声明的路径相连… | …Each swarm is made of agents (circles) and objects (squares), connected along declared paths… | "一个小结构" is a calque of "a small structure" (screen-reader text). |
+
+Kept after review (the "before" was already native): the kicker's line 3 组织交给 GenSwarms。 ("leave the organization to
+GenSwarms"; an idiomatic slogan ending, and the zoom caption 组织 on screen at that step anchors it); 集群即文档。;
+把它想象成操作系统。; 智能体缺什么，就给它装什么。; the closing headline; nav and buttons (工作原理 / 对比 / 安全 / 文档,
+阅读文档, 在 GitHub 上查看); the comparison cells (sourced).
+
+For the owner: 集群 for "swarm" is unchanged and can still read as "server cluster" (see the flagship verdicts above).
+It is out of scope here because it is the Labs page's term.

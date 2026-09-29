@@ -225,3 +225,14 @@ Fresh reviewer, senior-editor pass before launch. Read cold on the rendered page
 3. **K4 "mediante su supervisor" and K3 "escrito en cada agente":** both kept. "mediante" is ordinary technical register and says that GenSwarms restarts the agent *through* its supervisor. "a cargo de" would read as "in charge of", which is ambiguous. "escrito en cada agente" matches the English "written into each agent", and the longer "en el código de cada agente" would add a phone line for no gain.
 
 Checked and left as they are: "se comprueba contra él" (step 5) and "se verifican contra un registro firmado" ("comprobar/verificar contra" is standard in Spanish technical writing). "Leer en español" after "Esta página también está en español." repeats the English pattern ("…in English. Read it in English"). "herramientas" (12/10) touches "agente" on phones but doesn't overlap it (360: 1 px apart). "rechazado: más de 100 agentes" says what the cap refused, and the aria-label keeps "supera el límite de 100 agentes".
+
+## Owner pass (2026-09-29)
+
+| id | before | after | reason |
+|---|---|---|---|
+| 3b3ae940, 37294ee3, 836e01a9, ffebc746 | … para la fuerza laboral de IA | … para tus agentes de IA | Owner: "fuerza laboral" is a calque of *workforce* (HR/statistics register); the headline, title, JSON-LD and footer tagline now say what a Spanish product page would say. The lead keeps the scale ("miles de agentes … en toda tu organización"). |
+| (step 5 paragraph) | se comprueba contra él y lo que se salga del grafo se descarta | se contrasta con él y lo que quede fuera se descarta | "comprobar contra" is a calque of *checked against*. |
+| (guarantee 4) | se verifican contra un registro firmado | se verifican con un registro firmado | same calque. |
+| (triad 3) | GenSwarms hace funcionar la organización. | GenSwarms dirige la organización. | shorter, keeps the three-beat rhythm; "hacer funcionar" read as translated. |
+
+Term decision: **AI workforce → "tus agentes de IA"** (headline, title, meta, footer). Not "fuerza laboral" (calque), "plantilla" (reads as *template* in tech), "trabajadores de IA" (sounds human).

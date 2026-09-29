@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GenSwarms：AI 员工的操作系统</title>
-<meta name="description" content="GenSwarms 把每个 AI 智能体作为独立、受监督的进程运行，消息只沿声明的路径传递，提供 API 与实时事件流。开源，MIT 许可。">
+<title>GenSwarms：AI 智能体的操作系统</title>
+<meta name="description" content="GenSwarms 把每个 AI 智能体作为独立、受监督的进程运行，消息只沿声明的路径传递，提供 API 和实时事件流。采用 MIT 许可证开源。">
 <link rel="canonical" href="https://genswarms.com/zh/">
 <link rel="alternate" hreflang="en" href="https://genswarms.com/">
 <link rel="alternate" hreflang="es" href="https://genswarms.com/es/">
@@ -16,13 +16,13 @@
 <meta http-equiv="content-language" content="zh-Hans">
 <meta name="theme-color" content="#0D0E10">
 <meta property="og:type" content="website"><meta property="og:locale" content="zh_CN">
-<meta property="og:title" content="GenSwarms：AI 员工的操作系统">
-<meta property="og:description" content="以独立、受监督的进程部署、协调和控制 AI 智能体。">
+<meta property="og:title" content="GenSwarms：AI 智能体的操作系统">
+<meta property="og:description" content="把 AI 智能体作为独立、受监督的进程来部署、协调和管控。">
 <meta property="og:url" content="https://genswarms.com/zh/"><meta property="og:image" content="https://genswarms.com/og-zh.png">
-<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="GenSwarms：AI 员工的操作系统">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="GenSwarms：AI 智能体的操作系统">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/favicon-32.png" sizes="32x32"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"GenSwarms","applicationCategory":"DeveloperApplication","operatingSystem":"Linux, macOS","softwareVersion":"0.2.0","license":"https://opensource.org/licenses/MIT","url":"https://genswarms.com/zh/","codeRepository":"https://github.com/genlayerlabs/genswarms","description":"AI 员工的操作系统：把每个 AI 智能体作为独立、受监督的进程运行，消息只沿声明的路径传递，提供 REST + WebSocket API 与实时事件流。","inLanguage":"zh-Hans","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"GenLayer Labs"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"GenSwarms","applicationCategory":"DeveloperApplication","operatingSystem":"Linux, macOS","softwareVersion":"0.2.0","license":"https://opensource.org/licenses/MIT","url":"https://genswarms.com/zh/","codeRepository":"https://github.com/genlayerlabs/genswarms","description":"AI 智能体的操作系统：每个智能体都作为独立、受监督的进程运行，消息只沿声明的路径传递，并提供 REST + WebSocket API 和实时事件流。","inLanguage":"zh-Hans","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"GenLayer Labs"}}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400..600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -51,16 +51,16 @@
 <section class="story" aria-label="GenSwarms 是什么">
 <div class="story-in">
 <div class="stage-col"><div class="stage" data-k="0">
-<canvas role="img" aria-label="示意图：一个由 36 个集群、数千个智能体组成的组织。每个集群都是一个小结构：智能体（圆圈）和对象（方块）沿声明的路径相连，由监督者监控。消息沿路径流动；不时有一个智能体崩溃，随即被它的监督者重启。"></canvas>
+<canvas role="img" aria-label="示意图：一个由 36 个集群、数千个智能体组成的组织。每个集群由智能体（圆圈）和对象（方块）组成，沿声明的路径相连，由监督者监控。消息沿路径流动；不时有一个智能体崩溃，随即被它的监督者重启。"></canvas>
 <div class="zcap" aria-hidden="true"><span class="lv">组织</span><span class="zf"></span><span class="n"></span></div>
-<div class="ros" aria-hidden="true"><div class="ro legend" data-at="0"><span class="lg"><svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="5" class="ag-o"/><circle cx="7" cy="7" r="1.7" class="ag-i"/></svg>智能体</span><span class="lg"><svg viewBox="0 0 14 14" aria-hidden="true"><rect x="2.5" y="2.5" width="9" height="9" class="ob"/></svg>对象</span><span class="lg"><svg viewBox="0 0 14 14" aria-hidden="true"><path d="M7 2.5L11.5 7 7 11.5 2.5 7z" class="sp"/></svg>监督者</span><span class="lg"><svg viewBox="0 0 24 14" aria-hidden="true"><path d="M1 7H23" class="e"/><path d="M9 7H16" class="pu"/></svg>已声明路径上的消息</span></div><div class="ro" data-at="2"><p class="cap">一个智能体：模型、提示词和一些工具。</p><dl class="log kv"><div class="ln"><dt class="k">模型</dt><dd>决定下一步</dd></div><div class="ln"><dt class="k">提示词</dt><dd>说明任务是什么</dd></div><div class="ln"><dt class="k">工具</dt><dd>完成具体工作</dd></div></dl></div><div class="ro" data-at="3"><p class="cap">十二个智能体，彼此之间靠手工连线。</p><dl class="log kv"><div class="ln"><dt class="k">谁和谁通信</dt><dd>写死在每个智能体里</dd></div><div class="ln"><dt class="k">各自在哪运行</dt><dd>在哪启动，就在哪运行</dd></div><div class="ln"><dt class="k">某个出故障时</dt><dd>没有任何机制重启它</dd></div></dl></div><div class="ro" data-at="4"><dl class="log kv"><div class="ln"><dt class="k">启动</dt><dd>每个智能体作为独立进程</dd></div><div class="ln"><dt class="k">隔离</dt><dd>每个都在自己的沙箱里</dd></div><div class="ln"><dt class="k">路由</dt><dd>消息只走声明的路径</dd></div><div class="ln"><dt class="k">重启</dt><dd>出故障的智能体，交给它的监督者</dd></div></dl></div><div class="ro" data-at="5"><p class="ro-t">事件 (示意)</p><dl class="log kv"><div class="ln hot"><dt class="k">智能体 10</dt><dd>崩溃</dd></div><div class="ln"><dt class="k">智能体 10</dt><dd>已由其监督者重启</dd></div><div class="ln dim"><dt class="k">其余 11 个</dt><dd>运行中</dd></div></dl></div><div class="ro" data-at="6"><p class="ro-t">事件 (示意)</p><div class="log ev"><div class="ln"><span class="k">message_routed</span><span>telegram <span class="ar">→</span> triage</span></div><div class="ln"><span class="k">message_routed</span><span>triage <span class="ar">→</span> research</span></div><div class="ln hot"><span class="k">invalid_route</span><span>research <span class="ar">→</span> telegram</span><span class="tag">已丢弃</span></div><div class="ln"><span class="k">message_routed</span><span>research <span class="ar">→</span> answer</span></div></div></div><div class="ro" data-at="7"><p class="cap">对象是图上的普通代码。answer 和 research 的模型调用都经过 <b>budget</b>。</p><dl class="log kv"><div class="ln"><dt class="k">智能体</dt><dd>triage, research, answer：用模型</dd></div><div class="ln"><dt class="k">对象</dt><dd>telegram, cron, browser, budget：普通代码</dd></div></dl></div><div class="ro" data-at="8"><p class="ro-t">软件包 · swarmidx (示意)</p><div class="log pk"><div class="ln"><span class="pn">genlayerlabs/genswarms-telegram@0.6.6</span><span class="dg">sha256:9f2c…</span><span class="vf">已验证</span></div><div class="ln"><span class="pn">genlayerlabs/cron@0.2.8</span><span class="dg">sha256:4be1…</span><span class="vf">已验证</span></div><div class="ln"><span class="pn">genlayerlabs/browser@0.2.4</span><span class="dg">sha256:51d3…</span><span class="vf">已验证</span></div><div class="ln"><span class="pn">genlayerlabs/genswarms-llm-proxy@0.4.2</span><span class="dg">sha256:c07a…</span><span class="vf">已验证</span></div></div></div><div class="ro" data-at="9"><p class="cap">被拒绝的变更从不记入日志。已停止的集群从数据库恢复：先恢复初始定义，再按顺序应用已记录的变更。</p><dl class="log kv"><div class="ln"><dt class="k">恢复</dt><dd>初始定义，然后是变更 1、2、3</dd></div></dl></div><div class="ro" data-at="10"><p class="ro-t">统一事件流 (示意)</p><div class="log st"><div class="ln"><span class="k">support</span><span class="e2">message_routed</span><span>triage → answer</span></div><div class="ln"><span class="k">observer</span><span class="e2">message_routed</span><span>watch → report</span></div><div class="ln hot"><span class="k">trading sim</span><span class="e2">restart</span><span>智能体 3</span></div><div class="ln"><span class="k">coding</span><span class="e2">output</span><span>智能体 2</span></div></div></div></div>
+<div class="ros" aria-hidden="true"><div class="ro legend" data-at="0"><span class="lg"><svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="5" class="ag-o"/><circle cx="7" cy="7" r="1.7" class="ag-i"/></svg>智能体</span><span class="lg"><svg viewBox="0 0 14 14" aria-hidden="true"><rect x="2.5" y="2.5" width="9" height="9" class="ob"/></svg>对象</span><span class="lg"><svg viewBox="0 0 14 14" aria-hidden="true"><path d="M7 2.5L11.5 7 7 11.5 2.5 7z" class="sp"/></svg>监督者</span><span class="lg"><svg viewBox="0 0 24 14" aria-hidden="true"><path d="M1 7H23" class="e"/><path d="M9 7H16" class="pu"/></svg>已声明路径上的消息</span></div><div class="ro" data-at="2"><p class="cap">一个智能体：模型、提示词和一些工具。</p><dl class="log kv"><div class="ln"><dt class="k">模型</dt><dd>决定下一步</dd></div><div class="ln"><dt class="k">提示词</dt><dd>说明任务是什么</dd></div><div class="ln"><dt class="k">工具</dt><dd>完成具体工作</dd></div></dl></div><div class="ro" data-at="3"><p class="cap">十二个智能体，彼此之间靠手工连线。</p><dl class="log kv"><div class="ln"><dt class="k">谁和谁通信</dt><dd>写死在每个智能体里</dd></div><div class="ln"><dt class="k">各自在哪运行</dt><dd>在哪启动，就在哪运行</dd></div><div class="ln"><dt class="k">某个出故障时</dt><dd>不会被重启</dd></div></dl></div><div class="ro" data-at="4"><dl class="log kv"><div class="ln"><dt class="k">启动</dt><dd>每个智能体一个独立进程</dd></div><div class="ln"><dt class="k">隔离</dt><dd>每个都在自己的沙箱里</dd></div><div class="ln"><dt class="k">路由</dt><dd>消息只走声明的路径</dd></div><div class="ln"><dt class="k">重启</dt><dd>出故障的智能体，交给它的监督者</dd></div></dl></div><div class="ro" data-at="5"><p class="ro-t">事件 (示意)</p><dl class="log kv"><div class="ln hot"><dt class="k">智能体 10</dt><dd>崩溃</dd></div><div class="ln"><dt class="k">智能体 10</dt><dd>已由其监督者重启</dd></div><div class="ln dim"><dt class="k">其余 11 个</dt><dd>运行中</dd></div></dl></div><div class="ro" data-at="6"><p class="ro-t">事件 (示意)</p><div class="log ev"><div class="ln"><span class="k">message_routed</span><span>telegram <span class="ar">→</span> triage</span></div><div class="ln"><span class="k">message_routed</span><span>triage <span class="ar">→</span> research</span></div><div class="ln hot"><span class="k">invalid_route</span><span>research <span class="ar">→</span> telegram</span><span class="tag">已丢弃</span></div><div class="ln"><span class="k">message_routed</span><span>research <span class="ar">→</span> answer</span></div></div></div><div class="ro" data-at="7"><p class="cap">对象是图上的普通代码。answer 和 research 的模型调用都经过 <b>budget</b>。</p><dl class="log kv"><div class="ln"><dt class="k">智能体</dt><dd>triage, research, answer：用模型</dd></div><div class="ln"><dt class="k">对象</dt><dd>telegram, cron, browser, budget：普通代码</dd></div></dl></div><div class="ro" data-at="8"><p class="ro-t">软件包 · swarmidx (示意)</p><div class="log pk"><div class="ln"><span class="pn">genlayerlabs/genswarms-telegram@0.6.6</span><span class="dg">sha256:9f2c…</span><span class="vf">已验证</span></div><div class="ln"><span class="pn">genlayerlabs/cron@0.2.8</span><span class="dg">sha256:4be1…</span><span class="vf">已验证</span></div><div class="ln"><span class="pn">genlayerlabs/browser@0.2.4</span><span class="dg">sha256:51d3…</span><span class="vf">已验证</span></div><div class="ln"><span class="pn">genlayerlabs/genswarms-llm-proxy@0.4.2</span><span class="dg">sha256:c07a…</span><span class="vf">已验证</span></div></div></div><div class="ro" data-at="9"><p class="cap">被拒绝的变更不会记入日志。已停止的集群从数据库恢复：先恢复初始定义，再按顺序应用已记录的变更。</p><dl class="log kv"><div class="ln"><dt class="k">恢复</dt><dd>初始定义，然后是变更 1、2、3</dd></div></dl></div><div class="ro" data-at="10"><p class="ro-t">统一事件流 (示意)</p><div class="log st"><div class="ln"><span class="k">support</span><span class="e2">message_routed</span><span>triage → answer</span></div><div class="ln"><span class="k">observer</span><span class="e2">message_routed</span><span>watch → report</span></div><div class="ln hot"><span class="k">trading sim</span><span class="e2">restart</span><span>智能体 3</span></div><div class="ln"><span class="k">coding</span><span class="e2">output</span><span>智能体 2</span></div></div></div></div>
 <div class="ill" aria-hidden="true">示意图</div>
 </div></div>
 <div class="steps">
 <article class="step hero" id="s0" data-step="0" data-k="0">
 <div class="copy hero-copy">
-<h1>AI&nbsp;员工的操作系统。</h1>
-<p class="lead">在整个组织中部署、协调和控制数千个 AI 智能体。</p>
+<h1>AI&nbsp;智能体的操作系统。</h1>
+<p class="lead">为整个组织部署、协调和管控数千个 AI&nbsp;智能体。</p>
 <div class="ctas"><a class="btn btn-p" href="/docs/">阅读文档</a><a class="btn btn-s" href="https://github.com/genlayerlabs/genswarms"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>在 GitHub 上查看</a></div>
 <dl class="facts"><div><dt>许可证</dt><dd>开源，MIT</dd></div><div><dt>版本</dt><dd>0.2.0</dd></div><div><dt>运行时</dt><dd>Elixir / OTP</dd></div></dl>
 </div>
@@ -69,14 +69,14 @@
 <div class="copy">
 <h2>智能体要的不止模型和提示词。</h2>
 <p>一个智能体好办。多个智能体协同工作，就需要运行的地方、谁和谁通信的规则，以及某个出故障时的恢复办法。</p>
-<div class="ro-in" data-at="2"><p class="cap">一个智能体：模型、提示词和一些工具。</p><dl class="log kv"><div class="ln"><dt class="k">模型</dt><dd>决定下一步</dd></div><div class="ln"><dt class="k">提示词</dt><dd>说明任务是什么</dd></div><div class="ln"><dt class="k">工具</dt><dd>完成具体工作</dd></div></dl></div><div class="ro-in" data-at="3"><p class="cap">十二个智能体，彼此之间靠手工连线。</p><dl class="log kv"><div class="ln"><dt class="k">谁和谁通信</dt><dd>写死在每个智能体里</dd></div><div class="ln"><dt class="k">各自在哪运行</dt><dd>在哪启动，就在哪运行</dd></div><div class="ln"><dt class="k">某个出故障时</dt><dd>没有任何机制重启它</dd></div></dl></div>
+<div class="ro-in" data-at="2"><p class="cap">一个智能体：模型、提示词和一些工具。</p><dl class="log kv"><div class="ln"><dt class="k">模型</dt><dd>决定下一步</dd></div><div class="ln"><dt class="k">提示词</dt><dd>说明任务是什么</dd></div><div class="ln"><dt class="k">工具</dt><dd>完成具体工作</dd></div></dl></div><div class="ro-in" data-at="3"><p class="cap">十二个智能体，彼此之间靠手工连线。</p><dl class="log kv"><div class="ln"><dt class="k">谁和谁通信</dt><dd>写死在每个智能体里</dd></div><div class="ln"><dt class="k">各自在哪运行</dt><dd>在哪启动，就在哪运行</dd></div><div class="ln"><dt class="k">某个出故障时</dt><dd>不会被重启</dd></div></dl></div>
 </div>
 </article>
 <article class="step" id="s2" data-step="2" data-k="4">
 <div class="copy">
 <h2>把它想象成操作系统。</h2>
 <p>操作系统运行的程序，并不是它自己写的。GenSwarms 为智能体做的，正是这件事：启动、隔离、路由消息，出故障时重启。</p>
-<div class="ro-in" data-at="4"><dl class="log kv"><div class="ln"><dt class="k">启动</dt><dd>每个智能体作为独立进程</dd></div><div class="ln"><dt class="k">隔离</dt><dd>每个都在自己的沙箱里</dd></div><div class="ln"><dt class="k">路由</dt><dd>消息只走声明的路径</dd></div><div class="ln"><dt class="k">重启</dt><dd>出故障的智能体，交给它的监督者</dd></div></dl></div>
+<div class="ro-in" data-at="4"><dl class="log kv"><div class="ln"><dt class="k">启动</dt><dd>每个智能体一个独立进程</dd></div><div class="ln"><dt class="k">隔离</dt><dd>每个都在自己的沙箱里</dd></div><div class="ln"><dt class="k">路由</dt><dd>消息只走声明的路径</dd></div><div class="ln"><dt class="k">重启</dt><dd>出故障的智能体，交给它的监督者</dd></div></dl></div>
 </div>
 </article>
 <article class="step" id="s3" data-step="3" data-k="5">
@@ -96,7 +96,7 @@
 </article>
 <article class="step" id="s5" data-step="5" data-k="7">
 <div class="copy">
-<h2>并非一切都需要模型。</h2>
+<h2>不是所有事都要用模型。</h2>
 <p>对象是同一张图上的普通代码：Telegram 网关、调度器、模型开销预算。它们每次都做同样的事。</p>
 <div class="ro-in" data-at="7"><p class="cap">对象是图上的普通代码。answer 和 research 的模型调用都经过 <b>budget</b>。</p><dl class="log kv"><div class="ln"><dt class="k">智能体</dt><dd>triage, research, answer：用模型</dd></div><div class="ln"><dt class="k">对象</dt><dd>telegram, cron, browser, budget：普通代码</dd></div></dl></div>
 </div>
@@ -111,15 +111,15 @@
 <article class="step" id="s7" data-step="7" data-k="9">
 <div class="copy">
 <h2>集群即文档。</h2>
-<p>它的定义就是数据，每次变更都有记录。错误的变更在运行前就会被拒绝；停止运行的集群可以从自己的数据库中恢复。</p>
-<div class="ro-in" data-at="9"><p class="cap">被拒绝的变更从不记入日志。已停止的集群从数据库恢复：先恢复初始定义，再按顺序应用已记录的变更。</p><dl class="log kv"><div class="ln"><dt class="k">恢复</dt><dd>初始定义，然后是变更 1、2、3</dd></div></dl></div>
+<p>定义即数据，每次变更都记录在案。错误的变更在运行前就会被拒绝；停止运行的集群，可以从自己的数据库恢复。</p>
+<div class="ro-in" data-at="9"><p class="cap">被拒绝的变更不会记入日志。已停止的集群从数据库恢复：先恢复初始定义，再按顺序应用已记录的变更。</p><dl class="log kv"><div class="ln"><dt class="k">恢复</dt><dd>初始定义，然后是变更 1、2、3</dd></div></dl></div>
 </div>
 </article>
 <article class="step" id="s8" data-step="8" data-k="10">
 <div class="copy">
-<h2>整个 AI 组织，一个控制层。</h2>
-<p>每条消息、每次崩溃和重启，都能实时看到。可以通过 API 或 CLI 操控，也可以交给你的编程智能体。</p>
-<p class="triad"><span>模型提供智能。</span> <span>智能体执行工作。</span> <span>组织交给 GenSwarms。</span></p>
+<h2>所有智能体，一个控制层。</h2>
+<p>每条消息、每次崩溃和重启，都能实时看到。可以用 API 或 CLI 操控，也可以让你的编程智能体代劳。</p>
+<p class="triad"><span>模型提供智能。</span> <span>智能体完成工作。</span> <span>组织交给 GenSwarms。</span></p>
 <div class="ro-in" data-at="10"><p class="ro-t">统一事件流 (示意)</p><div class="log st"><div class="ln"><span class="k">support</span><span class="e2">message_routed</span><span>triage → answer</span></div><div class="ln"><span class="k">observer</span><span class="e2">message_routed</span><span>watch → report</span></div><div class="ln hot"><span class="k">trading sim</span><span class="e2">restart</span><span>智能体 3</span></div><div class="ln"><span class="k">coding</span><span class="e2">output</span><span>智能体 2</span></div></div></div>
 </div>
 </article>
@@ -143,14 +143,14 @@
 <tr><th scope="row">智能体在哪里运行</th><td class="gs" data-l="GenSwarms">各自在受监督的进程中：本地、沙箱、容器或 SSH</td><td data-l="LangGraph">在你的 Python 或 JS 进程中，或在 LangSmith Deployment 服务器上</td><td data-l="CrewAI">在你的 Python 进程中，或在 CrewAI AMP 托管的基础设施上</td><td data-l="AutoGen">在你的进程中，或经由实验性的分布式运行时分散到多个工作进程</td></tr>
 <tr><th scope="row">崩溃影响什么</th><td class="gs" data-l="GenSwarms">崩溃的那个智能体。由它的监督者重启</td><td data-l="LangGraph">整次运行；可借助检查点恢复，节点也可以重试</td><td data-l="CrewAI">整次运行；智能体会在出错时重试，流程可以持久化并恢复</td><td data-l="AutoGen">由你的代码处理；团队状态可以保存并重新加载</td></tr>
 </tbody></table></div>
-<p class="src">依据各项目自己的文档整理，2026 年 9 月。</p>
+<p class="src">信息来自各项目自己的文档，截至 2026 年 9 月。</p>
 </div>
 </section>
 <section class="sec" id="security" aria-labelledby="sec-h">
 <div class="wrap">
 <div class="sec-head"><h2 id="sec-h">哪些已能保证，哪些还不能。</h2><p>0.2.0 版现在提供什么，还有哪些已知限制。</p></div>
 <div class="gu">
-<div class="gu-col yes"><h3>保证</h3><ul><li>一次崩溃只重启一个智能体，而不是整个集群。</li><li>消息只沿声明的路径传递。</li><li>错误的配置和变更在运行前就会被拒绝。</li><li>软件包对照签名日志验证。</li></ul></div>
+<div class="gu-col yes"><h3>保证</h3><ul><li>崩溃时只重启一个智能体，而非整个集群。</li><li>消息只沿声明的路径传递。</li><li>错误的配置和变更在运行前就会被拒绝。</li><li>软件包对照签名日志验证。</li></ul></div>
 <div class="gu-col not"><h3>尚未做到</h3><ul><li>只有一个操作员令牌，没有按用户划分的角色。</li><li>至少一次投递，而非恰好一次。</li><li>开销预算以软件包形式提供，未内置于核心。</li><li>更新软件包会重启智能体；暂不支持热替换。</li><li>默认每个集群最多 100 个智能体（可配置）。</li></ul></div>
 </div>
 </div>
@@ -161,7 +161,7 @@
 <p class="close-p">已用于聊天助手、编程智能体、交易模拟，以及监控其他集群的集群。</p>
 <div class="ctas"><a class="btn btn-p" href="/docs/">阅读文档</a><a class="btn btn-s" href="https://github.com/genlayerlabs/genswarms"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>在 GitHub 上查看</a></div>
 <div class="handoff">
-<p id="handoff-l">或者交给你的智能体：</p>
+<p id="handoff-l">或者，让你的智能体来搭建：</p>
 <div class="cmd"><code id="prompt">阅读 https://genswarms.com/skill.md 并搭建一个集群。</code><button type="button" id="copy" aria-describedby="handoff-l" data-idle="复制" data-copied="已复制" data-fallback="已选中">复制</button></div>
 </div>
 </div>
@@ -169,12 +169,12 @@
 </main>
 <footer class="foot"><div class="wrap foot-in">
 <a class="brand" href="#s0" aria-label="GenSwarms 首页">genswarms<span class="cur" aria-hidden="true"></span></a>
-<p>AI 员工的操作系统。</p>
+<p>AI 智能体的操作系统。</p>
 <nav aria-label="页脚"><a href="/docs/">文档</a><a href="https://github.com/genlayerlabs/genswarms">GitHub</a><a href="https://github.com/genlayerlabs/genswarms/blob/main/LICENSE">MIT 许可证</a><a href="/skill.md">skill.md</a><a href="/llms.txt">llms.txt</a></nav>
 <nav class="foot-langs" aria-label="语言"><a href="/" hreflang="en" lang="en">English</a><a href="/es/" hreflang="es" lang="es">Español</a><a href="/ko/" hreflang="ko" lang="ko">한국어</a><a href="/zh/" hreflang="zh-Hans" lang="zh-Hans" aria-current="page">简体中文</a><a href="/ru/" hreflang="ru" lang="ru">Русский</a><a href="/tr/" hreflang="tr" lang="tr">Türkçe</a></nav>
 <p class="legal">© 2026 GenLayer Labs · MIT 许可证</p>
 </div></footer>
-<script type="application/json" id="zoom-strings">{"cine":"(min-width: 960px) and (min-height: 640px), (orientation: landscape) and (min-width: 640px) and (max-height: 639px)","lv":["组织","团队","智能体"],"count":"{swarms} 个集群 · {agents} 个智能体","layer":"启动 · 隔离 · 路由 · 重启","supervisor":"监督者","process":"进程","sandbox":"沙箱","dropped":"已丢弃","crashed":"崩溃","restarted":"已重启","modelCalls":"模型调用","model":"模型","tools":"工具","prompt":"提示词","agent":"智能体","seed":"初始定义","log":"变更日志","declared":"已声明 {n} 条","refused":"已拒绝：超过 {cap} 个智能体上限","never":"不记入日志","defines":"定义","restores":"从数据库恢复","aria":["示意图：一个由 36 个集群、数千个智能体组成的组织。每个集群都是一个小结构：智能体（圆圈）和对象（方块）沿声明的路径相连，由监督者监控。消息沿路径流动；不时有一个智能体崩溃，随即被它的监督者重启。","示意图：镜头拉近到其中一个集群——一个客服团队。","示意图：近看单个智能体，它由模型、提示词和一些工具组成。","示意图：十二个智能体，彼此之间靠手工连线。","示意图：智能体成排位于 GenSwarms 层之下，由它负责启动、隔离、路由和重启。","示意图：每个智能体都在自己的沙箱里，由自己的监督者监控；一个智能体崩溃后被重启，其余的照常运行。","示意图：客服团队由一个 Telegram 对象和 triage、answer、research 三个智能体组成，沿声明的路径相连。从 research 发往 Telegram 的消息不在图上，被丢弃。","示意图：同一个团队，多了几个对象：cron、一个浏览器，以及一个预算对象，answer 和 research 的模型调用都要经过它。","示意图：每个对象都来自一个签名软件包，加载前先经过验证。","示意图：集群即文档，由初始定义和变更日志组成。一项超过 100 个智能体上限的变更被拒绝，不会记入日志。","示意图：镜头拉回整个组织，现在它处在同一个控制层之下。"]}</script>
+<script type="application/json" id="zoom-strings">{"cine":"(min-width: 960px) and (min-height: 640px), (orientation: landscape) and (min-width: 640px) and (max-height: 639px)","lv":["组织","团队","智能体"],"count":"{swarms} 个集群 · {agents} 个智能体","layer":"启动 · 隔离 · 路由 · 重启","supervisor":"监督者","process":"进程","sandbox":"沙箱","dropped":"已丢弃","crashed":"崩溃","restarted":"已重启","modelCalls":"模型调用","model":"模型","tools":"工具","prompt":"提示词","agent":"智能体","seed":"初始定义","log":"变更日志","declared":"已声明 {n} 条","refused":"已拒绝：超过 {cap} 个智能体上限","never":"不记入日志","defines":"定义","restores":"从数据库恢复","aria":["示意图：一个由 36 个集群、数千个智能体组成的组织。每个集群由智能体（圆圈）和对象（方块）组成，沿声明的路径相连，由监督者监控。消息沿路径流动；不时有一个智能体崩溃，随即被它的监督者重启。","示意图：镜头拉近到其中一个集群——一个客服团队。","示意图：近看单个智能体，它由模型、提示词和一些工具组成。","示意图：十二个智能体，彼此之间靠手工连线。","示意图：智能体成排位于 GenSwarms 层之下，由它负责启动、隔离、路由和重启。","示意图：每个智能体都在自己的沙箱里，由自己的监督者监控；一个智能体崩溃后被重启，其余的照常运行。","示意图：客服团队由一个 Telegram 对象和 triage、answer、research 三个智能体组成，沿声明的路径相连。从 research 发往 Telegram 的消息不在图上，被丢弃。","示意图：同一个团队，多了几个对象：cron、一个浏览器，以及一个预算对象，answer 和 research 的模型调用都要经过它。","示意图：每个对象都来自一个签名软件包，加载前先经过验证。","示意图：集群即文档，由初始定义和变更日志组成。一项超过 100 个智能体上限的变更被拒绝，不会记入日志。","示意图：镜头拉回整个组织，现在它处在同一个控制层之下。"]}</script>
 <script>
 var Z = {};
 (function () {

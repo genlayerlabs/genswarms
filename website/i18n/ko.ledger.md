@@ -9,7 +9,7 @@
 | Concept | Source term(s) | Meaning here (source) | Keep distinct from | ko | Avoid | Source |
 |---|---|---|---|---|---|---|
 | Operating system | operating system | The analogy for the whole product: it runs programs it did not write | platform, framework | 운영체제 | 운영 체제 (spacing), OS 플랫폼, 운영 시스템 | concepts.md "The thesis"; copy deck step 2 |
-| AI workforce | AI workforces | Many agents working as an organisation's staff | a single swarm/team; labour-market statistics | AI 인력 | AI 노동력 (labour statistics), AI 직원 (sounds like individual hires), AI 인재 | concepts.md |
+| AI workforce | AI workforces | Many agents working as an organisation's staff | a single swarm/team; labour-market statistics | AI 에이전트 (h1/title/footer/JSON-LD: "AI 에이전트를 위한 운영체제"; see "Transcreation pass") | AI 인력 (= human AI talent), AI 노동력 (labour statistics), AI 직원 (sounds like individual hires), AI 인재, 디지털 워크포스 (enterprise-sales loanword) | concepts.md; transcreation pass 2026-09-29 |
 | Agent | agent | An LLM-backed worker, one OS-style process | object, model | 에이전트 | 에이전트 봇 | genlayerlabs / SubZeroClaw ko |
 | Object | object, objects | Deterministic Elixir code on the same message graph ("plain code") | agent; a physical thing | 오브젝트 | 객체 (reads as the generic OOP noun, loses the product term), 사물 | README "Objects"; concepts.md |
 | Model | model | The LLM an agent calls | agent | 모델 | 언어모델 in short copy | genlayerlabs ko |
@@ -60,7 +60,7 @@
 | Concept | Occurrences | ko choice | Rationale |
 |---|---|---|---|
 | operating system | title, h1, step 2 h2 and paragraph, figure 3, footer, JSON-LD | 운영체제 | The standard computer term, so the metaphor lands. It also shares 운영 with the kicker's 운영합니다, which the English gets from "operating"/"runs". |
-| workforce | title, h1, footer, JSON-LD | AI 인력 | 인력 is an organisation's personnel (인력 운영, 인력 배치). 노동력 is labour-market vocabulary. |
+| workforce | title, h1, footer, JSON-LD | AI 에이전트 (superseded AI 인력 on 2026-09-29) | AI 인력 reads as human AI talent; see "Transcreation pass". |
 | runs (the organization) | kicker line 3 | 운영합니다 | Operate/run, not a human boss's 관리합니다. Echoes 운영체제. |
 | runs (programs, agents) | step 2, step 3, JSON-LD, spec, comparison | 실행하다 / 실행되다 | The plain technical verb. I did not use the casual 돌리다 of SubZeroClaw because this page talks about processes and backends, where 실행 is the standard term. |
 | plain code / the same thing every time | step 5, legend | 일반 코드; 매번 같은 일을 합니다 | Neutral and unglamorous. 순수 코드 would mean "pure code". 평범한 코드 was considered; it can read as mildly dismissive. |
@@ -216,3 +216,77 @@ Tried and dropped: `Apple&nbsp;container` in a7b45c42 (to stop "Apple / containe
 - **Full stops on 개조식 lines:** keep. The English redesign ends every spec and guarantee line with a period, and Korean tech pages that use 개조식 inside prose-like lists commonly do too. The page is consistent, and dropping them would reintroduce commas in the State row and the live-swap limit.
 - **통합 이벤트 스트림:** keep. It is the idiomatic "one stream for everything"; 단일 이벤트 스트림 would read as a spec term.
 - **선택됨 (copy fallback):** keep. It states what happened (the prompt is selected), which mirrors 복사됨.
+
+## Transcreation pass (2026-09-29)
+
+A senior Korean developer-tools product marketer re-read `/ko/` cold. The question was not whether the page is accurate but whether it reads as written in Korean. No claim was strengthened and nothing was dropped. Tags, placeholders and protected names are kept. 30 strings changed.
+
+### "AI workforce": AI 인력 → AI 에이전트
+
+**Decision:** «AI 에이전트를 위한 운영체제» (back-translation: "the operating system for AI agents"). It is used in the h1 (`3b3ae940`), the title (`836e01a9`), the footer tagline (`37294ee3`) and the JSON-LD (`ffebc746`).
+
+**Evidence**
+- **«AI 인력» means people.** In current Korean it is the standard term for human AI talent: "AI 인력 양성" (training AI people), "AI 인력 부족" (shortage of AI engineers), plus hiring coverage in 한국경제, CIO Korea and AI타임스 (September 2026). A Korean reader, or someone searching Naver, takes «AI 인력을 위한 운영체제» to mean "an OS for AI professionals".
+- **«AI 에이전트를 위한 운영체제 / OS» is the phrase Korean tech writing already uses for this product category.** Examples: Dale Seo's engineering blog, "Cloudflare OS: AI 에이전트를 위한 운영체제" (daleseo.com/cloudflare-os), and CIO Korea, "AI 에이전트를 위한 OS는 어떤 모습일까?". «AI 에이전트» is also the term Korean developers search for, and it matches the lede and the rest of the page.
+- **The alternatives don't fit.**
+  - «디지털 워크포스» / «디지털 노동력» are Salesforce Korea's Agentforce terms, used in enterprise-sales and HR framing. To a developer they read as a consultancy loanword.
+  - «AI 직원» (AI employees) names individual hires in chatbot and RPA marketing.
+  - «AI 에이전트 조직» is not an established phrase.
+  - «AI 조직» has the same problem as 인력: it means a company's AI department.
+- The collective, organisational sense of "workforce" is still carried by the lede ("AI 에이전트 수천 개를 조직 전체에…"), the zoom caption (조직 · 스웜 36개 · 에이전트 2,861개) and step 9. This is the same move Spanish made ("tus agentes de IA").
+
+**Layout.** The h1 sets as «AI 에이전트를 / 위한 운영체제.» at every width from 320 to 1440, in two balanced lines. A no-break space before 위한 would give «AI 에이전트를 위한 / 운영체제.», but at 1440×900 that phrase is 446.5 px against a 444 px column. Chrome would then break inside 위한 («위 / 한»), so I kept the single `&nbsp;` after AI. «AI 에이전트용 운영체제» would fit on one line at every width, but «~를 위한» is the form Korean titles and searches use most.
+
+**Related.** "One control layer for your AI organization" (`41acb76d`) had the same trap in «AI 조직» (an AI division). It is now «조직의 모든 에이전트를, 하나의 제어 계층에서.» ("Every agent in your organization, from one control layer."), and the keyframe-10 alt text follows it (하나의 제어 계층).
+
+**Share image.** The h1 and the triad are on `og-ko.png`. Run `node website/tools/og.cjs` after these strings land, or `--check` will fail on the stale card. I didn't run it because this task may not write into `website/`.
+
+### Changes
+
+| id | before | after | back-translation of after | why the before read as translated |
+|---|---|---|---|---|
+| 3b3ae940 | AI&nbsp;인력을&nbsp;위한 운영체제. | AI&nbsp;에이전트를 위한 운영체제. | The operating system for AI agents. | «AI 인력» is the everyday Korean term for human AI talent (AI 인력 양성, AI 인력 부족), so the old headline could read as "the OS for AI professionals". |
+| 836e01a9 | GenSwarms: AI 인력을 위한 운영체제 | GenSwarms: AI 에이전트를 위한 운영체제 | GenSwarms: the operating system for AI agents | Same term as the headline; «AI 인력» is what a Korean searches for when hiring AI engineers, not for agent software. |
+| 37294ee3 | AI 인력을 위한 운영체제. | AI 에이전트를 위한 운영체제. | The operating system for AI agents. | Footer tagline follows the headline. |
+| ffebc746 | AI 인력을 위한 운영체제. AI 에이전트를 슈퍼바이저가 관리하는 개별 프로세스로, 선언된 메시지 경로 위에서 실행합니다. REST + WebSocket API와 실시간 이벤트 스트림을 제공합니다. | AI 에이전트를 위한 운영체제. 에이전트마다 슈퍼바이저가 관리하는 별도 프로세스로 실행하고, 메시지는 선언된 경로로 오갑니다. REST + WebSocket API와 실시간 이벤트 스트림을 제공합니다. | The operating system for AI agents. It runs each agent as a separate process managed by a supervisor, and messages travel along declared paths. It provides a REST + WebSocket API and a real-time event stream. | New headline term; "runs … on declared message paths" (선언된 메시지 경로 위에서 실행) was an English prepositional calque, and "AI 에이전트" appeared twice in a row. |
+| d4a74b50 | 문서 읽기 | 문서 보기 | View the docs | «문서 읽기» is a word-for-word "Read the docs"; Korean product pages say «문서 보기». |
+| 84d5e16a | 에이전트 하나쯤은 쉽습니다. 여러 에이전트가 함께 일하려면 실행할 곳, 누가 누구와 대화할지 정하는 규칙, 하나가 실패하면 복구할 방법이 필요합니다. | 에이전트 하나라면 간단합니다. 하지만 여러 에이전트가 함께 일하려면 실행할 곳, 누가 누구와 대화할지 정하는 규칙, 하나가 실패했을 때 복구할 방법이 필요합니다. | If it's one agent, it's simple. But for many agents to work together, you need a place to run them, rules deciding who talks to whom, and a way to recover when one fails. | «에이전트 하나쯤은 쉽습니다» ("one agent or so is easy") left unsaid what is easy; the Korean needs a condition and an explicit "but" to set up the turn. |
+| d5661343 | 운영체제는 직접 만들지 않은 프로그램을 실행합니다. GenSwarms는 에이전트를 그렇게 실행합니다. 시작하고, 격리하고, 메시지를 라우팅하고, 실패하면 재시작합니다. | 운영체제는 직접 만들지 않은 프로그램을 실행합니다. GenSwarms가 에이전트에게 하는 일이 바로 이것입니다. 에이전트를 시작하고, 격리하고, 메시지를 라우팅하고, 실패하면 재시작합니다. | An operating system runs programs it didn't write itself. That is exactly what GenSwarms does for agents: it starts them, isolates them, routes their messages and restarts them when they fail. | «GenSwarms는 에이전트를 그렇게 실행합니다» ("GenSwarms runs agents like that") is a stiff rendering of "does that for agents". |
+| 90e66590 | 각 에이전트는 자기 샌드박스 안에서, 자기 슈퍼바이저 아래 실행됩니다. 하나가 크래시되면 그 에이전트는 재시작되고, 나머지는 계속 일합니다. 역할, 모델, 실행 위치는 따로 정합니다. | 각 에이전트는 전용 샌드박스 안에서, 전용 슈퍼바이저의 관리를 받으며 실행됩니다. 하나가 크래시되면 그 에이전트는 재시작되고, 나머지는 계속 일합니다. 역할, 모델, 실행 위치는 각각 따로 정합니다. | Each agent runs inside its own dedicated sandbox, managed by its own dedicated supervisor. If one crashes, that agent restarts and the rest keep working. Role, model and where it runs are each set separately. | «자기 샌드박스 … 자기 슈퍼바이저 아래» copies the English "its own … under its own"; «전용» (dedicated) and «관리를 받으며» are how Korean says it. |
+| 2cd90562 | 그래프는 직접 그립니다. 모든 메시지는 그래프에 맞는지 검사되고, 벗어난 메시지는 폐기됩니다. | 그래프는 직접 그립니다. 모든 메시지는 이 그래프를 기준으로 검사되고, 벗어난 메시지는 폐기됩니다. | You draw the graph yourself. Every message is checked with this graph as the reference, and messages that stray from it are dropped. | «그래프에 맞는지 검사되고» ("is checked whether it fits the graph") is an awkward passive; «~를 기준으로 검사» is the standard way to say "checked against". |
+| 169c0a3b | 여기서부터 그림은 스웜 하나를 따라갑니다. Telegram에서 고객에게 답하는 지원팀입니다. | 여기서부터 그림은 스웜 하나를 따라갑니다. Telegram에서 고객 문의에 답하는 지원팀입니다. | From here the drawings follow one swarm: a support team that answers customer inquiries on Telegram. | «고객에게 답하는» ("answers to customers") is a calque; Korean support copy says «고객 문의에 답하는». |
+| 57b1f883 | 오브젝트는 같은 그래프 위의 일반 코드입니다. Telegram&nbsp;게이트웨이, 스케줄러, 모델 비용 예산이 여기에 속합니다. 매번 같은 일을 합니다. | 오브젝트는 같은 그래프 위의 일반 코드입니다. Telegram&nbsp;게이트웨이, 스케줄러, 모델 비용 예산이 그 예입니다. 매번 똑같이 동작합니다. | Objects are plain code on the same graph. A Telegram gateway, a scheduler and a model-spend budget are examples. They behave exactly the same way every time. | «…이 여기에 속합니다» ("belong here") read like a taxonomy; «그 예입니다» is natural. «매번 같은 일을 합니다» had no subject and read as a fragment. |
+| 3407f33c | 에이전트에게 필요한&nbsp;건 설치하세요. | 에이전트에게 필요한&nbsp;건 설치해서 쓰세요. | What your agents need, install it and use it. | «필요한 건 설치하세요» sounded clipped and oddly contrastive; «설치해서 쓰세요» is how Korean dev copy says "install what you need". |
+| 41acb76d | AI 조직을 위한 단일 제어 계층. | 조직의 모든 에이전트를, 하나의 제어 계층에서. | Every agent in your organization, from one control layer. | «AI 조직» in Korean means a company's AI division (AI 조직 개편), the same trap as «AI 인력»; «단일 제어 계층» read like a spec sheet. |
+| e28ae737 | 모든 메시지, 크래시, 재시작을 실시간으로 지켜보세요. API나 CLI로 다루거나, 코딩 에이전트에게 맡기세요. | 모든 메시지, 크래시, 재시작을 실시간으로 확인하세요. API나 CLI로 제어하거나, 코딩 에이전트에게 맡기세요. | Check every message, crash and restart in real time. Control it with the API or CLI, or leave it to your coding agent. | «지켜보세요» ("keep watch") is literary; «확인하세요» is the product verb. «다루거나» ("handle") was vague for "drive"; «제어하거나» matches the control-layer headline. |
+| a0b063e5 | 모델은 지능을 제공합니다. | 지능은 모델이. | Intelligence: by the models. | The three «X는 Y를 ~합니다» sentences read as a translated list. «지능은 모델이. 일은 에이전트가. 조직 운영은 GenSwarms가.» is the elliptical "X은 Y가" slogan pattern Korean ads use for a division of labour. |
+| a34eb019 | 에이전트는 일을 수행합니다. | 일은 에이전트가. | The work: by the agents. | Second beat of the same pattern. |
+| 86d0513d | GenSwarms는 조직을 운영합니다. | 조직 운영은 GenSwarms가. | Running the organization: by GenSwarms. | «GenSwarms는 조직을 운영합니다» was the literal "runs the organization"; the elliptical beat lands on GenSwarms, as the English does. |
+| fdf7837b | 운영체제의 구성 요소별로 GenSwarms가 채워 넣은 것. | 운영체제의 구성 요소별로, GenSwarms에서는 무엇이 그 역할을 하는지. | For each part of an operating system, what plays that role in GenSwarms. | «구성 요소별로 GenSwarms가 채워 넣은 것» ("the thing GenSwarms stuffed in per component") was a calque of "what GenSwarms puts in each place". |
+| f8768e8a | 에이전트가 실행되는 곳 | 실행 위치 | Where it runs | «에이전트가 실행되는 곳» was a long clause for a row label; «실행 위치» is the ledger's prose term and standard label wording. |
+| f294f1c2 | 패키지는 서명된 로그와 대조해 검증. | 패키지는 서명된 로그를 기준으로 검증. | Packages verified against a signed log (as the reference). | «로그와 대조해 검증» is a stiff calque of "checked against"; «~를 기준으로 검증» is standard. |
+| c39d7104 | &lt;span&gt;한 팀으로 시작하세요.&lt;/span&gt; &lt;span&gt;에이전트&nbsp;수천&nbsp;개로 확장하세요.&lt;/span&gt; | &lt;span&gt;팀 하나로 시작하세요.&lt;/span&gt; &lt;span&gt;에이전트&nbsp;수천&nbsp;개까지 확장하세요.&lt;/span&gt; | Start with one team. Scale up to thousands of agents. | «한 팀으로» also means "as one united team"; «팀 하나로» is unambiguous. «수천 개로 확장» ("expand into thousands") → «수천 개까지 확장» ("scale up to"), the Korean idiom for scaling. |
+| 938739e1 | 현재 채팅 어시스턴트, 코딩 에이전트, 트레이딩 시뮬레이션, 다른 스웜을 지켜보는 스웜에 쓰이고 있습니다. | 현재 채팅 어시스턴트, 코딩 에이전트, 트레이딩 시뮬레이션, 다른 스웜을 모니터링하는 스웜에 쓰이고 있습니다. | Currently used for chat assistants, coding agents, trading simulations and swarms that monitor other swarms. | «지켜보는» ("watch over") is literary; developers say «모니터링하는». |
+| 3c90a001 | 아니면 에이전트에게 맡기세요: | 또는 에이전트에게 이렇게 요청하세요: | Or ask your agent like this: | «에이전트에게 맡기세요:» ("entrust it to your agent:") before a prompt doesn't tell the reader what to do with the text below; Korean says "ask it like this". |
+| 2714bd32 | 각자 자기 샌드박스 안에 | 각자 전용 샌드박스 안에 | Each inside its own dedicated sandbox | Follows step 4 (전용 샌드박스). |
+| e08af9a7 | 그림: 스웜 36개, 에이전트 수천 개로 이뤄진 조직. 각 스웜은 에이전트(원)와 오브젝트(사각형)가 선언된 경로로 이어지고 슈퍼바이저 아래 놓인 작은 구조입니다. 메시지가 경로를 따라 흐르고, 이따금 에이전트 하나가 크래시되면 슈퍼바이저가 재시작합니다. | 그림: 스웜 36개, 에이전트 수천 개로 이뤄진 조직. 각 스웜은 에이전트(원)와 오브젝트(사각형)로 된 작은 구조로, 선언된 경로로 이어져 있고 슈퍼바이저의 관리를 받습니다. 메시지가 경로를 따라 흐르고, 이따금 에이전트 하나가 크래시되면 슈퍼바이저가 재시작합니다. | Illustration: an organization of 36 swarms and several thousand agents. Each swarm is a small structure of agents (circles) and objects (squares), linked by declared paths and managed by supervisors. Messages flow along the paths; now and then one agent crashes and its supervisor restarts it. | The second sentence was one long English-shaped clause stack («…이어지고 … 아래 놓인 작은 구조»). |
+| c73bd527 | 그림: 카메라가 스웜 하나, 지원팀으로 확대해 들어갑니다. | 그림: 카메라가 스웜 하나(지원팀)를 확대합니다. | Illustration: the camera zooms in on one swarm (a support team). | «확대해 들어갑니다» ("zooms, going in") is a calque of "zooms into". |
+| e12cf2d5 | 그림: 각 에이전트가 자기 샌드박스 안에서 자기 슈퍼바이저 아래 실행됩니다. 에이전트 하나가 크래시된 뒤 재시작되는 동안 나머지는 계속 실행됩니다. | 그림: 각 에이전트가 전용 샌드박스 안에서 전용 슈퍼바이저의 관리를 받으며 실행됩니다. 에이전트 하나가 크래시된 뒤 재시작되는 동안 나머지는 계속 실행됩니다. | Illustration: each agent runs inside its own dedicated sandbox, managed by its own dedicated supervisor. While one agent crashes and is restarted, the rest keep running. | Same fix as step 4 (자기 … 자기). |
+| 7596f4cc | 그림: 문서로서의 스웜. 시드와 변경 로그로 이뤄집니다. 에이전트 100개 상한을 넘는 변경은 거부되고 기록되지 않습니다. | 그림: 문서로 표현된 스웜. 시드와 변경 로그로 이뤄집니다. 에이전트 100개 상한을 넘는 변경은 거부되고 기록되지 않습니다. | Illustration: the swarm represented as a document. It consists of a seed and a log of changes. A change over the 100-agent cap is refused and not logged. | «문서로서의 스웜» is a textbook calque of "the swarm as a document". |
+| 3d579ae6 | 그림: 각 오브젝트는 서명된 패키지에서 오며, 로드되기 전에 검증됩니다. | 그림: 각 오브젝트는 서명된 패키지로 제공되며, 로드되기 전에 검증됩니다. | Illustration: each object is provided as a signed package and is verified before it loads. | «패키지에서 오며» ("comes from a package") is a calque of "comes from". |
+| 9ff6bfcc | 그림: 카메라가 뒤로 물러나 조직 전체를 보여 줍니다. 이제 모두 단일 제어 계층 아래 있습니다. | 그림: 카메라가 뒤로 물러나 조직 전체를 보여 줍니다. 이제 모두 하나의 제어 계층 아래 있습니다. | Illustration: the camera pulls back to show the whole organization. Now everything is under one control layer. | «단일 제어 계층» follows the step 9 headline (하나의 제어 계층). |
+
+**Left as they were, on purpose.**
+- **Meta description (`7b40834f`):** any full-sentence form comes to 88 to 94 characters, over the 80 limit.
+- **The step headlines 2, 3, 4, 5, 6 and 8:** they already read as native Korean.
+- **The lede:** «AI 에이전트 수천 개를 조직 전체에 배포하고, 조율하고, 제어하세요.» is natural, and repeating «AI 에이전트» right after the h1 helps search.
+- **The spec sheet, comparison cells and "not yet" list:** they are correct 개조식 (bullet-style) fragments.
+- **The 404:** it is fine as it is.
+- **The prompt «다음 문서를 읽고 스웜을 설정해 주세요: …»:** it is already a natural Korean request.
+
+**Checked.** The temp-dir build is clean. Every changed string was viewed at 1440×900, 1024×768 and 390×844, with 3 s settle before each shot. Headline breaks:
+- The triad sets as three short lines.
+- The close sets as «팀 하나로 시작하세요. / 에이전트 수천 개까지 확장하세요.» on desktop and adds a third line («확장하세요.») at 390.
+- «조직의 모든 에이전트를, / 하나의 제어 계층에서.» breaks at the comma at every width.
+
+`AUDIT_LANGS=ko i18n-audit.cjs`: ok, 1 language × 18 sizes.

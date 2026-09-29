@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GenSwarms: AI 인력을 위한 운영체제</title>
+<title>GenSwarms: AI 에이전트를 위한 운영체제</title>
 <meta name="description" content="GenSwarms: AI 에이전트마다 슈퍼바이저가 관리하는 프로세스, 선언된 메시지 경로, API와 실시간 이벤트 스트림. 오픈소스, MIT.">
 <link rel="canonical" href="https://genswarms.com/ko/">
 <link rel="alternate" hreflang="en" href="https://genswarms.com/">
@@ -16,13 +16,13 @@
 <meta http-equiv="content-language" content="ko">
 <meta name="theme-color" content="#0D0E10">
 <meta property="og:type" content="website"><meta property="og:locale" content="ko_KR">
-<meta property="og:title" content="GenSwarms: AI 인력을 위한 운영체제">
+<meta property="og:title" content="GenSwarms: AI 에이전트를 위한 운영체제">
 <meta property="og:description" content="AI 에이전트를 슈퍼바이저가 관리하는 개별 프로세스로 배포하고, 조율하고, 제어합니다.">
 <meta property="og:url" content="https://genswarms.com/ko/"><meta property="og:image" content="https://genswarms.com/og-ko.png">
-<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="GenSwarms: AI 인력을 위한 운영체제">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="GenSwarms: AI 에이전트를 위한 운영체제">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/favicon-32.png" sizes="32x32"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"GenSwarms","applicationCategory":"DeveloperApplication","operatingSystem":"Linux, macOS","softwareVersion":"0.2.0","license":"https://opensource.org/licenses/MIT","url":"https://genswarms.com/ko/","codeRepository":"https://github.com/genlayerlabs/genswarms","description":"AI 인력을 위한 운영체제. AI 에이전트를 슈퍼바이저가 관리하는 개별 프로세스로, 선언된 메시지 경로 위에서 실행합니다. REST + WebSocket API와 실시간 이벤트 스트림을 제공합니다.","inLanguage":"ko","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"GenLayer Labs"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"GenSwarms","applicationCategory":"DeveloperApplication","operatingSystem":"Linux, macOS","softwareVersion":"0.2.0","license":"https://opensource.org/licenses/MIT","url":"https://genswarms.com/ko/","codeRepository":"https://github.com/genlayerlabs/genswarms","description":"AI 에이전트를 위한 운영체제. 에이전트마다 슈퍼바이저가 관리하는 별도 프로세스로 실행하고, 메시지는 선언된 경로로 오갑니다. REST + WebSocket API와 실시간 이벤트 스트림을 제공합니다.","inLanguage":"ko","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"GenLayer Labs"}}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400..600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -51,59 +51,59 @@
 <section class="story" aria-label="GenSwarms 소개">
 <div class="story-in">
 <div class="stage-col"><div class="stage" data-k="0">
-<canvas role="img" aria-label="그림: 스웜 36개, 에이전트 수천 개로 이뤄진 조직. 각 스웜은 에이전트(원)와 오브젝트(사각형)가 선언된 경로로 이어지고 슈퍼바이저 아래 놓인 작은 구조입니다. 메시지가 경로를 따라 흐르고, 이따금 에이전트 하나가 크래시되면 슈퍼바이저가 재시작합니다."></canvas>
+<canvas role="img" aria-label="그림: 스웜 36개, 에이전트 수천 개로 이뤄진 조직. 각 스웜은 에이전트(원)와 오브젝트(사각형)로 된 작은 구조로, 선언된 경로로 이어져 있고 슈퍼바이저의 관리를 받습니다. 메시지가 경로를 따라 흐르고, 이따금 에이전트 하나가 크래시되면 슈퍼바이저가 재시작합니다."></canvas>
 <div class="zcap" aria-hidden="true"><span class="lv">조직</span><span class="zf"></span><span class="n"></span></div>
-<div class="ros" aria-hidden="true"><div class="ro legend" data-at="0"><span class="lg"><svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="5" class="ag-o"/><circle cx="7" cy="7" r="1.7" class="ag-i"/></svg>에이전트</span><span class="lg"><svg viewBox="0 0 14 14" aria-hidden="true"><rect x="2.5" y="2.5" width="9" height="9" class="ob"/></svg>오브젝트</span><span class="lg"><svg viewBox="0 0 14 14" aria-hidden="true"><path d="M7 2.5L11.5 7 7 11.5 2.5 7z" class="sp"/></svg>슈퍼바이저</span><span class="lg"><svg viewBox="0 0 24 14" aria-hidden="true"><path d="M1 7H23" class="e"/><path d="M9 7H16" class="pu"/></svg>선언된 경로 위의 메시지</span></div><div class="ro" data-at="2"><p class="cap">에이전트 하나는 모델, 프롬프트, 도구로 이뤄집니다.</p><dl class="log kv"><div class="ln"><dt class="k">모델</dt><dd>다음 단계를 결정</dd></div><div class="ln"><dt class="k">프롬프트</dt><dd>할 일을 지시</dd></div><div class="ln"><dt class="k">도구</dt><dd>작업을 수행</dd></div></dl></div><div class="ro" data-at="3"><p class="cap">에이전트 12개가 서로 하나하나 직접 연결되어 있습니다.</p><dl class="log kv"><div class="ln"><dt class="k">누가 누구와 대화하나</dt><dd>에이전트마다 코드에 직접 작성</dd></div><div class="ln"><dt class="k">각자 어디서 실행되나</dt><dd>시작한 곳 어디서든</dd></div><div class="ln"><dt class="k">하나가 실패하면</dt><dd>재시작되지 않음</dd></div></dl></div><div class="ro" data-at="4"><dl class="log kv"><div class="ln"><dt class="k">시작</dt><dd>에이전트마다 별도 프로세스로</dd></div><div class="ln"><dt class="k">격리</dt><dd>각자 자기 샌드박스 안에</dd></div><div class="ln"><dt class="k">라우팅</dt><dd>메시지는 선언된 경로로만</dd></div><div class="ln"><dt class="k">재시작</dt><dd>실패한 에이전트를 슈퍼바이저가</dd></div></dl></div><div class="ro" data-at="5"><p class="ro-t">이벤트 (예시)</p><dl class="log kv"><div class="ln hot"><dt class="k">에이전트 10</dt><dd>크래시됨</dd></div><div class="ln"><dt class="k">에이전트 10</dt><dd>슈퍼바이저가 재시작</dd></div><div class="ln dim"><dt class="k">나머지 11개</dt><dd>실행 중</dd></div></dl></div><div class="ro" data-at="6"><p class="ro-t">이벤트 (예시)</p><div class="log ev"><div class="ln"><span class="k">message_routed</span><span>telegram <span class="ar">→</span> triage</span></div><div class="ln"><span class="k">message_routed</span><span>triage <span class="ar">→</span> research</span></div><div class="ln hot"><span class="k">invalid_route</span><span>research <span class="ar">→</span> telegram</span><span class="tag">폐기됨</span></div><div class="ln"><span class="k">message_routed</span><span>research <span class="ar">→</span> answer</span></div></div></div><div class="ro" data-at="7"><p class="cap">오브젝트는 그래프 위의 일반 코드입니다. answer와 research의 모델 호출은 <b>budget</b>을 거칩니다.</p><dl class="log kv"><div class="ln"><dt class="k">에이전트</dt><dd>triage, research, answer: 모델 사용</dd></div><div class="ln"><dt class="k">오브젝트</dt><dd>telegram, cron, browser, budget: 일반 코드</dd></div></dl></div><div class="ro" data-at="8"><p class="ro-t">패키지 · swarmidx (예시)</p><div class="log pk"><div class="ln"><span class="pn">genlayerlabs/genswarms-telegram@0.6.6</span><span class="dg">sha256:9f2c…</span><span class="vf">검증됨</span></div><div class="ln"><span class="pn">genlayerlabs/cron@0.2.8</span><span class="dg">sha256:4be1…</span><span class="vf">검증됨</span></div><div class="ln"><span class="pn">genlayerlabs/browser@0.2.4</span><span class="dg">sha256:51d3…</span><span class="vf">검증됨</span></div><div class="ln"><span class="pn">genlayerlabs/genswarms-llm-proxy@0.4.2</span><span class="dg">sha256:c07a…</span><span class="vf">검증됨</span></div></div></div><div class="ro" data-at="9"><p class="cap">거부된 변경은 기록되지 않습니다. 멈춘 스웜은 자체 데이터베이스에서 복원됩니다. 시드부터 시작해 기록된 변경을 순서대로 적용합니다.</p><dl class="log kv"><div class="ln"><dt class="k">복원</dt><dd>시드, 이어서 변경 1, 2, 3</dd></div></dl></div><div class="ro" data-at="10"><p class="ro-t">통합 이벤트 스트림 (예시)</p><div class="log st"><div class="ln"><span class="k">support</span><span class="e2">message_routed</span><span>triage → answer</span></div><div class="ln"><span class="k">observer</span><span class="e2">message_routed</span><span>watch → report</span></div><div class="ln hot"><span class="k">trading sim</span><span class="e2">restart</span><span>에이전트 3</span></div><div class="ln"><span class="k">coding</span><span class="e2">output</span><span>에이전트 2</span></div></div></div></div>
+<div class="ros" aria-hidden="true"><div class="ro legend" data-at="0"><span class="lg"><svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="5" class="ag-o"/><circle cx="7" cy="7" r="1.7" class="ag-i"/></svg>에이전트</span><span class="lg"><svg viewBox="0 0 14 14" aria-hidden="true"><rect x="2.5" y="2.5" width="9" height="9" class="ob"/></svg>오브젝트</span><span class="lg"><svg viewBox="0 0 14 14" aria-hidden="true"><path d="M7 2.5L11.5 7 7 11.5 2.5 7z" class="sp"/></svg>슈퍼바이저</span><span class="lg"><svg viewBox="0 0 24 14" aria-hidden="true"><path d="M1 7H23" class="e"/><path d="M9 7H16" class="pu"/></svg>선언된 경로 위의 메시지</span></div><div class="ro" data-at="2"><p class="cap">에이전트 하나는 모델, 프롬프트, 도구로 이뤄집니다.</p><dl class="log kv"><div class="ln"><dt class="k">모델</dt><dd>다음 단계를 결정</dd></div><div class="ln"><dt class="k">프롬프트</dt><dd>할 일을 지시</dd></div><div class="ln"><dt class="k">도구</dt><dd>작업을 수행</dd></div></dl></div><div class="ro" data-at="3"><p class="cap">에이전트 12개가 서로 하나하나 직접 연결되어 있습니다.</p><dl class="log kv"><div class="ln"><dt class="k">누가 누구와 대화하나</dt><dd>에이전트마다 코드에 직접 작성</dd></div><div class="ln"><dt class="k">각자 어디서 실행되나</dt><dd>시작한 곳 어디서든</dd></div><div class="ln"><dt class="k">하나가 실패하면</dt><dd>재시작되지 않음</dd></div></dl></div><div class="ro" data-at="4"><dl class="log kv"><div class="ln"><dt class="k">시작</dt><dd>에이전트마다 별도 프로세스로</dd></div><div class="ln"><dt class="k">격리</dt><dd>각자 전용 샌드박스 안에</dd></div><div class="ln"><dt class="k">라우팅</dt><dd>메시지는 선언된 경로로만</dd></div><div class="ln"><dt class="k">재시작</dt><dd>실패한 에이전트를 슈퍼바이저가</dd></div></dl></div><div class="ro" data-at="5"><p class="ro-t">이벤트 (예시)</p><dl class="log kv"><div class="ln hot"><dt class="k">에이전트 10</dt><dd>크래시됨</dd></div><div class="ln"><dt class="k">에이전트 10</dt><dd>슈퍼바이저가 재시작</dd></div><div class="ln dim"><dt class="k">나머지 11개</dt><dd>실행 중</dd></div></dl></div><div class="ro" data-at="6"><p class="ro-t">이벤트 (예시)</p><div class="log ev"><div class="ln"><span class="k">message_routed</span><span>telegram <span class="ar">→</span> triage</span></div><div class="ln"><span class="k">message_routed</span><span>triage <span class="ar">→</span> research</span></div><div class="ln hot"><span class="k">invalid_route</span><span>research <span class="ar">→</span> telegram</span><span class="tag">폐기됨</span></div><div class="ln"><span class="k">message_routed</span><span>research <span class="ar">→</span> answer</span></div></div></div><div class="ro" data-at="7"><p class="cap">오브젝트는 그래프 위의 일반 코드입니다. answer와 research의 모델 호출은 <b>budget</b>을 거칩니다.</p><dl class="log kv"><div class="ln"><dt class="k">에이전트</dt><dd>triage, research, answer: 모델 사용</dd></div><div class="ln"><dt class="k">오브젝트</dt><dd>telegram, cron, browser, budget: 일반 코드</dd></div></dl></div><div class="ro" data-at="8"><p class="ro-t">패키지 · swarmidx (예시)</p><div class="log pk"><div class="ln"><span class="pn">genlayerlabs/genswarms-telegram@0.6.6</span><span class="dg">sha256:9f2c…</span><span class="vf">검증됨</span></div><div class="ln"><span class="pn">genlayerlabs/cron@0.2.8</span><span class="dg">sha256:4be1…</span><span class="vf">검증됨</span></div><div class="ln"><span class="pn">genlayerlabs/browser@0.2.4</span><span class="dg">sha256:51d3…</span><span class="vf">검증됨</span></div><div class="ln"><span class="pn">genlayerlabs/genswarms-llm-proxy@0.4.2</span><span class="dg">sha256:c07a…</span><span class="vf">검증됨</span></div></div></div><div class="ro" data-at="9"><p class="cap">거부된 변경은 기록되지 않습니다. 멈춘 스웜은 자체 데이터베이스에서 복원됩니다. 시드부터 시작해 기록된 변경을 순서대로 적용합니다.</p><dl class="log kv"><div class="ln"><dt class="k">복원</dt><dd>시드, 이어서 변경 1, 2, 3</dd></div></dl></div><div class="ro" data-at="10"><p class="ro-t">통합 이벤트 스트림 (예시)</p><div class="log st"><div class="ln"><span class="k">support</span><span class="e2">message_routed</span><span>triage → answer</span></div><div class="ln"><span class="k">observer</span><span class="e2">message_routed</span><span>watch → report</span></div><div class="ln hot"><span class="k">trading sim</span><span class="e2">restart</span><span>에이전트 3</span></div><div class="ln"><span class="k">coding</span><span class="e2">output</span><span>에이전트 2</span></div></div></div></div>
 <div class="ill" aria-hidden="true">예시</div>
 </div></div>
 <div class="steps">
 <article class="step hero" id="s0" data-step="0" data-k="0">
 <div class="copy hero-copy">
-<h1>AI&nbsp;인력을&nbsp;위한 운영체제.</h1>
+<h1>AI&nbsp;에이전트를 위한 운영체제.</h1>
 <p class="lead">AI 에이전트 수천 개를 조직 전체에 배포하고, 조율하고, 제어하세요.</p>
-<div class="ctas"><a class="btn btn-p" href="/docs/">문서 읽기</a><a class="btn btn-s" href="https://github.com/genlayerlabs/genswarms"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub에서 보기</a></div>
+<div class="ctas"><a class="btn btn-p" href="/docs/">문서 보기</a><a class="btn btn-s" href="https://github.com/genlayerlabs/genswarms"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub에서 보기</a></div>
 <dl class="facts"><div><dt>라이선스</dt><dd>오픈소스, MIT</dd></div><div><dt>버전</dt><dd>0.2.0</dd></div><div><dt>런타임</dt><dd>Elixir / OTP</dd></div></dl>
 </div>
 </article>
 <article class="step" id="s1" data-step="1" data-k="2 3">
 <div class="copy">
 <h2>모델과 프롬프트만으로는 부족합니다.</h2>
-<p>에이전트 하나쯤은 쉽습니다. 여러 에이전트가 함께 일하려면 실행할 곳, 누가 누구와 대화할지 정하는 규칙, 하나가 실패하면 복구할 방법이 필요합니다.</p>
+<p>에이전트 하나라면 간단합니다. 하지만 여러 에이전트가 함께 일하려면 실행할 곳, 누가 누구와 대화할지 정하는 규칙, 하나가 실패했을 때 복구할 방법이 필요합니다.</p>
 <div class="ro-in" data-at="2"><p class="cap">에이전트 하나는 모델, 프롬프트, 도구로 이뤄집니다.</p><dl class="log kv"><div class="ln"><dt class="k">모델</dt><dd>다음 단계를 결정</dd></div><div class="ln"><dt class="k">프롬프트</dt><dd>할 일을 지시</dd></div><div class="ln"><dt class="k">도구</dt><dd>작업을 수행</dd></div></dl></div><div class="ro-in" data-at="3"><p class="cap">에이전트 12개가 서로 하나하나 직접 연결되어 있습니다.</p><dl class="log kv"><div class="ln"><dt class="k">누가 누구와 대화하나</dt><dd>에이전트마다 코드에 직접 작성</dd></div><div class="ln"><dt class="k">각자 어디서 실행되나</dt><dd>시작한 곳 어디서든</dd></div><div class="ln"><dt class="k">하나가 실패하면</dt><dd>재시작되지 않음</dd></div></dl></div>
 </div>
 </article>
 <article class="step" id="s2" data-step="2" data-k="4">
 <div class="copy">
 <h2>운영체제라고 생각해 보세요.</h2>
-<p>운영체제는 직접 만들지 않은 프로그램을 실행합니다. GenSwarms는 에이전트를 그렇게 실행합니다. 시작하고, 격리하고, 메시지를 라우팅하고, 실패하면 재시작합니다.</p>
-<div class="ro-in" data-at="4"><dl class="log kv"><div class="ln"><dt class="k">시작</dt><dd>에이전트마다 별도 프로세스로</dd></div><div class="ln"><dt class="k">격리</dt><dd>각자 자기 샌드박스 안에</dd></div><div class="ln"><dt class="k">라우팅</dt><dd>메시지는 선언된 경로로만</dd></div><div class="ln"><dt class="k">재시작</dt><dd>실패한 에이전트를 슈퍼바이저가</dd></div></dl></div>
+<p>운영체제는 직접 만들지 않은 프로그램을 실행합니다. GenSwarms가 에이전트에게 하는 일이 바로 이것입니다. 에이전트를 시작하고, 격리하고, 메시지를 라우팅하고, 실패하면 재시작합니다.</p>
+<div class="ro-in" data-at="4"><dl class="log kv"><div class="ln"><dt class="k">시작</dt><dd>에이전트마다 별도 프로세스로</dd></div><div class="ln"><dt class="k">격리</dt><dd>각자 전용 샌드박스 안에</dd></div><div class="ln"><dt class="k">라우팅</dt><dd>메시지는 선언된 경로로만</dd></div><div class="ln"><dt class="k">재시작</dt><dd>실패한 에이전트를 슈퍼바이저가</dd></div></dl></div>
 </div>
 </article>
 <article class="step" id="s3" data-step="3" data-k="5">
 <div class="copy">
 <h2>모든 에이전트는 프로세스입니다.</h2>
-<p>각 에이전트는 자기 샌드박스 안에서, 자기 슈퍼바이저 아래 실행됩니다. 하나가 크래시되면 그 에이전트는 재시작되고, 나머지는 계속 일합니다. 역할, 모델, 실행 위치는 따로 정합니다.</p>
+<p>각 에이전트는 전용 샌드박스 안에서, 전용 슈퍼바이저의 관리를 받으며 실행됩니다. 하나가 크래시되면 그 에이전트는 재시작되고, 나머지는 계속 일합니다. 역할, 모델, 실행 위치는 각각 따로 정합니다.</p>
 <div class="ro-in" data-at="5"><p class="ro-t">이벤트 (예시)</p><dl class="log kv"><div class="ln hot"><dt class="k">에이전트 10</dt><dd>크래시됨</dd></div><div class="ln"><dt class="k">에이전트 10</dt><dd>슈퍼바이저가 재시작</dd></div><div class="ln dim"><dt class="k">나머지 11개</dt><dd>실행 중</dd></div></dl></div>
 </div>
 </article>
 <article class="step" id="s4" data-step="4" data-k="6">
 <div class="copy">
 <h2>에이전트는 선언된 경로로만 대화합니다.</h2>
-<p>그래프는 직접 그립니다. 모든 메시지는 그래프에 맞는지 검사되고, 벗어난 메시지는 폐기됩니다.</p>
-<p class="ex">여기서부터 그림은 스웜 하나를 따라갑니다. Telegram에서 고객에게 답하는 지원팀입니다.</p>
+<p>그래프는 직접 그립니다. 모든 메시지는 이 그래프를 기준으로 검사되고, 벗어난 메시지는 폐기됩니다.</p>
+<p class="ex">여기서부터 그림은 스웜 하나를 따라갑니다. Telegram에서 고객 문의에 답하는 지원팀입니다.</p>
 <div class="ro-in" data-at="6"><p class="ro-t">이벤트 (예시)</p><div class="log ev"><div class="ln"><span class="k">message_routed</span><span>telegram <span class="ar">→</span> triage</span></div><div class="ln"><span class="k">message_routed</span><span>triage <span class="ar">→</span> research</span></div><div class="ln hot"><span class="k">invalid_route</span><span>research <span class="ar">→</span> telegram</span><span class="tag">폐기됨</span></div><div class="ln"><span class="k">message_routed</span><span>research <span class="ar">→</span> answer</span></div></div></div>
 </div>
 </article>
 <article class="step" id="s5" data-step="5" data-k="7">
 <div class="copy">
 <h2>모든 일에 모델이 필요한 건 아닙니다.</h2>
-<p>오브젝트는 같은 그래프 위의 일반 코드입니다. Telegram&nbsp;게이트웨이, 스케줄러, 모델 비용 예산이 여기에 속합니다. 매번 같은 일을 합니다.</p>
+<p>오브젝트는 같은 그래프 위의 일반 코드입니다. Telegram&nbsp;게이트웨이, 스케줄러, 모델 비용 예산이 그 예입니다. 매번 똑같이 동작합니다.</p>
 <div class="ro-in" data-at="7"><p class="cap">오브젝트는 그래프 위의 일반 코드입니다. answer와 research의 모델 호출은 <b>budget</b>을 거칩니다.</p><dl class="log kv"><div class="ln"><dt class="k">에이전트</dt><dd>triage, research, answer: 모델 사용</dd></div><div class="ln"><dt class="k">오브젝트</dt><dd>telegram, cron, browser, budget: 일반 코드</dd></div></dl></div>
 </div>
 </article>
 <article class="step" id="s6" data-step="6" data-k="8">
 <div class="copy">
-<h2>에이전트에게 필요한&nbsp;건 설치하세요.</h2>
+<h2>에이전트에게 필요한&nbsp;건 설치해서 쓰세요.</h2>
 <p>Telegram, WhatsApp, 이메일 커넥터, 브라우저, 스케줄러. 모두 swarmidx 인덱스의 서명된 패키지이며, 로드되기 전에 검증됩니다.</p>
 <div class="ro-in" data-at="8"><p class="ro-t">패키지 · swarmidx (예시)</p><div class="log pk"><div class="ln"><span class="pn">genlayerlabs/genswarms-telegram@0.6.6</span><span class="dg">sha256:9f2c…</span><span class="vf">검증됨</span></div><div class="ln"><span class="pn">genlayerlabs/cron@0.2.8</span><span class="dg">sha256:4be1…</span><span class="vf">검증됨</span></div><div class="ln"><span class="pn">genlayerlabs/browser@0.2.4</span><span class="dg">sha256:51d3…</span><span class="vf">검증됨</span></div><div class="ln"><span class="pn">genlayerlabs/genswarms-llm-proxy@0.4.2</span><span class="dg">sha256:c07a…</span><span class="vf">검증됨</span></div></div></div>
 </div>
@@ -117,9 +117,9 @@
 </article>
 <article class="step" id="s8" data-step="8" data-k="10">
 <div class="copy">
-<h2>AI 조직을 위한 단일 제어 계층.</h2>
-<p>모든 메시지, 크래시, 재시작을 실시간으로 지켜보세요. API나 CLI로 다루거나, 코딩 에이전트에게 맡기세요.</p>
-<p class="triad"><span>모델은 지능을 제공합니다.</span> <span>에이전트는 일을 수행합니다.</span> <span>GenSwarms는 조직을 운영합니다.</span></p>
+<h2>조직의 모든 에이전트를, 하나의 제어 계층에서.</h2>
+<p>모든 메시지, 크래시, 재시작을 실시간으로 확인하세요. API나 CLI로 제어하거나, 코딩 에이전트에게 맡기세요.</p>
+<p class="triad"><span>지능은 모델이.</span> <span>일은 에이전트가.</span> <span>조직 운영은 GenSwarms가.</span></p>
 <div class="ro-in" data-at="10"><p class="ro-t">통합 이벤트 스트림 (예시)</p><div class="log st"><div class="ln"><span class="k">support</span><span class="e2">message_routed</span><span>triage → answer</span></div><div class="ln"><span class="k">observer</span><span class="e2">message_routed</span><span>watch → report</span></div><div class="ln hot"><span class="k">trading sim</span><span class="e2">restart</span><span>에이전트 3</span></div><div class="ln"><span class="k">coding</span><span class="e2">output</span><span>에이전트 2</span></div></div></div>
 </div>
 </article>
@@ -128,7 +128,7 @@
 </section>
 <section class="sec" id="how" aria-labelledby="how-h">
 <div class="wrap">
-<div class="sec-head"><h2 id="how-h">작동 방식.</h2><p>운영체제의 구성 요소별로 GenSwarms가 채워 넣은 것.</p></div>
+<div class="sec-head"><h2 id="how-h">작동 방식.</h2><p>운영체제의 구성 요소별로, GenSwarms에서는 무엇이 그 역할을 하는지.</p></div>
 <dl class="spec"><div class="row"><dt>프로세스</dt><dd>에이전트마다 슈퍼바이저가 관리하는 OTP 프로세스. 역할, 모델, 백엔드는 따로 설정.</dd></div><div class="row"><dt>격리</dt><dd>에이전트별 bwrap, Docker 또는 Apple container.</dd></div><div class="row"><dt>네트워크</dt><dd>격리된 에이전트는 자기 모델 엔드포인트에만 접근.</dd></div><div class="row"><dt>메시지</dt><dd>선언된 경로로만, 홉마다 검사.</dd></div><div class="row"><dt>서비스</dt><dd>오브젝트: 같은 그래프 위의 결정적 코드.</dd></div><div class="row"><dt>드라이버</dt><dd>Local, Tmux, Docker, Apple container, SSH, Bwrap, Mock.</dd></div><div class="row"><dt>패키지</dt><dd>gsp와 swarmidx: 서명, 콘텐츠 주소 지정, 로컬 머신에서 검증.</dd></div><div class="row"><dt>상태</dt><dd>시드와 변경 로그. 잘못된 변경은 거부. 데이터베이스에서 복원.</dd></div><div class="row"><dt>제어</dt><dd>REST, WebSocket, CLI, 코딩 에이전트용 스킬 파일.</dd></div><div class="row"><dt>이벤트</dt><dd>모든 메시지, 크래시, 재시작을 실시간으로.</dd></div></dl>
 </div>
 </section>
@@ -140,7 +140,7 @@
 <thead><tr><th scope="col"><span class="sr">질문</span></th><th scope="col" class="gs"><span class="gs-name">genswarms<span class="cur" aria-hidden="true"></span></span></th><th scope="col">LangGraph</th><th scope="col">CrewAI</th><th scope="col">AutoGen</th></tr></thead>
 <tbody>
 <tr><th scope="row">무엇인가</th><td class="gs" data-l="GenSwarms">각 에이전트를 슈퍼바이저가 관리하는 프로세스로 실행하는 런타임</td><td data-l="LangGraph">상태를 가진 에이전트를 위한 오케스트레이션 프레임워크이자 런타임. LangSmith Deployment에서 호스팅</td><td data-l="CrewAI">에이전트 크루와 플로우를 위한 오픈소스 프레임워크. AMP로 배포</td><td data-l="AutoGen">멀티 에이전트 프레임워크, 현재 유지보수 모드. 후속은 Microsoft Agent Framework</td></tr>
-<tr><th scope="row">에이전트가 실행되는 곳</th><td class="gs" data-l="GenSwarms">각자 슈퍼바이저가 관리하는 별도 프로세스에서: 로컬, 샌드박스, 컨테이너 또는 SSH</td><td data-l="LangGraph">사용자의 Python 또는 JS 프로세스 안, 혹은 LangSmith Deployment 서버</td><td data-l="CrewAI">사용자의 Python 프로세스 안, 혹은 CrewAI AMP 관리형 인프라</td><td data-l="AutoGen">사용자의 프로세스 안, 혹은 실험 단계인 분산 런타임으로 여러 워커에 걸쳐</td></tr>
+<tr><th scope="row">실행 위치</th><td class="gs" data-l="GenSwarms">각자 슈퍼바이저가 관리하는 별도 프로세스에서: 로컬, 샌드박스, 컨테이너 또는 SSH</td><td data-l="LangGraph">사용자의 Python 또는 JS 프로세스 안, 혹은 LangSmith Deployment 서버</td><td data-l="CrewAI">사용자의 Python 프로세스 안, 혹은 CrewAI AMP 관리형 인프라</td><td data-l="AutoGen">사용자의 프로세스 안, 혹은 실험 단계인 분산 런타임으로 여러 워커에 걸쳐</td></tr>
 <tr><th scope="row">크래시의 영향 범위</th><td class="gs" data-l="GenSwarms">크래시가 난 그 에이전트. 슈퍼바이저가 재시작</td><td data-l="LangGraph">해당 실행(run). 체크포인트로 재개할 수 있고, 노드는 재시도 가능</td><td data-l="CrewAI">해당 실행(run). 에이전트는 오류&nbsp;시 재시도하고, 플로우는 상태를 저장해 재개 가능</td><td data-l="AutoGen">사용자 코드가 처리. 팀 상태는 저장했다가 다시 불러오기 가능</td></tr>
 </tbody></table></div>
 <p class="src">각 프로젝트의 공식 문서 기준, 2026년 9월.</p>
@@ -150,18 +150,18 @@
 <div class="wrap">
 <div class="sec-head"><h2 id="sec-h">보장하는 것, 아직&nbsp;보장하지 않는&nbsp;것.</h2><p>현재 0.2.0에 포함된 것과 알려진 한계.</p></div>
 <div class="gu">
-<div class="gu-col yes"><h3>보장하는 것</h3><ul><li>크래시가 나면 스웜이 아니라 에이전트 하나만 재시작.</li><li>메시지는 선언된 경로로만 이동.</li><li>잘못된 설정과 변경은 실행 전에 거부.</li><li>패키지는 서명된 로그와 대조해 검증.</li></ul></div>
+<div class="gu-col yes"><h3>보장하는 것</h3><ul><li>크래시가 나면 스웜이 아니라 에이전트 하나만 재시작.</li><li>메시지는 선언된 경로로만 이동.</li><li>잘못된 설정과 변경은 실행 전에 거부.</li><li>패키지는 서명된 로그를 기준으로 검증.</li></ul></div>
 <div class="gu-col not"><h3>아직 보장하지 않는 것</h3><ul><li>운영자 토큰은 하나뿐, 사용자별 역할은 없음.</li><li>최소 한 번 전달, 정확히 한 번은 아님.</li><li>비용 예산은 코어가 아닌 패키지로 제공.</li><li>패키지를 업데이트하면 에이전트가 재시작됨. 실행&nbsp;중&nbsp;교체는 아직 없음.</li><li>스웜당 에이전트 기본 100개 (설정 가능).</li></ul></div>
 </div>
 </div>
 </section>
 <section class="sec close" id="start" aria-labelledby="close-h">
 <div class="wrap">
-<h2 id="close-h"><span>한 팀으로 시작하세요.</span> <span>에이전트&nbsp;수천&nbsp;개로 확장하세요.</span></h2>
-<p class="close-p">현재 채팅 어시스턴트, 코딩 에이전트, 트레이딩 시뮬레이션, 다른 스웜을 지켜보는 스웜에 쓰이고 있습니다.</p>
-<div class="ctas"><a class="btn btn-p" href="/docs/">문서 읽기</a><a class="btn btn-s" href="https://github.com/genlayerlabs/genswarms"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub에서 보기</a></div>
+<h2 id="close-h"><span>팀 하나로 시작하세요.</span> <span>에이전트&nbsp;수천&nbsp;개까지 확장하세요.</span></h2>
+<p class="close-p">현재 채팅 어시스턴트, 코딩 에이전트, 트레이딩 시뮬레이션, 다른 스웜을 모니터링하는 스웜에 쓰이고 있습니다.</p>
+<div class="ctas"><a class="btn btn-p" href="/docs/">문서 보기</a><a class="btn btn-s" href="https://github.com/genlayerlabs/genswarms"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub에서 보기</a></div>
 <div class="handoff">
-<p id="handoff-l">아니면 에이전트에게 맡기세요:</p>
+<p id="handoff-l">또는 에이전트에게 이렇게 요청하세요:</p>
 <div class="cmd"><code id="prompt">다음 문서를 읽고 스웜을 설정해 주세요: https://genswarms.com/skill.md</code><button type="button" id="copy" aria-describedby="handoff-l" data-idle="복사" data-copied="복사됨" data-fallback="선택됨">복사</button></div>
 </div>
 </div>
@@ -169,12 +169,12 @@
 </main>
 <footer class="foot"><div class="wrap foot-in">
 <a class="brand" href="#s0" aria-label="GenSwarms 홈">genswarms<span class="cur" aria-hidden="true"></span></a>
-<p>AI 인력을 위한 운영체제.</p>
+<p>AI 에이전트를 위한 운영체제.</p>
 <nav aria-label="하단 메뉴"><a href="/docs/">문서</a><a href="https://github.com/genlayerlabs/genswarms">GitHub</a><a href="https://github.com/genlayerlabs/genswarms/blob/main/LICENSE">라이선스 (MIT)</a><a href="/skill.md">skill.md</a><a href="/llms.txt">llms.txt</a></nav>
 <nav class="foot-langs" aria-label="언어"><a href="/" hreflang="en" lang="en">English</a><a href="/es/" hreflang="es" lang="es">Español</a><a href="/ko/" hreflang="ko" lang="ko" aria-current="page">한국어</a><a href="/zh/" hreflang="zh-Hans" lang="zh-Hans">简体中文</a><a href="/ru/" hreflang="ru" lang="ru">Русский</a><a href="/tr/" hreflang="tr" lang="tr">Türkçe</a></nav>
 <p class="legal">© 2026 GenLayer Labs · MIT 라이선스</p>
 </div></footer>
-<script type="application/json" id="zoom-strings">{"cine":"(min-width: 960px) and (min-height: 640px), (orientation: landscape) and (min-width: 640px) and (max-height: 639px)","lv":["조직","팀","에이전트"],"count":"스웜 {swarms}개 · 에이전트 {agents}개","layer":"시작 · 격리 · 라우팅 · 재시작","supervisor":"슈퍼바이저","process":"프로세스","sandbox":"샌드박스","dropped":"폐기됨","crashed":"크래시됨","restarted":"재시작됨","modelCalls":"모델 호출","model":"모델","tools":"도구","prompt":"프롬프트","agent":"에이전트","seed":"시드","log":"변경 로그","declared":"{n}개 선언됨","refused":"거부: 에이전트 {cap}개 상한 초과","never":"기록되지 않음","defines":"정의","restores":"데이터베이스에서 복원","aria":["그림: 스웜 36개, 에이전트 수천 개로 이뤄진 조직. 각 스웜은 에이전트(원)와 오브젝트(사각형)가 선언된 경로로 이어지고 슈퍼바이저 아래 놓인 작은 구조입니다. 메시지가 경로를 따라 흐르고, 이따금 에이전트 하나가 크래시되면 슈퍼바이저가 재시작합니다.","그림: 카메라가 스웜 하나, 지원팀으로 확대해 들어갑니다.","그림: 가까이서 본 에이전트 하나. 모델, 프롬프트, 도구로 이뤄져 있습니다.","그림: 에이전트 12개가 서로 하나하나 직접 연결되어 있습니다.","그림: GenSwarms 계층 아래 여러 줄로 놓인 에이전트들. GenSwarms가 이들을 시작하고, 격리하고, 라우팅하고, 재시작합니다.","그림: 각 에이전트가 자기 샌드박스 안에서 자기 슈퍼바이저 아래 실행됩니다. 에이전트 하나가 크래시된 뒤 재시작되는 동안 나머지는 계속 실행됩니다.","그림: 지원팀. Telegram 오브젝트와 triage, answer, research 에이전트가 선언된 경로로 이어져 있습니다. research에서 Telegram으로 가는 메시지는 그래프를 벗어나 폐기됩니다.","그림: 오브젝트가 늘어난 같은 팀. cron, 브라우저, 그리고 answer와 research의 모델 호출이 거치는 예산이 더해집니다.","그림: 각 오브젝트는 서명된 패키지에서 오며, 로드되기 전에 검증됩니다.","그림: 문서로서의 스웜. 시드와 변경 로그로 이뤄집니다. 에이전트 100개 상한을 넘는 변경은 거부되고 기록되지 않습니다.","그림: 카메라가 뒤로 물러나 조직 전체를 보여 줍니다. 이제 모두 단일 제어 계층 아래 있습니다."]}</script>
+<script type="application/json" id="zoom-strings">{"cine":"(min-width: 960px) and (min-height: 640px), (orientation: landscape) and (min-width: 640px) and (max-height: 639px)","lv":["조직","팀","에이전트"],"count":"스웜 {swarms}개 · 에이전트 {agents}개","layer":"시작 · 격리 · 라우팅 · 재시작","supervisor":"슈퍼바이저","process":"프로세스","sandbox":"샌드박스","dropped":"폐기됨","crashed":"크래시됨","restarted":"재시작됨","modelCalls":"모델 호출","model":"모델","tools":"도구","prompt":"프롬프트","agent":"에이전트","seed":"시드","log":"변경 로그","declared":"{n}개 선언됨","refused":"거부: 에이전트 {cap}개 상한 초과","never":"기록되지 않음","defines":"정의","restores":"데이터베이스에서 복원","aria":["그림: 스웜 36개, 에이전트 수천 개로 이뤄진 조직. 각 스웜은 에이전트(원)와 오브젝트(사각형)로 된 작은 구조로, 선언된 경로로 이어져 있고 슈퍼바이저의 관리를 받습니다. 메시지가 경로를 따라 흐르고, 이따금 에이전트 하나가 크래시되면 슈퍼바이저가 재시작합니다.","그림: 카메라가 스웜 하나(지원팀)를 확대합니다.","그림: 가까이서 본 에이전트 하나. 모델, 프롬프트, 도구로 이뤄져 있습니다.","그림: 에이전트 12개가 서로 하나하나 직접 연결되어 있습니다.","그림: GenSwarms 계층 아래 여러 줄로 놓인 에이전트들. GenSwarms가 이들을 시작하고, 격리하고, 라우팅하고, 재시작합니다.","그림: 각 에이전트가 전용 샌드박스 안에서 전용 슈퍼바이저의 관리를 받으며 실행됩니다. 에이전트 하나가 크래시된 뒤 재시작되는 동안 나머지는 계속 실행됩니다.","그림: 지원팀. Telegram 오브젝트와 triage, answer, research 에이전트가 선언된 경로로 이어져 있습니다. research에서 Telegram으로 가는 메시지는 그래프를 벗어나 폐기됩니다.","그림: 오브젝트가 늘어난 같은 팀. cron, 브라우저, 그리고 answer와 research의 모델 호출이 거치는 예산이 더해집니다.","그림: 각 오브젝트는 서명된 패키지로 제공되며, 로드되기 전에 검증됩니다.","그림: 문서로 표현된 스웜. 시드와 변경 로그로 이뤄집니다. 에이전트 100개 상한을 넘는 변경은 거부되고 기록되지 않습니다.","그림: 카메라가 뒤로 물러나 조직 전체를 보여 줍니다. 이제 모두 하나의 제어 계층 아래 있습니다."]}</script>
 <script>
 var Z = {};
 (function () {
