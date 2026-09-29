@@ -19,7 +19,7 @@
  "533940e6": "Doce agentes, cada uno conectado a mano con los demás.",
  "42c91ee7": "quién habla con quién",
  "98ecad30": "escrito en cada agente",
- "64e0fbb4": "dónde se ejecuta cada uno",
+ "64e0fbb4": "dónde se ejecuta",
  "6ca90ca9": "donde se haya iniciado",
  "7e82e18a": "si uno falla",
  "0d6fb0ce": "nada lo reinicia",
@@ -37,7 +37,6 @@
  "f3041cff": "otros {n}",
  "3c49d9cc": "en ejecución",
  "ad3f9aa5": "descartado",
- "6f4e39ae": "Los objetos son código convencional en el grafo. Answer y research llaman al modelo a través de <b>budget</b>.",
  "e7052aeb": "agentes",
  "88127da4": "{names}: usan un modelo",
  "f0f7f39e": "objetos",
@@ -85,7 +84,6 @@
  "93882429": "mensaje en una ruta declarada",
  "6573ac5f": "ilustración",
  "3b3ae940": "El sistema operativo para la fuerza laboral de&nbsp;IA.",
- "18c49d60": "Despliega, coordina y controla miles de agentes de IA en toda tu organización.",
  "d4a74b50": "Leer la documentación",
  "0c77991f": "Ver en GitHub",
  "23457129": "licencia",
@@ -162,7 +160,7 @@
  "f294f1c2": "Los paquetes se verifican contra un registro firmado.",
  "8de95fd5": "Todavía no",
  "bf0dfbad": "Un único token de operador, sin roles por usuario.",
- "a1804765": "Entrega al menos una vez, no exactamente una vez.",
+ "a1804765": "Entrega al menos una vez, no exactamente una&nbsp;vez.",
  "c1071d66": "Los presupuestos de gasto vienen como paquete, no en el núcleo.",
  "90361c3e": "Actualizar un paquete reinicia el agente; aún no hay sustitución en caliente.",
  "2944b590": "100 agentes por enjambre por defecto (configurable).",
@@ -180,7 +178,6 @@
  "3dcc415b": "404 — página no encontrada · GenSwarms",
  "157fc042": "Error 404",
  "856e3400": "Esta página se escapó del enjambre.",
- "57573a62": "La página que buscas no existe, o se salió de la topología.",
  "34ac37f5": "Volver al inicio",
  "4bee1489": "Esta página también está en español.",
  "0991c336": "Leer en español",
@@ -192,5 +189,8 @@
   "a40ad45b",
   "ea1d3df2",
   "157fc042"
- ]
+ ],
+ "35898f67": "La página que buscas no existe, o se salió de la topología.",
+ "3f9bdece": "Los objetos son código convencional en el grafo. Answer y research llaman al modelo a través de <b>budget</b>.",
+ "96a75294": "Despliega, coordina y controla miles de agentes de IA en toda tu organización."
 }

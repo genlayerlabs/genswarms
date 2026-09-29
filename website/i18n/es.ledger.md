@@ -208,3 +208,20 @@ Checked and left as they are: "herramientas" (12 against a budget of 10) on the 
 ### For the controller (outside es.json)
 
 At 1440 and 1920 the hero h1 wraps to six lines: "El sistema / operativo / para la / fuerza / laboral / de IA." (60 px Geist Mono. "operativo para" and "fuerza laboral" each miss the column by one character.) No wording of the flagship term fixes this. Giving `es` the pinned-hero size step that `LONG` gives ru/tr (`@media (min-height:640px){.cine h1{font-size:clamp(34px,min(3.7vw,7.4vh),54px)}}` in `TYPE.es.css`) gives four lines at every width I tested: "El sistema / operativo para / la fuerza / laboral de IA." (1920 and 1280 too). I tested it by injecting the rule in the browser. No page code was changed.
+
+## Final review (2026-09)
+
+Fresh reviewer, senior-editor pass before launch. Read cold on the rendered page (every step with the camera settled, each section, header with the picker open, close, footer, 404, suggestion bar) at 1440×900, 1024×768, 390×844, 320×640 and 844×390, then string by string against the English, the copy deck and the facts brief. Also checked the meta description (149/150), og:description, the JSON-LD description, the `#zoom-strings` block and its eleven aria-labels. Numbers are right for Spanish: "×1,0" / "×9,6" (decimal comma) and "2861 agentes" (no separator in four-digit numbers, RAE). Private temp build: "en, es: built". `AUDIT_LANGS=es i18n-audit.cjs`: ok, 1 language × 18 sizes.
+
+| id | before | after | reason |
+|---|---|---|---|
+| 64e0fbb4 | dónde se ejecuta cada uno | dónde se ejecuta | K3 row label. At 25 characters it was the widest label, so the answers wrapped badly on phones and in the pinned landscape layout ("donde se / haya / iniciado" took 3 lines at 844×390 and 320×640). With the shorter label, all three rows fit on one line each at 390×844, and at most 2 lines at 320 and 844. The subject is clear from the caption ("Doce agentes, cada uno…"), and it echoes "un lugar donde ejecutarse" in step 2. Shorter than the English. |
+| a1804765 | …no exactamente una vez. | …no exactamente una&nbsp;vez. | At 390×844 the item ended with a lone "vez." on its own line. Now it breaks as "no exactamente / una vez." Same words. |
+
+### The translator's doubts (task 5)
+
+1. **Desktop hero h1:** resolved outside es.json. The page now sets the h1 in four lines: "El sistema / operativo / para la fuerza / laboral de IA." at 1440, and "El sistema / operativo para / la fuerza / laboral de IA." at 1024 and 390. And the audit finds no stranded word at any of the 18 sizes. The break inside "fuerza / laboral" is ordinary headline setting. "fuerza laboral de IA" is kept.
+2. **e28ae737, "de programación":** already restored ("…o encárgaselo a tu agente de programación."), and the paragraph fits the pinned 844×390 layout in three lines (audit ok). Kept. The closing "O encárgaselo a tu agente:" stays short, as in the English "Or hand it to your agent:".
+3. **K4 "mediante su supervisor" and K3 "escrito en cada agente":** both kept. "mediante" is ordinary technical register and says that GenSwarms restarts the agent *through* its supervisor. "a cargo de" would read as "in charge of", which is ambiguous. "escrito en cada agente" matches the English "written into each agent", and the longer "en el código de cada agente" would add a phone line for no gain.
+
+Checked and left as they are: "se comprueba contra él" (step 5) and "se verifican contra un registro firmado" ("comprobar/verificar contra" is standard in Spanish technical writing). "Leer en español" after "Esta página también está en español." repeats the English pattern ("…in English. Read it in English"). "herramientas" (12/10) touches "agente" on phones but doesn't overlap it (360: 1 px apart). "rechazado: más de 100 agentes" says what the cap refused, and the aria-label keeps "supera el límite de 100 agentes".

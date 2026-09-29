@@ -200,3 +200,37 @@ sentence hanging), the comparison sub-line (独立的、受监督的 → 独立�
 guarantees sub-line (…以及我们已知的限制 → 0.2.0 版现在提供什么，还有哪些已知限制。: mirrors the headline's 哪些…哪些
 and no longer strands 限制。 at 390px). Headlines unchanged: their breaks (tables above) hold in the new type at
 1440, 1024 and 390px.
+
+## Final review (2026-09)
+
+Fresh senior zh-Hans editor, before launch. Read /zh/ cold, then string by string against the English, the copy deck
+and the facts brief (refusals only over the cap or forbidden keys, refused changes never logged, no hot swap). Rendered
+at 1440×900, 1024×768, 390×844, 320×640 and 844×390: every keyframe (0–10) settled, header and open picker, every
+section, footer, 404, suggestion bar on the English page; plus meta, og, JSON-LD and the canvas aria-labels
+(`#zoom-strings`). Changes checked in a private build (line breaks measured at all five sizes) and with
+`i18n-audit.cjs` (zh-Hans, 18 sizes): ok. No meaning, claim or term changed; the tables above still hold.
+
+| id | before | after | reason |
+|---|---|---|---|
+| 938739e1 | 目前已用于聊天助手、…以及监控其他集群的集群。 | 已用于聊天助手、…以及监控其他集群的集群。 | Stranded 集群。 on its own line at 1440, 1024, 844 and 320px. 已用于 still says "in use today"; now one line on desktop and landscape. |
+| bff34e70 | 初始定义加变更日志。错误的变更会被拒绝。可从数据库恢复。 | 初始定义加变更日志。错误变更被拒绝。可从数据库恢复。 | Split 恢/复。 at 1440px. The terse form matches the English fragments ("Bad changes refused.") and the other spec rows. |
+| 88127da4 | {names}：使用模型 | {names}：用模型 | Stranded 型 at 320px in the step 6 readout. 用模型 pairs with 普通代码 on the next row. |
+| b02df163 | 隔离的智能体只能访问自己的模型端点。 | 隔离的智能体只能访问其模型端点。 | Stranded 点。 at 320px; 其 is the written form of "their". |
+| 0487a062 | …停止的集群从数据库恢复… | …已停止的集群从数据库恢复… | 停止的集群 reads as a bare verb phrase; 已停止的 is the natural "a stopped swarm". |
+| c73bd527 | 示意图：镜头拉近到一个集群，一个客服团队。 | 示意图：镜头拉近到其中一个集群——一个客服团队。 | The comma apposition was an English calque (screen readers only). |
+| 7596f4cc | 示意图：作为文档的集群，由… | 示意图：集群即文档，由… | 作为文档的集群 was translationese; now the step 8 headline's own words. |
+
+### Translator doubts (task 5)
+
+- Half-width `(示意)` after a space in the three mono readout headings: keep. In Geist Mono beside Latin (swarmidx) it
+  reads as a normal tech label; full-width after the template's space leaves a visible gap.
+- 写死在每个智能体里: keep. The row names the problem the page solves (hard-coded wiring), and 写死 is the exact
+  developer word; 写在每个智能体内部 loses the point.
+- 已声明路径上的消息 (legend) vs 声明的路径 (body), and 定义 on the arrow: keep both. Same term (声明 + 路径), the
+  legend form avoids a double 的; 定义 beside an arrow reads as the verb.
+
+### Left as is (seen, judged acceptable)
+
+- 404 headline 这个页面跑出了集群。 breaks inside 跑出 at 320px only (one line from 390px).
+- Body lines at 320px end on a single character in two spec rows (实时呈/现。) and the limits list (可配/置）。). Normal
+  CJK body wrapping at the narrowest size; shortening would cost meaning.

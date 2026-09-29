@@ -192,3 +192,27 @@ Unchanged ids (headlines, step paragraphs, comparison, 404, meta) were re-read c
 Temp-dir build clean. `/ko/` screenshotted at 1440×900, 1024×768 and 390×844: every keyframe (0–10), every step, the sections and the footer. No label collides or clips; the drawing keeps the English framing. The database note is left out at 390 px, as in the English. `i18n-audit.cjs` (ko × 18 sizes, canvas label audit included): ok.
 
 Budgets (Korean counted as two): 크래시됨 8/12, 재시작됨 8/14, 조직 4/14, 팀 2/14, 에이전트 8/14, 스웜 36개 · 에이전트 2,861개 ≈26/30, 시작 · 격리 · 라우팅 · 재시작 29/36, 프로세스 8/15, 샌드박스 8/15, 변경 로그 9/22, 4개 선언됨 10/20, 기록되지 않음 13/22, 정의 4/12, 데이터베이스에서 복원 21/20×2 (wraps to two lines), 오브젝트 8/14, 선언된 경로 위의 메시지 25/30. Over by one: 에이전트 {n} 11/10 and 나머지 {n}개 11/10, both readout rows in the event log, where the column fits them at every size.
+
+## Final review (2026-09)
+
+Fresh pre-launch review by a senior Korean tech editor, not the translator. I read `/ko/` cold at 1440×900, 1024×768, 390×844, 320×640 and 844×390. That covered every step (centred, camera settled), every keyframe 0–10, the header with the language picker open, the four sections, the close, the footer, the 404 (served at `/ko/…`) and the suggestion bar (English and Spanish pages, Korean browser). I then compared every string with the English. I also checked the meta, og and JSON-LD descriptions, the `#zoom-strings` aria-labels and the 404 title. No claim is strengthened or weakened, refusals stay limited to the cap, refused changes are never logged, and live swap is still "not yet". Temp-dir build clean; `i18n-audit.cjs` (ko × 18 sizes) ok.
+
+| id | before | after | reason |
+|---|---|---|---|
+| 6ca90ca9 (readout, "wherever it was started") | 시작된 곳 아무 데서나 | 시작한 곳 어디서든 | 아무 데서나 reads as "any old place" and sits badly after 시작된 곳. 어디서든 is the natural "wherever", and the active 시작한 matches the plain dev register. |
+| 0d6fb0ce (readout, "nothing restarts it") | 아무도 재시작하지 않음 | 재시작되지 않음 | 아무도 is "nobody" (a person), which the English avoids. The passive states the fact the row is about in a clean 개조식 form. |
+| 88127da4 (readout) | {names}: 모델 사용 | {names}: 모델(U+00A0)사용 | At 320 and 844 the line broke as "…answer: 모델 / 사용", stranding 사용. A no-break space keeps the two words together (plain-text string, so a literal U+00A0 and not an entity). |
+| 9a24dc0c (readout) | {names}: 일반 코드 | {names}: 일반(U+00A0)코드 | Same guard for the objects row. |
+| 57b1f883 (step 6) | Telegram 게이트웨이 | Telegram&nbsp;게이트웨이 | At 1440 the paragraph broke between "Telegram" and "게이트웨이", splitting one name. |
+| 8ee1cf08 (comparison, CrewAI) | 오류 시 재시도하고 | 오류&nbsp;시 재시도하고 | At 1440 and 320 the line broke as "오류 / 시", separating the particle-like 시 from its noun. |
+| 90361c3e (not yet) | 실행 중 교체는 아직 없음. | 실행&nbsp;중&nbsp;교체는 아직 없음. | At 390 it broke as "실행 중 / 교체는", splitting the ledger term 실행 중 교체. |
+
+Tried and dropped: `Apple&nbsp;container` in a7b45c42 (to stop "Apple / container" at 320). The build refuses it because the protected name must appear verbatim. The English wraps the same way.
+
+### Translator doubts (task 5)
+
+- **정의 on the document → swarm arrow:** keep. A bare noun on a diagram arrow is normal Korean diagram style. The arrow carries the direction, and 정의함 would be stiffer for no gain.
+- **Readout fragments ("wired by hand", "one agent"):** 할 일을 지시, 에이전트마다 코드에 직접 작성 and 작업을 수행 are fine. 시작된 곳 아무 데서나 and 아무도 재시작하지 않음 are rewritten (see the table above). The loose look of multi-word Korean in the readouts comes from the monospace font's wide space. It is a CSS matter, reported outside this file.
+- **Full stops on 개조식 lines:** keep. The English redesign ends every spec and guarantee line with a period, and Korean tech pages that use 개조식 inside prose-like lists commonly do too. The page is consistent, and dropping them would reintroduce commas in the State row and the live-swap limit.
+- **통합 이벤트 스트림:** keep. It is the idiomatic "one stream for everything"; 단일 이벤트 스트림 would read as a spec term.
+- **선택됨 (copy fallback):** keep. It states what happened (the prompt is selected), which mirrors 복사됨.

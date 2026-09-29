@@ -195,3 +195,26 @@ No string with an unchanged id was edited. The cold read of `/ru/` found the car
 - Over budget: «инструменты» (11/10, unchanged id 0284c6ac). At 390px the agent close-up's circle outline runs through its first letter. No shorter Russian word names LLM tools, so it stays. The layer bar (41/36) fits at 1440 and 1024. At 390 it is hidden, as the English one is. The legend (34/30) wraps like the English.
 - Accepted hyphenation (balanced wrapping + `hyphens:auto` on titles, as before): «Это как опера-/ционная система.» (every width), «только по объяв-/ленным маршрутам.» (1440, 1024), «для ИИ-/персонала», «ИИ-/организацией», and «управле-/ния» at 1024. At 1024px the triad's third line breaks «GenSwarms управ-/ляет организацией.». Text can't fix this without changing the kicker. It needs `.triad span{hyphens:manual}` for ru (a page.mjs change, left to the controller).
 - `i18n-audit.cjs` on the built `/ru/`: ok, 18 sizes.
+
+## Final review (2026-09)
+
+A fresh read of `/ru/` as it goes live: every step with the camera settled (and each keyframe forced with `Z.still`), the header and open picker, the sections, the close, the footer, the 404 page and the suggestion bar, at 1440×900, 1024×768, 390×844, 320×640 and 844×390. Then a string-by-string comparison with `en.json`, the meta, og and JSON-LD descriptions and the canvas text alternatives. The copy was already sound: no meaning was dropped or strengthened, the terms match across prose, canvas, readouts, legend and aria-labels, and the honesty rules hold (refusals only over the cap, refused changes never logged, no hot swap). Seven small changes. None makes a string longer on screen except the layer bar, which still shows at exactly the widths it did before (checked at ten widths from 600 to 1440).
+
+| id | before | after | reason |
+|---|---|---|---|
+| 7242d340 | запуск · изоляция · маршруты · перезапуск | запуск · изоляция · маршрутизация · перезапуск | The bar and the readout rows under it name the same four jobs, so they now use the same four action nouns. «Маршруты» named the routes, not routing, and broke the series. The label still fits at 1440 and 1024 and hides at the same widths as before (960×700, 844×390 and phones, as in the old version). |
+| fdf7837b | Части операционной системы и то, чем GenSwarms заполняет каждую из них. | Части операционной системы и то, что GenSwarms предлагает для каждой из них. | «Заполняет» was a calque of "puts in each place". |
+| ffebc746 | …под супервизором, на объявленных маршрутах сообщений, с API на REST и WebSocket и потоком событий в реальном времени. | …под супервизором, с объявленными маршрутами сообщений, API (REST и WebSocket) и потоком событий в реальном времени. | JSON-LD: «с API на REST и WebSocket и потоком» chained two «и», and «на маршрутах» read as if the processes sat on the routes. The list now reads as one list. |
+| b38bce6b | …в контейнере или по SSH | …в контейнере или по⍽SSH | NBSP: at 1024 «по» ended a line. |
+| 57e8c7e2 | …сентябрь 2026 года. | …сентябрь⍽2026⍽года. | NBSPs: at 390 the date split from its month. |
+| 19b6c67d | …а⍽не весь рой. | …а⍽не⍽весь рой. | NBSP: at 390 «а не» ended the line. |
+| a1804765 | …а⍽не «ровно один раз». | …а⍽не⍽«ровно один раз». | Same. |
+
+(⍽ = U+00A0.) Tried and reverted: an NBSP in the step 5 h2 («только по⍽объявленным») to avoid «по» ending a line at 1440. It left «только» alone on a line, which looked worse.
+
+Kept after checking: the meta description's «живой поток событий». It is slightly colloquial, but «в реальном времени» would take it to 169 of 150 characters. «Отклонено: больше 100 агентов» in the swarm document: its meaning is exact, and the aria-label says «сверх лимита». «Документация» in the header: at under 415px the header has no room for it, so phones show only GitHub and the picker (see the report). The hero button «Читать документацию» sits right below it.
+
+Translator doubts (task 5):
+- Hyphenated headlines: most are gone at the current widths. At 1024 the triad now breaks at a word («GenSwarms управляет / организацией.»). What remains is «Это как опера-/ционная система.» at 390 and 320 and «ИИ-/персонала», «ИИ-/организацией» at the compound hyphen, which is legal. No wording fixes the first one without weakening the line, so it goes to the controller as a CSS item (`hyphens:manual` on ru headings).
+- «маршруты» vs «маршрутизация»: **resolved**, now «маршрутизация» in both (see the table).
+- Close headline «Сначала — одна команда. Дальше — тысячи агентов.»: **keep.** It reads as a call to start small, the natural Russian slogan form. The counter «роёв: 36 · агентов: 2 861» is **keep**: it is correct UI Russian and it avoids number agreement. «инструменты» against the circle at 390 is **keep**: with the camera settled it sits just inside the outline. The collision seen at 320×640 and 844×390 also happens in English (see the report).

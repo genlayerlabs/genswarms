@@ -89,7 +89,7 @@ export function readouts(t, nf = n => String(n)) {
       [fill(esc(t('{n} others', W(5, 'processes') + ': the rest of the twelve agents ({n} = 11)', { kind: 'svg', max: 10, lines: 1 })), { n: nf(11) }), t('running', W(5, 'processes') + ': state of the other agents'), 'dim'],
     ]),
     6: `<div class="log ev">${ev('message_routed', 'telegram', 'triage', 0, t)}${ev('message_routed', 'triage', 'research', 0, t)}${ev('invalid_route', 'research', 'telegram', 1, t)}${ev('message_routed', 'research', 'answer', 0, t)}</div>`,
-    7: `<p class="cap">${t('Objects are plain code on the graph. Answer and research call <b>budget</b> for their model calls.', W(7, 'objects') + ': caption. <b>budget</b> is the object’s name: keep it as it is')}</p>` + kvRows([
+    7: `<p class="cap">${t('Objects are plain code on the graph. The answer and research agents call <b>budget</b> for their model calls.', W(7, 'objects') + ': caption. <b>budget</b> is the object’s name: keep it as it is')}</p>` + kvRows([
       [t('agents', W(7, 'objects') + ': row label (the circles)'), esc(t('{names}: use a model', W(7, 'objects') + ': {names} = “triage, research, answer”, the agents’ names', { kind: 'svg', max: 40, lines: 2 })).replace('{names}', 'triage, research, answer')],
       [t('objects', W(7, 'objects') + ': row label (the squares)'), esc(t('{names}: plain code', W(7, 'objects') + ': {names} = “telegram, cron, browser, budget”, the objects’ names', { kind: 'svg', max: 40, lines: 2 })).replace('{names}', 'telegram, cron, browser, budget')],
     ]),

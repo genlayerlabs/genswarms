@@ -217,6 +217,8 @@
     for (var k = 0; k < 3; k++) { var yy = pry - ph * 0.22 + k * ph * 0.2; g.moveTo(prx - pw * 0.28, yy); g.lineTo(prx + pw * (k === 2 ? 0.1 : 0.28), yy); }
     g.stroke();
     node(st, mhx, mhy, hr); node(st, tlx, tly, ts / 2); node(st, prx, pry, ph / 2); node(st, x, y, core + 2);
+    // on small stages the labels would collide with each other and the circle: the icons stand alone (the readout names them)
+    if (r < 100) return;
     lab(g, st, S.model, mhx, mhy - hr - 10, 'center', F.f12, C.ink2, false, 'inside');
     lab(g, st, S.tools, tlx, tly + ts / 2 + 20, 'center', F.f12, C.ink2, false, 'inside');
     lab(g, st, S.prompt, prx, pry + ph / 2 + 20, 'center', F.f12, C.ink2, false, 'inside');

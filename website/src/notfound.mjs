@@ -7,7 +7,7 @@ export const strings404 = () => ({
   title: t('404 — page not found · GenSwarms', '404 page: browser tab title', { kind: '404' }),
   code: t('Error 404', '404 page: small line above the headline', { kind: '404' }),
   h1: t('This page ran off the swarm.', '404 page: headline', { kind: '404' }),
-  p: t("The page you're looking for doesn't exist — or it wandered off the topology.", '404 page: text under the headline', { kind: '404' }),
+  p: t('The page you’re looking for doesn’t exist, or it wandered off the topology.', '404 page: text under the headline', { kind: '404' }),
   back: t('Back to home', '404 page: button back to the home page', { kind: '404' }),
   docs: t('Read the docs', '404 page: link to the documentation', { kind: '404' }),
 });

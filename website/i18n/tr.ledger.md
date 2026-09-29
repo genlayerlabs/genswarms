@@ -179,3 +179,23 @@ The v4 "Zoom" page: one canvas that zooms from the organization to one agent and
 | e071ace2 (was 3229609e) | Lisans | Lisans (MIT) | As the English. |
 
 The other capitalized spec and list lines (7a956af2, a7b45c42, b02df163, ce5bafa3, 620402be, dfac9de1, c2593f94, 19b6c67d, 1de79ed2, 817dc80f, f294f1c2, bf0dfbad, a1804765, c1071d66, 90361c3e, 2944b590) keep their old translation, capitalized and ending in a full stop. The cold read of the whole page found nothing else to change: the story, spec sheet, comparison and guarantees read as one argument with the new labels.
+
+## Final review (2026-09)
+
+A fresh native-editor read of `/tr/` before launch: cold top to bottom, then string by string against the English, including meta and JSON-LD descriptions, canvas aria-labels (`#zoom-strings`), the 404 page and the suggestion bar. I took screenshots at 1440×900, 1024×768, 390×844, 320×640 and 844×390 (each keyframe after the camera settled, plus the header with the picker open, every section and the footer). The page reads as one argument and every term decision above holds. Four changes, none longer than the line it replaces where layout is tight. The temp build is clean, and `i18n-audit.cjs` (tr × 18 sizes) passes.
+
+| id | before | after | reason |
+|---|---|---|---|
+| 64e0fbb4 | her biri nerede çalışır | nerede çalışır | This K3 row label set the width of the label column, so all three answers wrapped on phones (twice at 320) where the English fits on one line. "Each one" is already in the caption above ("On iki ajan, her biri…"), and the answer "nerede başlatıldıysa orada" is singular. At 390 the rows now fit on one line, as in English. |
+| 6f4e39ae | … Model çağrılarını answer ve research, <b>budget</b> üzerinden yapar. | … Answer ve research, model çağrılarını <b>budget</b> üzerinden yapar. | Resolves translator doubt 3. The object-first order with a comma between the subject and the adverbial read as translated. The English itself capitalizes "Answer" at the start of the sentence, so plain subject–object–verb order is natural and follows the source. Same length. |
+| 0487a062 | … önce tanım, sonra değişiklikler, sırayla. | … önce tanım, sonra kayıttakiler, sırayla. | The English says "then the *logged* changes". That is the point of the caption: only logged changes are replayed, never refused ones. "Kayıttakiler" (the ones in the log) restores this and is one character shorter. "kayıtlı değişiklikler" and "değişiklik kaydı" both made the 1024 readout three lines, and the stage fell back to showing only the document. |
+| 8de95fd5 | Henüz yok | Henüz değil | "Henüz yok" reads as "there are none yet", which contradicts a list of five existing limits. "Henüz değil" is the plain "not yet". |
+
+### Translator doubts (redesign pass)
+
+| Doubt | Verdict |
+|---|---|
+| 1. H1 on four lines at 1440 and 768 | Keep the headline. On the current build it is three lines at 1440, 1024, 390 and 320. It breaks as "işletim / sistemi." only in the narrow 844×390 landscape column, between words and not as a stranded full stop. Any Turkish wording must end on "işletim sistemi". A smaller Turkish H1 there would be a CSS matter outside these files, and it isn't needed for launch. |
+| 2. Imperatives (başlat · yalıt · yönlendir · yeniden başlat) | Keep. The English labels are bare verbs, and Turkish service controls use exactly these imperatives. Verbal nouns would be about 50 characters on a bar budgeted at 36. The K4 rows ("başlat — her ajanı ayrı bir süreç olarak") read as one command, as the English does. |
+| 3. K7 caption word order | Changed (see 6f4e39ae): subject first, capitalized "Answer", as the English does. |
+| Minor: K4 values wrap on phones | Keep. English wraps these rows at 844×390 and 320 too. The only shorter wording would drop "mesajları" or "aracılığıyla", and it would still wrap because the label "yeniden başlat" is wide. |

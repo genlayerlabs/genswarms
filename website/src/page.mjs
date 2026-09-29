@@ -40,15 +40,16 @@ const SYS = {
 const cjkVars = sys => `:root{--fs:${sys};--fh:${sys};--fm:'Geist Mono',${sys.replace(/,sans-serif$/, '')},ui-monospace,monospace;--fc:'Geist Mono',${sys.replace(/,sans-serif$/, '')},monospace}`;
 // titles: every display-type element on the page
 const TITLES = 'h1,h2,h3,.triad span,.spec dt,.cmp tbody th';
-// long words (Russian, Turkish): hyphenate titles and set the phone's and the pinned hero's display sizes a step smaller. The comparison's
-// heading, row questions and column heads are not hyphenated (brand names broke: "Lang-Graph", "Auto-Gen'den")
+// long words (Russian, Turkish): the display sizes a step smaller on phones and in the pinned hero, sized so every word
+// fits its line. Small titles may hyphenate; headlines and the triad break only at spaces («опера-ционная», «управ-ляет»
+// read badly), and neither does the comparison (brand names broke: "Lang-Graph", "Auto-Gen'den")
 const LONG = `h1,h2,h3,.triad span,.spec dt{hyphens:auto;-webkit-hyphens:auto;overflow-wrap:break-word}
 #cmp-h{hyphens:manual;-webkit-hyphens:manual}
 @media (max-width:759px){h1{font-size:clamp(30px,8.6vw,64px)}.step h2{font-size:clamp(25px,6.6vw,40px)}.sec-head h2{font-size:clamp(26px,6.2vw,40px)}}
 @media (min-height:640px){.cine h1{font-size:clamp(34px,min(3.3vw,6.6vh),48px)}}
 @media (min-width:760px){html:not(.cine) h1{font-size:clamp(34px,8.4vw,64px)}}
 .triad span{hyphens:manual;-webkit-hyphens:manual}
-@media (min-width:760px){h2{hyphens:manual;-webkit-hyphens:manual}}`;
+h1,h2{hyphens:manual;-webkit-hyphens:manual}`;
 // CJK: no negative tracking on titles, taller title lines
 const CJK_CSS = `${TITLES}{letter-spacing:0}h1{line-height:1.14}.step h2,.close h2,.sec-head h2{line-height:1.2}.triad span{line-height:1.4}`;
 // the comparison table: words stay whole (hyphenating split "agen-te", "Lang-Smith", "Gen-Swarms"); a word longer
@@ -59,7 +60,9 @@ export const TYPE = {
   es: { fonts: [FONTS_ALL], css: `${TABLE}@media (min-height:640px){.cine h1{font-size:clamp(34px,min(3.7vw,7.4vh),54px)}}` },
   ru: { fonts: [FONTS_ALL], css: `${LONG}${TABLE}` },
   tr: { fonts: [FONTS_ALL], css: `${LONG}${TABLE}` },
-  ko: { fonts: [FONTS_MONO], css: `${cjkVars(SYS.ko)}body{word-break:keep-all;overflow-wrap:break-word}${CJK_CSS}` },
+  // Geist Mono has no Hangul: Korean in the mono face (readouts, caption, facts, the prompt) falls back to the system
+  // face glyph by glyph but keeps Geist Mono's 0.6em spaces, which pull Korean words apart; a Korean-sized space instead
+  ko: { fonts: [FONTS_MONO], css: `${cjkVars(SYS.ko)}body{word-break:keep-all;overflow-wrap:break-word}${CJK_CSS}.ro,.ro-in,.zcap,.facts dd,.lg,.handoff p,.cmd code{word-spacing:-.3em}.ro .cap,.ro-in .cap{word-spacing:normal}` },
   // Chinese wraps between any two characters: paragraphs never end on one stranded character (text-wrap:pretty) and
   // the two-line lead is balanced
   'zh-Hans': { fonts: [FONTS_MONO], css: `${cjkVars(SYS['zh-Hans'])}${CJK_CSS}.copy .lead{text-wrap:balance}` },
@@ -118,7 +121,7 @@ const step = (s, i, RO, TT) => {
   let copy;
   if (s.hero) copy = `<div class="copy hero-copy">
 <h1>${heroH1(t)}</h1>
-<p class="lead">${t('Deploy, coordinate and control thousands of AI agents across your organization.', 'story step 1: lead paragraph under the headline')}</p>
+<p class="lead">${t('Deploy, coordinate and control thousands of AI&nbsp;agents across your organization.', 'story step 1: lead paragraph under the headline')}</p>
 ${ctas(t, 'story step 1')}
 <dl class="facts">${facts(t).map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
 </div>`;

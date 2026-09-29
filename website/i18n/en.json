@@ -382,9 +382,9 @@
    "lines": 1
   },
   {
-   "id": "6f4e39ae",
+   "id": "3f9bdece",
    "kind": "html",
-   "en": "Objects are plain code on the graph. Answer and research call <b>budget</b> for their model calls.",
+   "en": "Objects are plain code on the graph. The answer and research agents call <b>budget</b> for their model calls.",
    "where": [
     "readout at keyframe 7 (objects): caption. <b>budget</b> is the object’s name: keep it as it is"
    ]
@@ -829,9 +829,9 @@
    ]
   },
   {
-   "id": "18c49d60",
+   "id": "96a75294",
    "kind": "html",
-   "en": "Deploy, coordinate and control thousands of AI agents across your organization.",
+   "en": "Deploy, coordinate and control thousands of AI&nbsp;agents across your organization.",
    "where": [
     "story step 1: lead paragraph under the headline"
    ]
@@ -1592,9 +1592,9 @@
    ]
   },
   {
-   "id": "57573a62",
+   "id": "35898f67",
    "kind": "404",
-   "en": "The page you're looking for doesn't exist — or it wandered off the topology.",
+   "en": "The page you’re looking for doesn’t exist, or it wandered off the topology.",
    "where": [
     "404 page: text under the headline"
    ]

@@ -28,7 +28,9 @@ a{color:inherit}
 .skip{position:absolute;left:16px;bottom:100%;max-width:calc(100% - 32px);background:var(--ink);color:var(--bg);padding:10px 14px;z-index:100;font-weight:500;border-radius:2px}
 .skip:focus{bottom:auto;top:12px}
 h1,h2,h3{font-family:var(--fh);color:var(--ink);margin:0;font-weight:600;text-wrap:balance}
-p{text-wrap:pretty}
+p,.gu li,.spec dd,.cmp td,.ro .ln,.ro-in .ln{text-wrap:pretty}
+/* the packages readout: name on one line, digest and verdict under it, wherever a row can't hold all three */
+@media (max-width:1279px){.pk .ln{margin-bottom:6px;line-height:1.5}.pk .pn{flex-basis:100%}}
 .wrap{max-width:1280px;margin:0 auto;padding:0 var(--g);position:relative}
 
 /* ---------- the wordmark: lowercase Geist Mono and an orange block cursor ---------- */
@@ -131,7 +133,6 @@ h1{font-size:clamp(34px,9.4vw,72px);line-height:1.02;letter-spacing:-.05em;margi
 .lg .pu{stroke:var(--ink);stroke-width:1.6;stroke-linecap:round}
 @media (max-width:519px){
   .ev .k{min-width:0;flex-basis:100%}.ev .ln{margin-bottom:4px}
-  .pk .ln{margin-bottom:6px;line-height:1.5}.pk .pn{flex-basis:100%}
   .st .k{min-width:6.6em}.e2{min-width:0}
   .kv{column-gap:14px}
 }
@@ -162,7 +163,7 @@ h1{font-size:clamp(34px,9.4vw,72px);line-height:1.02;letter-spacing:-.05em;margi
 .cine .step{min-height:92vh;display:flex;flex-direction:column;justify-content:center;padding:10vh 0}
 .cine .step.hero{min-height:calc(100vh - var(--nav));padding:4vh 0 10vh}
 .cine .step[data-step="1"]{min-height:160vh}
-.cine .step:last-child{min-height:calc(100vh - var(--nav))}
+.cine .step:last-child{min-height:calc(100vh + 8px)} /* a full screen: read in the middle of the screen, the stage stays pinned whole */
 .cine h1{font-size:clamp(40px,min(4.15vw,8vh),60px)}
 .cine .step h2{font-size:clamp(28px,min(2.9vw,5.4vh),40px)}
 @media (max-height:820px){.cine .ro .cap{font-size:13.5px}.cine .ro,.cine .ro-in{font-size:12px;line-height:1.65}}

@@ -1,22 +1,22 @@
 {
  "_about": "Written by `node website/build.mjs` after a successful build; `--check` (CI, deploy) refuses when the English source, a translation or a built file no longer matches it.",
- "source": "fda0e35d4549cdd070605eb80107c55f188d9a5fc5ea04bf497427d8a8df60ea",
+ "source": "7638fb0c545d691aab0ec6ae8a32d3f56e206bc27b8e1736371c1b95add39a9d",
  "i18n": {
-  "en.json": "2c4c5bec7fe23f311a2be8c2c27f7abe7e67e4a371cda6c9279d63056334b3e0",
-  "es.json": "055d9f8f55cd2551c84824891b665fb26571a0939bba37bdd630b224d4482e3e",
-  "ko.json": "1149031de1374a356062e2970f85e06854261c5d1bd136b6f6621b75d2f8a2c1",
-  "zh.json": "ba5b9e6767f07616713ab6c5210ae745d242272058fd06ad325a35c683f54724",
-  "ru.json": "988afbdf1a48014e2a1d96b7aed83c30655b15c70d728eb414687445849aa952",
-  "tr.json": "573dd7fe0700de0eef14d89777661a8882aa33b6768a5b61be88e2fc500cc1ba"
+  "en.json": "d7a97e267bc2868150d45879a036fd6fd7e2f3d5e861552787e25298625e0fff",
+  "es.json": "53274b24767369a288e25589123994ae055435bf9d3ff46d806fcf8cb5db74b3",
+  "ko.json": "a041e20ca779399d587481a2d548b8515271598f75aba3e53bcd365bd36d6f98",
+  "zh.json": "17ea97b2138a74ab13097df02c73198de834c81afaffdeb0d3f854faf40150b6",
+  "ru.json": "af945f980b9a47817979453559f1b8bfea9dab9c8dcbedc9e913afdcd494f075",
+  "tr.json": "d9b0d0fe593e3878ea5baf6cfc319624035ad130a199102206d280d4cb253c46"
  },
  "outputs": {
-  "index.html": "0e8811949a88e0bcbb6018f0113dd402582b25add91a8e3de614a669b623b804",
-  "es/index.html": "aa83d7e11e343330433a59fa7fac309f6b66630c4afcf9eec71eb533500494a8",
-  "ko/index.html": "0a8182475f6a19718cdcd61d0161887b22721368187f28bf900c3ae52062346c",
-  "zh/index.html": "d7f869e593ee8316c745cbed0fb7e262deb46aa127244d9d8cd14e5c083c09eb",
-  "ru/index.html": "56722698a2ec76d02ed723ee142a7cee12a24edfe4c4af7c5c13a0ce3cfb8c6e",
-  "tr/index.html": "e5e9095a556e962398f6a76cd6ff17cbc9508c57f266565985968ccc15073d1a",
-  "404.html": "c1a155bc42e1da09c2278a96b50b5426373d8be235050af9db6afaeadadc1ed1",
+  "index.html": "57723acb3a299e420031f924c21a1d967841d6b07e011db9bbf42c2851ccf82d",
+  "es/index.html": "427eca6235d6e96c5b77d27a61bbea08e6fd7a55cc4e3e7fa3130dfbd97f32a5",
+  "ko/index.html": "a900c68deeb70c8818f0880caa34a61f5aeb6f4ca791d2004a4ae3e3747c83a7",
+  "zh/index.html": "06725ed7830e4d277d4cb06e3b912ec1633c71d6685c738575eb0808674bc479",
+  "ru/index.html": "23dcb94cb8a61dbefe36f5d01b4f8fcd885f35e42e84274beadde22f112114d1",
+  "tr/index.html": "b003ba27885113ce94ca23fc2b4650415ee2bb917f0d8c59a4dd743ae291b20e",
+  "404.html": "d19bd062471e6c84410ef93574adb5520d2bd039582121e6601036e6d36bd7e2",
   "sitemap.xml": "ebeda2e218d7ddd6751cca7cfafe754575e0d1a2b60a4b2925e5657d6b1cfe1e",
   "llms.txt": "001fad65364fef111475b284facd760455f0ae2b9d0fcc1a56b11d9a7dc60e6c"
  },
@@ -31,27 +31,27 @@
  "og": {
   "en": {
    "image": "og-image.png",
-   "source": "9274472ff7c2ea4845ff215148122e3a8092f4d82a01ab81efd2e6ec6722d707"
+   "source": "a1a282785b27389a432eb8c8985cb197492a6d5e20104d38a543265a5e2501bc"
   },
   "es": {
    "image": "og-es.png",
-   "source": "9ec84b5d6fa5ab795e1506d15dcd6e0f1ae355c159282ddb73c4f4109accd1e9"
+   "source": "7f3837b032a0703885ebe05debd9bd969b43436fe89f9d894fac50dfd8fd4d05"
   },
   "ko": {
    "image": "og-ko.png",
-   "source": "d4f5663864e55c3340ddb9c7584ab037434c499642cbda899c1e6608bf48a7ce"
+   "source": "692b2c92920bb95b193b4c9bd600390eedeef6648dde19b234d9c761e35ecc49"
   },
   "zh": {
    "image": "og-zh.png",
-   "source": "d8b1f892993759b589de14435e3aef97431c2737bfc98c3461838068825ff0de"
+   "source": "8113130acd04b03157d32d8732f586bd0deaeb2d03d800d4041e024a6af5466b"
   },
   "ru": {
    "image": "og-ru.png",
-   "source": "51b6cfc41a2704ac412093926c05ae55d7c13358606d6cc32d6a9f91c8d8fff6"
+   "source": "048f9d275b349c02e5c8fe9e109e2799b8cc56915ecff3258d12a63b463cdb3e"
   },
   "tr": {
    "image": "og-tr.png",
-   "source": "6d148726ca7186a3ae7f429233d8763067326fe132ab7c17bfeff3b490f1f2d8"
+   "source": "d3f1291b475e6f303f2782b75e58c7ce0e78c98ea689c24a0a9f8d6311d8814c"
   }
  }
 }

@@ -176,7 +176,7 @@
     // camera for each keyframe
     var ob = W.box, padO = 60, ox = W.sx, oy = W.sy, narrow = vw < 600;
     // the document (K9) fills the frame on narrow or short stages, where the whole team would set it too small to read
-    var docFocus = narrow || safe[9][3] < 520;
+    var docFocus = narrow || safe[9][3] < 490; // (490: a three-line caption at 1024x768 still leaves room for the whole team)
     cams[0] = fitL([ob[0] - padO, ob[1] - padO, ob[2] + padO, ob[3] + padO], safe[0], []);
     s0 = cams[0].s;
     // the control layer over the whole organization (drawn at K10)
