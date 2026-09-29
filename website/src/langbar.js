@@ -33,19 +33,17 @@
   }
   if (!want || want === here) return;
 
-  var s = S[want], bar = document.createElement('div'), top = document.querySelector('.top');
+  var s = S[want], bar = document.createElement('div');
   bar.className = 'langbar';
   bar.lang = want;
   var line = document.createElement('p'), a = document.createElement('a'), x = document.createElement('button');
   line.appendChild(document.createTextNode(s.msg + ' '));
   a.href = s.href; a.hreflang = want; a.textContent = s.go;
   line.appendChild(a);
-  x.type = 'button'; x.setAttribute('aria-label', s.close); x.textContent = '×';
-  // the header is absolutely placed at the top of the page: it moves down while the bar is there
-  function place() { if (top) top.style.top = bar.parentNode ? bar.offsetHeight + 'px' : ''; }
-  x.addEventListener('click', function () { set(here); bar.parentNode.removeChild(bar); place(); removeEventListener('resize', place); });
+  x.type = 'button'; x.setAttribute('aria-label', s.close); x.textContent = '\u00d7';
+  // the bar sits above the (sticky) header, in the page's flow: it scrolls away with the page
+  x.addEventListener('click', function () { set(here); bar.parentNode.removeChild(bar); dispatchEvent(new Event('resize')); });
   bar.appendChild(line); bar.appendChild(x);
   document.body.insertBefore(bar, document.body.firstChild);
-  place();
-  addEventListener('resize', place, { passive: true });
+  dispatchEvent(new Event('resize'));
 })();

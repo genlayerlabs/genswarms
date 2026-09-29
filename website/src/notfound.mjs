@@ -12,11 +12,10 @@ export const strings404 = () => ({
   docs: t('Read the docs', '404 page: link to the documentation', { kind: '404' }),
 });
 
-// same system faces as the translated pages (src/page.mjs): the 404's brand fonts have no Cyrillic, Hangul or Han
-const FONTS = `:lang(ru) body,:lang(ru) h1{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans",sans-serif}
-:lang(ko) body,:lang(ko) h1{font-family:"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;word-break:keep-all}
+// Korean and Chinese set text in system faces (Geist has no Hangul or Han), as on the translated pages (src/page.mjs)
+const FONTS = `:lang(ko) body,:lang(ko) h1{font-family:"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;word-break:keep-all}
 :lang(zh-Hans) body,:lang(zh-Hans) h1{font-family:"PingFang SC","Hiragino Sans GB","Noto Sans SC","Microsoft YaHei",sans-serif}
-:lang(ko) h1,:lang(zh-Hans) h1{letter-spacing:0;line-height:1.15}`;
+:lang(ko) h1,:lang(zh-Hans) h1{letter-spacing:0;line-height:1.2}`;
 
 // byLang: { es: { lang: 'es', home: '/es/', ...strings404() in Spanish }, ... } (English stays in the markup)
 export function render404(byLang = null) {
@@ -30,8 +29,8 @@ export function render404(byLang = null) {
   document.documentElement.lang=s.lang; document.title=s.title;
   document.querySelector('.code').textContent=s.code;
   document.querySelector('h1').textContent=s.h1;
-  document.querySelector('p').textContent=s.p;
-  var a=document.querySelector('.btn-primary'); a.firstChild.textContent=s.back+' '; a.setAttribute('href', s.home);
+  document.querySelector('main p').textContent=s.p;
+  var a=document.querySelector('.btn-primary'); a.textContent=s.back; a.setAttribute('href', s.home); document.querySelector('.brand').setAttribute('href', s.home);
   document.querySelector('.btn-ghost').textContent=s.docs;
 })();
 </script>
@@ -43,51 +42,49 @@ export function render404(byLang = null) {
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>${title}</title>
 <meta name="robots" content="noindex" />
+<meta name="theme-color" content="#0D0E10" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400..600&family=Geist:wght@400..600&display=swap" rel="stylesheet" />
 <style>
-:root{--sand:#E9E0D2;--ink:#33301f;--ink-2:#5f5946;--clay:#A84E36;--r-spring:cubic-bezier(.2,.9,.25,1)}
+:root{color-scheme:dark;--bg:#0D0E10;--ink:#ECEDEF;--ink-2:#A3A6AD;--ink-3:#80848C;--hl:rgba(232,234,238,.075);--hl-2:rgba(232,234,238,.13);--or:#FF6A2B;--fm:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;--fs:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
 *{margin:0;padding:0;box-sizing:border-box}
-::selection{background:var(--clay);color:#fff}
-body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--sand);color:var(--ink);font-family:"Instrument Sans",sans-serif;-webkit-font-smoothing:antialiased;padding:32px;text-align:center}
-.wrap{max-width:540px}
-.mark{width:46px;height:46px;margin:0 auto 30px;display:block}
-.mark line{stroke:var(--ink);stroke-opacity:.35;stroke-width:1.1}
-.mark circle{fill:var(--clay)}
-.code{font-family:"JetBrains Mono",monospace;font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-2);margin-bottom:14px}
-h1{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:clamp(40px,9vw,72px);line-height:1;letter-spacing:-.03em;margin-bottom:16px;text-wrap:balance}
-p{font-size:16.5px;color:var(--ink-2);max-width:34ch;margin:0 auto 30px;text-wrap:pretty}
-.row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
-.btn{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:600;padding:12px 20px;min-height:44px;border-radius:11px;text-decoration:none;transition:transform .3s var(--r-spring),background .3s ease}
-.btn-primary{background:var(--ink);color:var(--sand)}
-.btn-primary:hover{background:var(--clay)}
-.btn-ghost{color:var(--ink);border:0;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:5px}
-.btn-ghost:hover{text-decoration-thickness:2px}
-.btn svg{transition:transform .35s var(--r-spring)}
-.btn:hover svg{transform:translateX(3px)}
+html,body{background:var(--bg)}
+body{min-height:100vh;min-height:100svh;display:flex;flex-direction:column;color:var(--ink-2);font:400 17px/1.6 var(--fs);-webkit-font-smoothing:antialiased}
+:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radius:2px}
+.top{border-bottom:1px solid var(--hl);padding:0 clamp(16px,3.4vw,48px);height:56px;display:flex;align-items:center}
+.brand{display:inline-flex;align-items:center;min-height:44px;font:600 19px/1 var(--fm);letter-spacing:-.045em;color:var(--ink);text-decoration:none}
+.cur{display:inline-block;width:.52em;height:.86em;background:var(--or);margin-left:.08em}
+main{flex:1;display:flex;align-items:center;padding:48px clamp(16px,3.4vw,48px) 72px}
+.wrap{max-width:640px}
+.code{font:400 12.5px/1 var(--fm);color:var(--ink-3);margin-bottom:18px}
+h1{font:600 clamp(34px,7vw,60px)/1.05 var(--fm);letter-spacing:-.05em;color:var(--ink);margin-bottom:18px;text-wrap:balance}
+p{max-width:34em;margin-bottom:32px;text-wrap:pretty}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:0 20px;font:500 15px/1 var(--fs);text-decoration:none;border-radius:3px;white-space:nowrap;transition:background .15s,border-color .15s}
+.btn-primary{background:var(--ink);color:var(--bg);border:1px solid var(--ink)}
+.btn-primary:hover{background:#fff;border-color:#fff}
+.btn-ghost{border:1px solid var(--hl-2);color:var(--ink)}
+.btn-ghost:hover{border-color:var(--ink-3)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>${head}
 </head>
 <body>
+  <header class="top"><a class="brand" href="/" aria-label="GenSwarms">genswarms<span class="cur" aria-hidden="true"></span></a></header>
+  <main>
   <div class="wrap">
-    <svg class="mark" viewBox="0 0 26 26" aria-hidden="true">
-      <line x1="6" y1="6" x2="20" y2="9"/><line x1="6" y1="6" x2="9" y2="20"/>
-      <line x1="20" y1="9" x2="20" y2="20"/><line x1="9" y1="20" x2="20" y2="20"/>
-      <line x1="6" y1="6" x2="20" y2="20"/>
-      <circle cx="6" cy="6" r="2.6"/><circle cx="20" cy="9" r="2.6"/>
-      <circle cx="9" cy="20" r="2.6"/><circle cx="20" cy="20" r="2.6"/>
-    </svg>
     <div class="code">${code}</div>
     <h1>${h1}</h1>
     <p>${p}</p>
     <div class="row">
-      <a class="btn btn-primary" href="/">${back} <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 10L10 3M10 3H4M10 3V9"/></svg></a>
+      <a class="btn btn-primary" href="/">${back}</a>
       <a class="btn btn-ghost" href="/docs/">${docs}</a>
     </div>
   </div>
+  </main>
 ${body}</body>
 </html>
 `;

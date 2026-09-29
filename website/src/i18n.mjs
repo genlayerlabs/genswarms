@@ -27,7 +27,14 @@ export const KEEP = new Set(['GenSwarms', 'LangGraph', 'CrewAI', 'AutoGen', 'Git
   ...LANGS.map(l => l.name), ...LANGS.map(l => l.short),
   'Local', 'Tmux', 'Docker', 'Apple container', 'SSH', 'Bwrap', 'Mock',
   'telegram', 'triage', 'answer', 'research', 'cron', 'budget', 'browser', 'agents', 'objects', 'edges',
-  'message_routed', 'invalid_route', 'add_agent', 'scale_agent_group', 'swarm.state', 'swarm.overlay']);
+  'message_routed', 'invalid_route', 'add_agent', 'scale_agent_group', 'swarm.state', 'swarm.overlay',
+  // the wordmark (lowercase, in the header, the footer and the comparison's column head) and the runtime in the hero's
+  // facts row ("Elixir / OTP")
+  'genswarms', 'Elixir', 'OTP',
+  // the zoom drawing and its readouts: the named swarms of the organization, the observer swarm's agents (watch →
+  // report), the event kinds of the one-stream readout, and the swarm document's keys and change kinds
+  'support', 'chat', 'coding', 'trading sim', 'observer', 'watch', 'report', 'restart', 'output',
+  'paths', 'add_topology_edges', 'bump_package']);
 
 // A text run that is only names, identifiers and numbers (e.g. "telegram → triage", "genlayerlabs/cron@0.2.8") is
 // the same in every language.
@@ -171,6 +178,9 @@ export function textRuns(html) {
   const add = s => { s = decode(s).replace(/\s+/g, ' ').trim(); if (s && !isKept(s)) runs.add(s); };
   const ld = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
   if (ld) add(JSON.parse(ld[1]).description);
+  // the words the zoom drawing draws on its canvas and its text alternatives (a JSON block, see page.mjs)
+  const zs = html.match(/<script type="application\/json" id="zoom-strings">([\s\S]*?)<\/script>/);
+  if (zs) { const walk = v => (typeof v === 'string' ? add(v) : v && typeof v === 'object' ? Object.values(v).forEach(walk) : 0); const o = JSON.parse(zs[1]); delete o.cine; walk(o); }
   const body = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, '');
   for (const m of body.matchAll(/<(title)>([\s\S]*?)<\/title>/g)) add(m[2]);
   for (const m of body.matchAll(/<meta (?:name|property)="(description|og:title|og:description|og:image:alt|twitter:title|twitter:description)" content="([^"]*)"/g)) add(m[2]);

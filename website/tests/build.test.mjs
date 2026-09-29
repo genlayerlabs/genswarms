@@ -1,55 +1,97 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { renderPage } from '../src/page.mjs';
+import { renderPage, CINE } from '../src/page.mjs';
 import { readFileSync } from 'node:fs';
-import { system, L, P } from '../src/figures.mjs';
+import { catalogue } from '../src/site.mjs';
 const css = () => readFileSync(new URL('../src/page.css', import.meta.url), 'utf8');
+const src = f => readFileSync(new URL(`../src/${f}`, import.meta.url), 'utf8');
 
 const html = renderPage();
+// remove every element <tag class="cls…"> with its content (nesting-aware)
+function strip(h, tag, cls) {
+  const open = new RegExp(`<${tag} class="${cls}[^"]*"[^>]*>`, 'g');
+  let out = '', i = 0, m;
+  while ((m = open.exec(h))) {
+    out += h.slice(i, m.index);
+    let depth = 1, j = open.lastIndex;
+    const re = new RegExp(`<${tag}[\\s>]|</${tag}>`, 'g');
+    re.lastIndex = j;
+    let n;
+    while (depth && (n = re.exec(h))) depth += n[0].startsWith('</') ? -1 : 1;
+    i = n ? re.lastIndex : h.length; open.lastIndex = i;
+  }
+  return out + h.slice(i);
+}
+const zs = JSON.parse(html.match(/<script type="application\/json" id="zoom-strings">([\s\S]*?)<\/script>/)[1]);
 
 test('page has the owner headline and all nine story steps', () => {
   assert.match(html, /<h1>The operating system for AI(&nbsp;| )workforces\.<\/h1>/);
   for (let k = 0; k <= 8; k++) assert.match(html, new RegExp(`id="s${k}" data-step="${k}"`));
 });
 
-test('one live figure and nine stills per layout', () => {
-  assert.equal((html.match(/<svg class="sys L live/g) || []).length, 1);
-  assert.equal((html.match(/<svg class="sys L"/g) || []).length, 9);
-  assert.equal((html.match(/<svg class="sys P"/g) || []).length, 9);
+test('one stage: a canvas with a text alternative, the zoom caption, the readouts and the illustration label', () => {
+  assert.equal((html.match(/<canvas /g) || []).length, 1);
+  assert.match(html, /<canvas role="img" aria-label="Illustration: an organization of 36 swarms, several thousand agents\./);
+  assert.match(html, /<div class="zcap" aria-hidden="true"><span class="lv">organization<\/span>/);
+  assert.match(html, /<div class="ros" aria-hidden="true">/);
+  assert.match(html, /<div class="ill" aria-hidden="true">illustration<\/div>/);
+  // one text alternative per keyframe (K0-K10), in the page's JSON block, the first one also on the canvas
+  assert.equal(zs.aria.length, 11);
+  for (const a of zs.aria) assert.match(a, /^Illustration: /);
+  // the same media query decides the pinned layout in the head script and in the drawing's script
+  assert.equal(zs.cine, CINE);
+  assert.ok(html.includes(`matchMedia('${CINE}')`));
 });
 
-test('pruned still contains only its stage', () => {
-  const s0 = system(L, 0, { prune: true });
-  assert.doesNotMatch(s0, /supervisor/);      // stage 3 only
-  assert.doesNotMatch(s0, /invalid_route/);   // stage 4 only
-  assert.doesNotMatch(s0, /swarm\.overlay/);  // stage 7 only
-  const s3 = system(L, 3, { prune: true });
-  assert.match(s3, /supervisor/);
-  assert.match(s3, /crashed, restarted/);
-  assert.doesNotMatch(s3, /illustration/);
-  const s4 = system(L, 4, { prune: true });
-  assert.match(s4, /events \(illustration\)/);
-  assert.doesNotMatch(s4, /swarmidx/);
+test('readouts: in the stage for the pinned layout (hidden from screen readers), and in each step for everyone else', () => {
+  const stage = html.match(/<div class="ros" aria-hidden="true">([\s\S]*?)<div class="ill"/)[1];
+  assert.deepEqual([...stage.matchAll(/<div class="ro[^"]*" data-at="(\d+)"/g)].map(m => +m[1]), [0, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  // the legend (data-at 0) is in the stage only: the canvas's text alternative describes the marks
+  const inStep = k => [...html.match(new RegExp(`id="s${k}" data-step="${k}"[\\s\\S]*?</article>`))[0].matchAll(/<div class="ro-in" data-at="(\d+)"/g)].map(m => +m[1]);
+  assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7, 8].map(inStep), [[], [2, 3], [4], [5], [6], [7], [8], [9], [10]]);
+  // the readouts are real text: event kinds, package refs and shortened digests
+  assert.match(html, /<span class="k">invalid_route<\/span><span>research <span class="ar">→<\/span> telegram<\/span><span class="tag">dropped<\/span>/);
+  for (const pkg of ['genlayerlabs/genswarms-telegram@0.6.6', 'genlayerlabs/cron@0.2.8', 'genlayerlabs/genswarms-llm-proxy@0.4.2', 'genlayerlabs/browser@0.2.4']) assert.ok(html.includes(pkg), pkg);
+  assert.doesNotMatch(html, /sha256:[0-9a-f]{5,}/, 'digests are visibly shortened placeholders');
+});
+
+test('without JavaScript the stage is not shown and nothing is blank', () => {
+  assert.match(css(), /html:not\(\.js\) \.stage-col\{display:none\}/);
+  assert.match(html, /<script>\(function\(\)\{var d=document\.documentElement;d\.classList\.add\('js'\)/);
+  // the zoom's script gives up cleanly without a canvas: the page falls back to the no-JS layout
+  assert.match(src('zoom-run.js'), /if \(!g\) \{ root\.classList\.remove\('js', 'cine'\); return; \}/);
 });
 
 test('built page is under 150 KB', () => {
   assert.ok(Buffer.byteLength(html) < 153600, `${Buffer.byteLength(html)} bytes`);
 });
 
-test('no copy lives in the script', () => {
-  const script = html.match(/<script>([\s\S]*?)<\/script>/g).join('\n');
-  assert.doesNotMatch(script, /CAPS|ARIA/);
-  for (const phrase of ['operating system', 'Every agent is a process', 'declared paths', 'Not everything needs a model', 'Install what your agents need', 'A swarm is a document', 'One control layer', 'Step', 'Figure', 'illustration', 'dropped', 'Copy', 'Copied', 'Select and copy']) assert.ok(!script.includes(phrase), phrase);
+test('no copy lives in the script: the drawing takes its words from the catalogue', () => {
+  const script = html.match(/<script>\n([\s\S]*?)<\/script>\n?<\/body>/)[1];
+  assert.doesNotMatch(script, /\bARIA\b/);
+  for (const e of catalogue()) {
+    // (a one-word string can also be a document key or identifier the drawing spells out, e.g. "agents")
+    if (!/\s/.test(e.en)) continue;
+    assert.ok(!script.includes(`'${e.en}'`) && !script.includes(`"${e.en}"`), `hard-coded in the script: ${e.en}`);
+  }
+  for (const phrase of ['operating system', 'Every agent is a process', 'Not everything needs a model', 'model calls', 'never logged', 'log of changes', 'Copied', 'Selected']) assert.ok(!script.includes(phrase), phrase);
+  // every word the canvas draws is in the JSON block
+  for (const k of ['lv', 'count', 'layer', 'supervisor', 'process', 'sandbox', 'dropped', 'crashed', 'restarted', 'modelCalls', 'model', 'tools', 'prompt', 'agent', 'seed', 'log', 'declared', 'refused', 'never', 'defines', 'restores', 'aria']) assert.ok(zs[k], k);
+  assert.equal(zs.count, '{swarms} swarms · {agents} agents');
+  assert.equal(zs.refused, 'refused: over the {cap}-agent cap');
+  // numbers are formatted for the page's language
+  assert.match(src('zoom-run.js'), /new Intl\.NumberFormat\(lang, opts\)/);
 });
 
 const text = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
 
 test('banned claims are absent', () => {
-  // (the package scope genlayerlabs/ in the stage-6 figure is a real swarmidx identifier)
-  assert.doesNotMatch(text, /GenLayer(?! Labs|labs\/)|unhardcoded|blockchain/i);
-  assert.doesNotMatch(text, /\bRBAC\b|per-user permission|approval workflow|sandboxed packages/i);
-  assert.doesNotMatch(text, /(?<!not )exactly once/i);
-  assert.doesNotMatch(text, /\bmemory\b/i);
+  // (the package scope genlayerlabs/ in the readouts is a real swarmidx identifier)
+  const all = text + ' ' + JSON.stringify(zs);
+  assert.doesNotMatch(all, /GenLayer(?! Labs|labs\/)|unhardcoded|blockchain/i);
+  assert.doesNotMatch(all, /\bRBAC\b|per-user permission|approval workflow|sandboxed packages/i);
+  assert.doesNotMatch(all, /(?<!not )exactly once/i);
+  assert.doesNotMatch(all, /\bmemory\b/i);
 });
 
 test('approved copy deck v2 is applied (design/2026-09-25-copy-deck-v2.md)', () => {
@@ -67,16 +109,20 @@ test('approved copy deck v2 is applied (design/2026-09-25-copy-deck-v2.md)', () 
   assert.match(text, /How is it different from LangGraph, CrewAI or AutoGen\?/);
   assert.match(text, /In use today for chat assistants, coding agents, trading simulations and swarms that watch other swarms\./);
   assert.match(text, /Read https:\/\/genswarms\.com\/skill\.md and set up a swarm\./);
+  // the v4 design's additions: the hero facts row, the section sub-lines, the sources note
+  assert.match(html, /<dl class="facts"><div><dt>license<\/dt><dd>Open source, MIT<\/dd><\/div><div><dt>version<\/dt><dd>0\.2\.0<\/dd><\/div><div><dt>runtime<\/dt><dd>Elixir \/ OTP<\/dd><\/div><\/dl>/);
+  assert.equal((html.match(/<div class="sec-head"><h2 [^>]+>[^<]+<\/h2><p>[^<]+<\/p><\/div>/g) || []).length, 3);
+  assert.match(text, /From each project’s own documentation, September 2026\./);
   // removed: v1's turn block and determines list, explanatory paragraphs, the Control surface row
   assert.doesNotMatch(html, /class="(turn|turn-k|turn-q|determines|strike)\b/);
   assert.doesNotMatch(text, /It becomes|share context|A runtime, not a library|Control surface|production-ready|build an AI workforce/);
-  // one italic example line, on step 4
+  // one example line, on step 5 (#s4)
   assert.equal((html.match(/class="ex"/g) || []).length, 1);
-  assert.match(html, /id="s4" data-step="4">\s*<div class="copy">[\s\S]*?<p class="ex">From here the drawings follow one swarm: a support team that answers customers on Telegram\.<\/p>/);
+  assert.match(html, /id="s4" data-step="4"[^>]*>\s*<div class="copy">[\s\S]*?<p class="ex">From here the drawings follow one swarm: a support team that answers customers on Telegram\.<\/p>/);
   // "How it works." has the deck's ten rows, in order
-  assert.deepEqual([...html.matchAll(/<dt>([^<]+)<\/dt>/g)].map(m => m[1]), ['Processes', 'Isolation', 'Network', 'Messages', 'Services', 'Drivers', 'Packages', 'State', 'Control', 'Events']);
-  assert.equal((html.match(/<ul class="yes">([\s\S]*?)<\/ul>/)[1].match(/<li>/g) || []).length, 4);
-  assert.equal((html.match(/<ul class="not">([\s\S]*?)<\/ul>/)[1].match(/<li>/g) || []).length, 5);
+  assert.deepEqual([...html.matchAll(/<div class="row"><dt>([^<]+)<\/dt>/g)].map(m => m[1]), ['Processes', 'Isolation', 'Network', 'Messages', 'Services', 'Drivers', 'Packages', 'State', 'Control', 'Events']);
+  assert.equal((html.match(/<div class="gu-col yes"><h3>[^<]+<\/h3><ul>([\s\S]*?)<\/ul>/)[1].match(/<li>/g) || []).length, 4);
+  assert.equal((html.match(/<div class="gu-col not"><h3>[^<]+<\/h3><ul>([\s\S]*?)<\/ul>/)[1].match(/<li>/g) || []).length, 5);
 });
 
 test('none of the removed v1 story remains (page, llms.txt)', () => {
@@ -87,29 +133,17 @@ test('none of the removed v1 story remains (page, llms.txt)', () => {
   }
 });
 
-test('rail buttons are named after their step headlines', () => {
-  const names = [...html.matchAll(/<button type="button" data-go="(\d)" aria-label="([^"]+)"/g)].map(m => m[2]);
-  assert.equal(names.length, 9);
-  assert.equal(names[0], 'Step 1: The operating system for AI workforces.');
-  assert.equal(names[2], 'Step 3: Think of it as an operating system.');
-  assert.equal(names[5], 'Step 6: Not everything needs a model.');
-  assert.equal(names[7], 'Step 8: A swarm is a document.');
-  for (const [k, n] of names.entries()) assert.ok(text.includes(n.replace(/^Step \d: /, '')), `step ${k + 1} name matches a visible headline`);
-});
-
-test('visible copy stays short (deck v2: 530 words of prose)', () => {
+test('visible copy stays short', () => {
   const words = h => h.replace(/<svg[\s\S]*?<\/svg>|<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, ' ')
     .replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').split(/\s+/).filter(w => /[\p{L}\p{N}]/u.test(w)).length;
-  // the page's prose: <main> outside svg/script/style, without screen-reader-only text, the
-  // pinned figure's label copies (shown one at a time, instead of the stills' labels) and the
-  // comparison table (sourced data, fixed by design/comparison-sources.md)
-  const prose = words(html.match(/<main[\s\S]*<\/main>/)[0].replace(/<(span|caption) class="sr"[\s\S]*?<\/\1>/g, ' ')
-    .replace(/<figcaption class="stage-cap[\s\S]*?<\/figcaption>/, ' ').replace(/<table[\s\S]*?<\/table>/, ' '));
-  // caps pinned at deck v2's applied counts (530 / 711), so copy can't grow silently
-  assert.ok(prose <= 530, `${prose} words of prose`);
-  // and everything outside svg/script/style in <body>, nav, footer and comparison cells included
+  // the page's prose: <main> outside svg/script/style, without screen-reader-only text, the readouts (what the drawing
+  // shows, as text) and the comparison table (sourced data, fixed by design/comparison-sources.md)
+  const main = strip(strip(html.match(/<main[\s\S]*<\/main>/)[0], 'div', 'ros'), 'div', 'ro-in');
+  const prose = words(main.replace(/<(span|caption) class="sr"[\s\S]*?<\/\1>/g, ' ').replace(/<table[\s\S]*?<\/table>/, ' '));
+  // pinned at the v4 design's applied counts, so copy can't grow silently
+  assert.ok(prose <= 580, `${prose} words of prose`);
   const all = words(html.match(/<body>[\s\S]*<\/body>/)[0]);
-  assert.ok(all <= 711, `${all} words on the whole page`);
+  assert.ok(all <= 1180, `${all} words on the whole page`);
 });
 
 test('facts match v0.2.0', () => {
@@ -119,95 +153,89 @@ test('facts match v0.2.0', () => {
   assert.match(text, /illustration/i);
 });
 
-test('every simulated/animated figure is labelled illustration', () => {
-  // Figs. 5-8 (stages 4-7: the support swarm, its routed and dropped messages, packages with
-  // placeholder digests, the change log) carry a small "illustration" label (spec §4). Stills
-  // carry it in flow; the pinned figure shows it by stage.
-  const note = k => html.match(new RegExp(`id="s${k}" data-step="${k}">[\\s\\S]*?</article>`))[0].match(/<figcaption class="fig-note">([^<]*)<\/figcaption>/);
-  for (const k of [4, 5, 6, 7]) assert.equal(note(k) && note(k)[1], 'illustration', `still ${k + 1}`);
-  for (const k of [0, 1, 2, 3, 8]) assert.equal(note(k), null, `still ${k + 1} has no caption`);
-  const live = html.match(/<figcaption class="stage-cap[^"]*">([\s\S]*?)<\/figcaption>/)[1];
-  for (const k of [4, 5, 6, 7]) assert.match(live, new RegExp(`data-at="${k}">illustration<`));
-  assert.doesNotMatch(live, /data-at="[0-38]"/);
-  for (const k of [4, 5, 6, 7]) assert.match(css(), new RegExp(`\\.live\\[data-s="${k}"\\]~\\.stage-cap \\[data-at="${k}"\\]`));
-  // Fig. 5 (stage 4): the event log itself is labelled, and uses the real telemetry event names
-  for (const Lo of [L, P]) {
-    const s4 = system(Lo, 4, { prune: true });
-    assert.match(s4, /events \(illustration\)/);
-    assert.match(s4, /message_routed/);
-    assert.match(s4, /invalid_route\s*<\/tspan><tspan>research → telegram/);
-    assert.match(s4, /message_routed\s*<\/tspan><tspan>answer → telegram/);
-  }
+test('every simulated readout and the drawing are labelled illustration', () => {
+  // the drawing always carries "illustration" (bottom right); its text alternatives start with "Illustration:"
+  assert.match(html, /<div class="ill" aria-hidden="true">illustration<\/div>/);
+  // the simulated events and packages (keyframes 5, 6, 8, 10) carry it in their headings
+  for (const k of [5, 6, 8, 10]) assert.match(html, new RegExp(`<div class="ro(-in)?" data-at="${k}"><p class="ro-t">[^<]*\\(illustration\\)</p>`), `readout ${k}`);
+  // the event log uses the real telemetry event names
+  assert.match(html, /<span class="k">message_routed<\/span><span>telegram <span class="ar">→<\/span> triage<\/span>/);
 });
 
-test('figures draw the v2 story from real parts', () => {
-  const both = k => system(L, k, { prune: true }) + system(P, k, { prune: true });
-  assert.match(both(2), />operating system</);
-  assert.match(both(3), />crashed, restarted</);
-  assert.match(both(4), />telegram<[\s\S]*>triage<[\s\S]*>answer<[\s\S]*>research</);
-  assert.match(both(4), />dropped</);
-  for (const o of ['cron', 'budget', 'browser']) assert.match(both(5), new RegExp(`>${o}<`), o);
-  assert.match(both(5), />agent, uses a model</);
-  assert.match(both(5), />object, plain code</);
-  // budget is called over HTTP, not a message route: dotted, arrowless lines from answer and research
-  for (const Lo of [L, P]) assert.equal((system(Lo, 5, { prune: true }).match(/<line class="mc"/g) || []).length, 2, Lo.id);
-  assert.doesNotMatch(both(5), /class="mc-h"/);
-  assert.match(system(L, 5, { prune: true }), />model calls</);
-  for (const pkg of ['genlayerlabs/genswarms-telegram@0.6.6', 'genlayerlabs/cron@0.2.8', 'genlayerlabs/genswarms-llm-proxy@0.4.2', 'genlayerlabs/browser@0.2.4'])
-    assert.ok(both(6).includes(pkg), pkg);
-  // digests are visibly shortened placeholders, never full-length hashes
-  assert.doesNotMatch(html, /sha256:[0-9a-f]{5,}/);
-  assert.match(both(7), /swarm\.state[\s\S]*swarm\.overlay/);
-  assert.match(both(7), /1 add_agent research/);
-  assert.match(both(7), /2 scale_agent_group answer 3/);
-  // a refused change (OpPolicy agent_cap_exceeded, checked before a seq is assigned) is never
-  // numbered or logged: shown after the log, without a seq
-  assert.match(both(7), />scale_agent_group answer 150</);
-  assert.doesNotMatch(both(7), /\b3 \w+_\w+/);
-  assert.match(both(7), /refused: over the 100-agent cap/);
-  assert.doesNotMatch(both(7), /add_topology_edges|billing/);
-  assert.match(both(7), /restore: seed \+ 2 changes/);
-  // stage 8: unnamed swarms, no people, no business teams
-  assert.doesNotMatch(both(8), /Customer|Software|Sales|Finance|Security|Network operations|class="ch"|class="ce esc"/);
-  assert.match(both(8), />Swarms</);
+test('the drawing tells the v2 story from real parts', () => {
+  const js = ['zoom-world.js', 'zoom-draw.js', 'zoom-support.js', 'zoom-run.js'].map(src).join('\n');
+  // the support team, its objects and its declared paths
+  for (const n of ["tg: 'telegram'", "cron: 'cron'", "browser: 'browser'", "budget: 'budget'", "triage: 'triage'", "answer: 'answer'", "research: 'research'"]) assert.ok(js.includes(n), n);
+  assert.match(js, /\['research', 'budget', \[\[700, 210\]\], 'm', 'more'\]/, 'budget is called for model calls, not a message route');
+  // the document: a seed and a log of changes; the refused change gets no number and is never logged
+  for (const s of ["'swarm.state'", "'swarm.overlay'", "'1  add_agent research'", "'×  scale_agent_group answer 150'"]) assert.ok(js.includes(s), s);
+  assert.match(js, /fill\(ZS\.refused, \{ cap: nf0\(100\) \}\)/);
+  // 36 swarms: 35 generated and the support team; the named ones are real uses
+  assert.match(js, /N = 35/);
+  assert.match(js, /var NAMED = \['chat', 'coding', 'trading sim', 'observer'\];/);
+  // orange only for failure: the crash, the dropped message, the refused change (and the wordmark's cursor)
+  const orUses = (js.match(/C\.or\b/g) || []).length;
+  assert.ok(orUses >= 5 && orUses <= 12, `${orUses} uses of orange in the drawing`);
 });
 
 test('comparison has no Draft stamp once sourced', () => {
   assert.doesNotMatch(text, /Draft/);
 });
 
-test('hero figure already reads as a workforce', () => {
-  const s0 = system(L, 0, { prune: true });
-  assert.match(s0, /class="[^"]*\borg-ghost\b/);            // faint organization outline in figure 1
-  assert.match(s0, />model<.*>prompt<.*>tools</s);
-});
 test('no pill badges or tracked uppercase eyebrows', () => {
   assert.doesNotMatch(html, /class="[^"]*\b(pill|badge|eyebrow)\b/);
   assert.doesNotMatch(css(), /text-transform:\s*uppercase[^}]*letter-spacing|letter-spacing[^}]*text-transform:\s*uppercase/);
 });
-test('org ghost is pruned from later stills', () => {
-  for (let k = 1; k <= 8; k++) assert.doesNotMatch(system(L, k, { prune: true }), /org-ghost/, `stage ${k}`);
-  assert.match(system(P, 0, { prune: true }), /org-ghost/);
+
+test('the wordmark replaces the old logo, and keeps an accessible name', () => {
+  assert.doesNotMatch(html, /class="mark|<svg class="mark/);
+  const brands = [...html.matchAll(/<a class="brand" href="#s0" aria-label="([^"]+)">genswarms<span class="cur" aria-hidden="true"><\/span><\/a>/g)];
+  assert.equal(brands.length, 2, 'header and footer');
+  for (const b of brands) assert.equal(b[1], 'GenSwarms home');
+  assert.match(css(), /\.cur\{[^}]*background:var\(--or\)/);
+  // the icons: a graphite square, a Geist Mono "g" drawn as a path (no font needed) and the orange cursor
+  const fav = readFileSync(new URL('../favicon.svg', import.meta.url), 'utf8');
+  assert.match(fav, /fill="#0D0E10"/); assert.match(fav, /fill="#FF6A2B"/); assert.match(fav, /<path fill="#ECEDEF" d="M/);
+  assert.doesNotMatch(fav, /<text/);
+  for (const f of ['favicon-32.png', 'apple-touch-icon.png']) {
+    const png = readFileSync(new URL(`../${f}`, import.meta.url));
+    const [w, h] = [png.readUInt32BE(16), png.readUInt32BE(20)];
+    assert.deepEqual([w, h], f === 'favicon-32.png' ? [32, 32] : [180, 180], f);
+  }
 });
-test('no bordered chip buttons: secondary actions are underlined links', () => {
-  const c = css();
-  assert.match(c, /\.btn-ghost\{[^}]*border:0[^}]*text-decoration:underline/);
-  assert.doesNotMatch(c, /\.gh\{[^}]*border:1px/);
+
+test('the dimmest text passes WCAG AA', () => {
+  const v = n => css().match(new RegExp(`--${n}:(#[0-9A-Fa-f]{6})`))[1];
+  const lum = hex => { const c = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(x => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  for (const bg of ['bg', 'bg-0', 'bg-1', 'bg-2']) for (const fg of ['ink', 'ink-2', 'ink-3', 'or']) assert.ok(ratio(v(fg), v(bg)) >= 4.5, `${fg} on ${bg}: ${ratio(v(fg), v(bg)).toFixed(2)}`);
 });
+
 test('inlined CSS and JS are minified', () => {
   const style = html.match(/<style>([\s\S]*?)<\/style>/)[1];
   assert.doesNotMatch(style, /\/\*/, 'no CSS comments');
   assert.doesNotMatch(style, /\n[ \t]/, 'no indentation in CSS');
-  const script = html.match(/<body>[\s\S]*<script>([\s\S]*?)<\/script>/)[1];
+  const script = html.match(/<script>\n([\s\S]*?)<\/script>\n?<\/body>/)[1];
   assert.doesNotMatch(script, /^\s*\/\//m, 'no comment lines in JS');
+  assert.doesNotMatch(script, /^\/\*/m, 'no block comments in JS');
   assert.doesNotMatch(script, /\n[ \t]/, 'no indentation in JS');
   assert.doesNotMatch(html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, ''), /\n[ \t]+</, 'no indentation between tags');
 });
-test('figure labels are sized to stay >= 13px where they render', () => {
-  // desktop: live figure is >= ~690px wide for 800 units at >= 1280px; phones: stills are 328px for 376 units at 360px
-  for (const k of ['ts', 'log']) assert.ok(L.fs[k] >= 16, `L.fs.${k}`);
-  for (const k of ['t', 'ts', 'log']) assert.ok(P.fs[k] >= 15, `P.fs.${k}`);
+
+test('the canvas stays light: DPR capped at 2, paused off screen and in hidden tabs, pooled messages', () => {
+  const run = src('zoom-run.js');
+  assert.match(run, /maxDpr = 2/);
+  assert.match(run, /Math\.min\(window\.devicePixelRatio \|\| 1, maxDpr\)/);
+  assert.match(run, /new IntersectionObserver/);
+  assert.match(run, /visibilitychange/);
+  assert.match(run, /if \(!rm && onScreen && !D\.hidden\) raf = requestAnimationFrame\(frame\)/);
+  // resizes are debounced; a slow device drops resolution and messages
+  assert.match(run, /setTimeout\(function \(\) \{ layout\(\); kick\(\); \}, 120\)/);
+  assert.match(run, /pulseCap = 24/);
+  // nothing Chrome-only on the canvas
+  assert.doesNotMatch(src('zoom-draw.js') + src('zoom-support.js'), /roundRect|\.filter\s*=|letterSpacing|fontKerning/);
 });
+
 test('head metadata', () => {
   const desc = html.match(/<meta name="description" content="([^"]+)"/)[1];
   assert.ok(desc.length <= 150, `description ${desc.length} chars`);
@@ -219,6 +247,12 @@ test('head metadata', () => {
   assert.equal(ld['@type'], 'SoftwareApplication');
   assert.equal(ld.softwareVersion, '0.2.0');
   assert.doesNotMatch(html, /FAQPage/);
+  // Geist and Geist Mono only, swapped in, with preconnect
+  const fonts = [...html.matchAll(/<link href="(https:\/\/fonts\.googleapis\.com[^"]+)"/g)].map(m => m[1]);
+  assert.deepEqual(fonts, ['https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400..600&family=Geist:wght@400..600&display=swap']);
+  assert.match(html, /<link rel="preconnect" href="https:\/\/fonts\.gstatic\.com" crossorigin>/);
+  // landmarks and the skip link
+  for (const re of [/<a class="skip" href="#main">Skip to content<\/a>/, /<header class="top">/, /<nav aria-label="Primary">/, /<main id="main">/, /<footer class="foot">/, /<nav aria-label="Footer">/]) assert.match(html, re);
 });
 test('llms.txt matches the new positioning', () => {
   const t = readFileSync(new URL('../llms.txt', import.meta.url), 'utf8');

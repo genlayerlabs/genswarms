@@ -11,7 +11,6 @@ import { catalogue, catalogueFile, build, check, verify, ogSource, ogFile, ogKey
 import { CARD } from '../src/card.mjs';
 import { createServer } from 'node:http';
 import { renderPage } from '../src/page.mjs';
-import { system, L, P } from '../src/figures.mjs';
 import { pseudo, writePseudo } from '../tools/pseudo.mjs';
 
 const WEB = new URL('../', import.meta.url);
@@ -54,19 +53,24 @@ test('ids are a hash of the English, so an edited sentence gets a new id', () =>
 
 test('the catalogue holds every kind of string, and keeps names and identifiers out', () => {
   const en = new Set(entries.map(e => e.en));
-  for (const s of ['GenSwarms: the operating system for AI workforces', 'Skip to how it works', 'Story chapters', 'Step {n}: {title}', 'Figure {n}',
-    'illustration', 'Copy', 'Copied', 'Select and copy', 'Language', 'This page is also available in English.', 'Dismiss', 'This page ran off the swarm.',
-    'individual agents', 'supervisor', 'crashed, restarted', 'dropped', 'model calls', 'agent, uses a model', 'verified', 'events (illustration)', 'seed',
-    'change log', 'refused: over the {cap}-agent cap', 'restore: seed + {n} changes', 'operating system', 'control layer', 'Swarms', 'Models', 'tools'])
+  for (const s of ['GenSwarms: the operating system for AI workforces', 'Skip to content', 'Illustration: the camera zooms into one swarm, a support team.',
+    'illustration', 'Copy', 'Copied', 'Selected', 'Language', 'This page is also available in English.', 'Dismiss', 'This page ran off the swarm.',
+    'organization', 'team', 'agent', '{swarms} swarms · {agents} agents', 'start · isolate · route · restart', 'supervisor', 'process', 'sandbox',
+    'crashed', 'restarted', 'dropped', 'model calls', 'verified', 'events (illustration)', 'seed', 'log of changes', '{n} declared',
+    'refused: over the {cap}-agent cap', 'never logged', 'defines', 'restores from its database', 'model', 'prompt', 'tools', 'agent {n}',
+    'message on a declared path', 'license', 'runtime', 'Open source, MIT', 'From each project’s own documentation, September 2026.'])
     assert.ok(en.has(s), s);
   // units are whole elements with their inline markup
   assert.ok(en.has('The operating system for AI&nbsp;workforces.'));
-  for (const kept of ['GenSwarms', 'GitHub', 'LangGraph', 'telegram', 'triage', 'message_routed', 'swarm.state', 'genlayerlabs/cron@0.2.8', 'Local, Tmux, Docker, Apple container, SSH, Bwrap, Mock', 'English', 'Español'])
+  for (const kept of ['GenSwarms', 'genswarms', 'GitHub', 'LangGraph', 'telegram', 'triage', 'message_routed', 'swarm.state', 'genlayerlabs/cron@0.2.8', 'Local, Tmux, Docker, Apple container, SSH, Bwrap, Mock.', 'Elixir / OTP', 'trading sim', 'English', 'Español'])
     assert.ok(!en.has(kept), kept);
   assert.ok(entries.every(e => !/sha256:|@\d|message_routed/.test(e.en)), 'no identifiers in the catalogue');
   // every entry says where it appears; svg labels carry their width budget; snippets their limit
   for (const e of entries) assert.ok(e.where.length && e.where.every(Boolean), e.id);
   for (const e of entries.filter(e => e.kind === 'svg')) assert.ok(e.max > 0, `${e.en}: max`);
+  // sentences in the drawing are templates with placeholders, never concatenations
+  assert.deepEqual(byEn('{swarms} swarms · {agents} agents').placeholders, ['{agents}', '{swarms}']);
+  assert.deepEqual(byEn('{n} declared').placeholders, ['{n}']);
   assert.deepEqual(byEn('Deploy, coordinate and control AI agents as separate, supervised processes.').limit, { chars: 150, cjk: 80 });
   assert.deepEqual(byEn('refused: over the {cap}-agent cap').placeholders, ['{cap}']);
 });
@@ -82,15 +86,15 @@ test('the guard refuses changed markup', () => {
   refused(pseudoBuild(['es'], (c, tx) => { tx[h1] = tx[h1] + '<br>'; }), new RegExp(`es: ${h1} markup differs`));
 });
 test('the guard refuses changed placeholders', () => {
-  const id = byEn('Step {n}: {title}').id;
-  refused(pseudoBuild(['ko'], (c, tx) => { tx[id] = tx[id].replace('{title}', '{headline}'); }), new RegExp(`ko: ${id} placeholders differ`));
+  const id = byEn('{swarms} swarms · {agents} agents').id;
+  refused(pseudoBuild(['ko'], (c, tx) => { tx[id] = tx[id].replace('{agents}', '{workers}'); }), new RegExp(`ko: ${id} placeholders differ`));
   const cap = byEn('refused: over the {cap}-agent cap').id;
   refused(pseudoBuild(['tr'], (c, tx) => { tx[cap] = tx[cap].replace('{cap}', '100'); }), new RegExp(`tr: ${cap} placeholders differ`));
 });
 test('the guard refuses a dropped protected name', () => {
   const id = byEn('How is it different from LangGraph, CrewAI or AutoGen?').id;
   refused(pseudoBuild(['ru'], (c, tx) => { tx[id] = tx[id].replace('LangGraph', 'ЛангГраф'); }), new RegExp(`ru: ${id} lost the protected name "LangGraph"`));
-  const pkg = byEn('gsp and swarmidx: signed, content-addressed, checked on your machine').id;
+  const pkg = byEn('gsp and swarmidx: signed, content-addressed, checked on your machine.').id;
   refused(pseudoBuild(['zh-Hans'], (c, tx) => { tx[pkg] = tx[pkg].replace('gsp', 'GSP'); }), new RegExp(`${pkg} lost the protected name "gsp"`));
 });
 test('the guard refuses descriptions over 150 characters (80 in Chinese and Korean)', () => {
@@ -110,13 +114,16 @@ test('the guard refuses English left on a translated page', () => {
   // string's English (here the nav link "Security" as the "Guarantees" heading) only by the page check
   const h3 = byEn('Guarantees').id;
   refused(pseudoBuild(['es'], (c, tx) => { tx[h3] = 'Security'; }), /es: the built page still shows English: "Security"/);
+  // and the words the drawing draws on its canvas count too (they travel in a JSON block, not in the markup)
+  const cap = byEn('log of changes').id;
+  refused(pseudoBuild(['ko'], (c, tx) => { tx[cap] = 'events (illustration)'; }), /ko: the built page still shows English: "events \(illustration\)"/);
   // listed under _same_as_english, it passes
   const docs = byEn('Docs').id;
   assert.deepEqual(pseudoBuild(['es'], (c, tx) => { tx[docs] = 'Docs'; tx._same_as_english = [docs]; }).errors, []);
 });
 test('the guard refuses an over-budget page', () => {
   const id = byEn('One agent is easy. Many agents working together need somewhere to run, rules for who talks to whom, and a way back when one fails.').id;
-  refused(pseudoBuild(['es'], (c, tx) => { tx[id] = tx[id] + ' ñ'.repeat(12000); }), /es: es\/index\.html is \d+ bytes, over the 153600-byte budget/);
+  refused(pseudoBuild(['es'], (c, tx) => { tx[id] = tx[id] + ' ñ'.repeat(30000); }), /es: es\/index\.html is \d+ bytes, over the 153600-byte budget/);
 });
 
 // the full pseudo build: all five languages
@@ -168,48 +175,51 @@ test('every version has its own head: lang, canonical, reciprocal hreflang, og, 
     for (const m of h.matchAll(/href="#([^"]+)"/g)) assert.ok(h.includes(`id="${m[1]}"`), `${l.code}: #${m[1]}`);
   }
 });
-// the share cards, from the committed translations
+// the committed translations: complete once phase 2 of the v4 port has translated the new catalogue. Until then the
+// build refuses (listing the ids each language is missing), and the tests that need a committed build are skipped.
 const site = build({ i18nDir: new URL('i18n/', WEB), outDir: WEB });
+const PENDING = site.errors.length > 0 && site.errors.every(e => / missing \(/.test(e) || /is still English|markup differs|placeholders differ|lost the protected/.test(e));
 const plain = s => s.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ');
-test('each version has its own share card: the translated headline and triad, the drawing, no buttons', () => {
-  assert.deepEqual(site.errors, []);
+test('each version has its own share card: the translated headline, the organization drawn by the page’s engine, no buttons', () => {
+  const tables = Object.fromEntries(LANGS.slice(1).map(l => [l.code, pseudo(l.code, entries)]));
   for (const l of LANGS) {
-    const c = site.cards[ogKey(l)];
-    const tx = l.file ? JSON.parse(readFileSync(new URL(`i18n/${l.file}.json`, WEB), 'utf8')) : {};
-    const tr = en => tx[sid(en)] || en;
+    const c = full.cards[ogKey(l)];
+    const tr = en => (l.code === 'en' ? en : tables[l.code][sid(en)] || en);
     assert.match(c, new RegExp(`^<!doctype html>\\n<html lang="${l.code}">`));
     assert.equal(plain(c.match(/<p class="og-h">([\s\S]*?)<\/p>/)[1]), plain(tr('The operating system for AI&nbsp;workforces.')), `${l.code} headline`);
-    const triad = [...c.match(/<ul class="og-k">([\s\S]*?)<\/ul>/)[1].matchAll(/<li>([\s\S]*?)<\/li>/g)].map(m => m[1]);
-    assert.deepEqual(triad, ['Models provide intelligence.', 'Agents perform work.', 'GenSwarms runs the organization.'].map(tr), `${l.code} triad`);
-    // "Open source, MIT." without the version
-    const foot = c.match(/<p class="og-foot"><b>genswarms\.com<\/b>([^<]+)<\/p>/)[1];
-    assert.ok(tr('Open source, MIT. Version 0.2.0.').startsWith(foot) && foot.includes('MIT') && !foot.includes('0.2.0'), `${l.code} footer: ${foot}`);
-    // step 9's drawing with its translated labels
-    assert.match(c, /<svg class="sys L" data-s="8"/);
-    for (const en of ['control layer', 'Swarms', 'Models']) assert.ok(c.includes(`>${tr(en)}</text>`), `${l.code} ${en}`);
+    assert.equal(c.match(/<p class="og-foot"><b>genswarms\.com<\/b><i><\/i>([^<]+)<\/p>/)[1], tr('Open source, MIT'), `${l.code} footer`);
+    // the zoom caption over the drawing, with the organization's numbers formatted for the language
+    const cap = [...c.match(/<p class="og-cap">([\s\S]*?)<\/p>/)[1].matchAll(/<span>([^<]*)<\/span>/g)].map(m => m[1]);
+    assert.equal(cap[0], tr('organization'), `${l.code} caption`);
+    assert.equal(cap[1], tr('{swarms} swarms · {agents} agents').replace('{swarms}', '36').replace('{agents}', new Intl.NumberFormat(l.code).format(2861)), `${l.code} counts`);
+    assert.match(c, /<div class="og-fig"><canvas><\/canvas>/);
+    assert.ok(c.includes('Z.build(') && c.includes('Z.draw(g,st)'), `${l.code}: drawn by the page's engine`);
     // a card, not a page: no buttons, links or page chrome
     assert.doesNotMatch(c, /<a[\s>]|<button|class="btn|class="ctas|<nav|<header|<footer/, `${l.code} card has page chrome`);
     // the page's type for that writing system
-    assert.ok(c.includes(site.pages[l.code].match(/<link href="https:\/\/fonts[^>]+>/)[0]), `${l.code} fonts`);
+    assert.ok(c.includes(full.pages[l.code].match(/<link href="https:\/\/fonts[^>]+>/)[0]), `${l.code} fonts`);
     assert.ok(c.includes(`width:${CARD.w}px;height:${CARD.h}px`));
   }
-  // Russian keeps «ИИ-персонала» whole (a break after its hyphen reads as hyphenation)
-  assert.match(site.cards.ru, /<span class="nw">ИИ-персонала\.<\/span>/);
+  // a hyphenated compound (Russian «ИИ-персонала») stays whole on the card (a break after its hyphen reads as hyphenation)
+  const ru = pseudoBuild(['ru'], (c, tx) => { tx[sid('The operating system for AI&nbsp;workforces.')] = 'Операционная система для ИИ-персонала.'; });
+  assert.match(ru.cards.ru, /<span class="nw">ИИ-персонала\.<\/span>/);
 });
 
 test('each writing system gets its fonts, and loads only the Google fonts it uses', () => {
   const o = full.outputs;
-  for (const f of ['index.html', 'es/index.html', 'tr/index.html']) assert.match(o[f], /family=Bricolage\+Grotesque:opsz,wght@12\.\.96,400\.\.800&family=Instrument\+Sans/);
-  for (const f of ['ru/index.html', 'ko/index.html', 'zh/index.html']) {
-    assert.doesNotMatch(o[f], /Instrument\+Sans/, f);
-    assert.match(o[f], /family=Bricolage\+Grotesque:opsz,wght@12\.\.96,700&text=GenSwarms/, f);
-    assert.match(o[f], /family=JetBrains\+Mono/, f);
+  const ALL = /<link href="https:\/\/fonts\.googleapis\.com\/css2\?family=Geist\+Mono:wght@400\.\.600&family=Geist:wght@400\.\.600&display=swap" rel="stylesheet">/;
+  // Geist and Geist Mono cover Latin (Turkish too) and Cyrillic
+  for (const f of ['index.html', 'es/index.html', 'tr/index.html', 'ru/index.html']) assert.match(o[f], ALL, f);
+  // Korean and Chinese: Geist Mono only (the wordmark, identifiers, readouts, the drawing), the rest in system faces
+  for (const f of ['ko/index.html', 'zh/index.html']) {
+    assert.doesNotMatch(o[f], /family=Geist:/, f);
+    assert.match(o[f], /<link href="https:\/\/fonts\.googleapis\.com\/css2\?family=Geist\+Mono:wght@400\.\.600&display=swap" rel="stylesheet">/, f);
   }
-  assert.match(o['ru/index.html'], /--fd:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans',sans-serif/);
-  assert.match(o['ko/index.html'], /--ft:'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif/);
+  assert.match(o['ko/index.html'], /--fh:'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif/);
+  assert.match(o['ko/index.html'], /--fc:'Geist Mono','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',monospace/);
   assert.match(o['ko/index.html'], /word-break:keep-all/);
-  assert.match(o['zh/index.html'], /--fd:'PingFang SC','Hiragino Sans GB','Noto Sans SC','Microsoft YaHei',sans-serif/);
-  for (const f of ['ko/index.html', 'zh/index.html']) assert.match(o[f], /\.sys \.tb:not\(\.bandl\)\{letter-spacing:0\}/, f);
+  assert.match(o['zh/index.html'], /--fs:'PingFang SC','Hiragino Sans GB','Noto Sans SC','Microsoft YaHei',sans-serif/);
+  for (const f of ['ko/index.html', 'zh/index.html']) assert.match(o[f], /h1,h2,h3,\.triad span,\.spec dt,\.cmp tbody th\{letter-spacing:0\}/, f);
   for (const f of ['ru/index.html', 'tr/index.html']) assert.match(o[f], /hyphens:auto/, f);
   // Spanish: no Korean line breaking and no title hyphenation. The comparison table's cells never hyphenate (brand names
   // broke as "Gen-Swarms"): their long words only break when a column is narrower than the word
@@ -253,36 +263,35 @@ test('the English page does not change: only the language additions', () => {
     .replace(/\n<script type="application\/json" id="langbar">[\s\S]*?<\/script>\n<script>[\s\S]*?<\/script>/, '')
     .replace(/(<style>[\s\S]*?)\n\/\* ---------- languages[\s\S]*?(<\/style>)/, '$1$2')
     .replace(/\n\.lang\{[\s\S]*?(\n<\/style>)/, '$1');
-  const committed = readFileSync(new URL('index.html', WEB), 'utf8');
-  for (const [name, html] of [['pseudo build', full.outputs['index.html']], ['committed page', committed]]) {
+  const pages = [['pseudo build', full.outputs['index.html']]];
+  // (the committed page too, once phase 2 has rebuilt it)
+  if (!PENDING) pages.push(['committed page', readFileSync(new URL('index.html', WEB), 'utf8')]);
+  for (const [name, html] of pages) {
     assert.equal(strip(html), alone.replace(/\n<\/style>/, '\n</style>'), name);
     // and every English text run is unchanged
     assert.deepEqual([...textRuns(html)].filter(r => r !== 'Language').sort(), [...textRuns(alone)].sort(), name);
   }
 });
-test('translated figure labels fit: long ones wrap or step down, and the still grows to show them', () => {
-  // a long label in the narrow phone drawing wraps within the drawing
-  const d = tmp();
-  writePseudo(d, ['es']);
-  const tx = JSON.parse(readFileSync(join(d, 'es.json'), 'utf8'));
-  tx[byEn('each agent runs as a process inside its own boundary').id] = 'cada agente se ejecuta como un proceso independiente dentro de su propio límite';
-  tx[byEn('restore: seed + {n} changes').id] = 'restauración: semilla + {n} cambios registrados en el registro';
-  writeFileSync(join(d, 'es.json'), JSON.stringify(tx));
-  const r = build({ i18nDir: url(d), outDir: WEB });
-  rmSync(d, { recursive: true, force: true });
-  assert.deepEqual(r.errors, []);
-  const es = r.outputs['es/index.html'];
-  const p3 = es.match(/<svg class="sys P" data-s="3" viewBox="([^"]+)"[\s\S]*?<\/svg>/);
-  const ann = [...p3[0].matchAll(/<text class="ts ann" x="([\d.]+)" y="([\d.]+)" text-anchor="middle"[^>]*>([^<]+)<\/text>/g)];
-  assert.ok(ann.length >= 2 && ann.length <= 3, `${ann.length} lines`);
-  for (const m of ann) assert.ok(m[3].length * 15.5 * 0.55 <= 368, m[3]);
-  const [, y0, , h0] = p3[1].split(' ').map(Number);
-  assert.ok(Math.max(...ann.map(m => +m[2])) < y0 + h0, 'the crop grew to show every line');
-  const p7 = es.match(/<svg class="sys P" data-s="7"[\s\S]*?<\/svg>/)[0];
-  assert.ok((p7.match(/<text class="log" x="74"/g) || []).length >= 2, 'the restore line wraps');
-  // English figures are drawn exactly as before
-  assert.equal(system(L, 3, { prune: true }).includes('>each agent runs</text>'), true);
-  assert.equal(system(P, 3, { prune: true }).includes('>inside its own boundary</text>'), true);
+test('the drawing’s words travel with the page: a JSON block in the page’s language, numbers formatted there', () => {
+  const zs = h => JSON.parse(h.match(/<script type="application\/json" id="zoom-strings">([\s\S]*?)<\/script>/)[1]);
+  const en = zs(full.outputs['index.html']);
+  for (const l of LANGS.slice(1)) {
+    const z = zs(full.outputs[`${l.dir}index.html`]), tx = pseudo(l.code, entries);
+    assert.equal(z.cine, en.cine);
+    for (const k of Object.keys(en).filter(k => k !== 'cine')) {
+      const a = [].concat(en[k]), b = [].concat(z[k]);
+      assert.equal(b.length, a.length, `${l.code} ${k}`);
+      a.forEach((s, i) => assert.equal(b[i], tx[sid(s)], `${l.code} ${k}[${i}]`));
+    }
+    // the canvas's first text alternative is on the canvas itself
+    assert.ok(full.outputs[`${l.dir}index.html`].includes(`<canvas role="img" aria-label="${z.aria[0].replace(/"/g, '&quot;')}">`), l.code);
+  }
+  // long labels: the catalogue gives each a width budget, and the drawing measures, wraps and fits them in any script
+  for (const s of ['refused: over the {cap}-agent cap', 'restores from its database']) assert.equal(byEn(s).lines, 2, s);
+  for (const s of ['supervisor', 'process', 'sandbox', 'dropped', 'model calls']) assert.equal(byEn(s).lines, 1, s);
+  const run = readFileSync(new URL('src/zoom-run.js', WEB), 'utf8');
+  assert.match(run, /function wrap\(s, maxW, font\)/);
+  assert.match(run, /function fitL\(rect, sf, items, pad\)/);
 });
 test('--check verifies the outputs, the lock and the share images', () => {
   const d = tmp(), out = join(d, 'site'), i18n = join(d, 'i18n');
@@ -323,21 +332,27 @@ test('--check verifies the outputs, the lock and the share images', () => {
   assert.deepEqual(ck(), []);
   // a new triad line: the pages are rebuilt (build.lock.json too) but the image was not re-rendered, so only the
   // share image of that language is stale
-  const kicker = byEn('GenSwarms runs the organization.').id, es = JSON.parse(readFileSync(join(i18n, 'es.json'), 'utf8'));
-  es[kicker] = 'GenSwarms dirige la organización.';
+  const kicker = byEn('The operating system for AI&nbsp;workforces.').id, es = JSON.parse(readFileSync(join(i18n, 'es.json'), 'utf8'));
+  es[kicker] = 'El sistema operativo para equipos de&nbsp;IA.';
   writeFileSync(join(i18n, 'es.json'), JSON.stringify(es));
   const r2 = build({ i18nDir: url(i18n), outDir: url(out) });
   assert.deepEqual(r2.errors, []);
   for (const [f, v] of Object.entries(r2.outputs)) writeFileSync(join(out, f), v);
   writeFileSync(join(i18n, 'build.lock.json'), JSON.stringify(r2.lock));
-  assert.ok(r2.cards.es.includes('<li>GenSwarms dirige la organización.</li>'));
+  assert.ok(r2.cards.es.includes('<p class="og-h">El sistema operativo para equipos de&nbsp;IA.</p>'));
   assert.deepEqual(ck(), ['website/og-es.png shows an old card (or was never rendered): run `node website/tools/og.cjs`']);
   // and so does a change to the card template alone (here: its CSS), with every page unchanged
-  assert.notEqual(ogSource(r2.cards.en.replace('.og-k li:last-child{color:var(--clay)}', '.og-k li:last-child{color:var(--ink)}')), r2.lock.og.en.source);
+  assert.ok(r2.cards.en.includes('.og-foot b{font-weight:500;color:var(--ink)}'));
+  assert.notEqual(ogSource(r2.cards.en.replace('.og-foot b{font-weight:500;color:var(--ink)}', '.og-foot b{font-weight:600;color:var(--ink)}')), r2.lock.og.en.source);
   rmSync(d, { recursive: true, force: true });
 });
-test('the committed site passes --check', () => {
+test('the committed site passes --check', { skip: PENDING && 'phase 2: the committed translations do not cover the new catalogue yet' }, () => {
   assert.deepEqual(check({ i18nDir: new URL('i18n/', WEB), outDir: WEB }), []);
+});
+test('until the translations cover the catalogue, the committed site refuses to build (and so to deploy)', { skip: !PENDING && 'the translations are complete' }, () => {
+  assert.ok(site.errors.length);
+  for (const l of LANGS.slice(1)) assert.ok(site.errors.some(e => e.startsWith(`${l.code}: `)), `${l.code} is listed`);
+  assert.ok(check({ i18nDir: new URL('i18n/', WEB), outDir: WEB }).length, '--check fails');
 });
 test('pseudo-locales keep what must not change', () => {
   for (const l of LANGS.slice(1)) {
@@ -385,8 +400,8 @@ test('_same_as_english is only for figure labels, accessible names and strings o
   // a short string, a figure label and an accessible name may be
   const ok = ['Docs', 'model calls', 'Primary'].map(idOf);
   assert.deepEqual(pseudoBuild(['es'], (c, tx) => { for (const i of ok) tx[i] = entries.find(e => e.id === i).en; tx._same_as_english = ok; }).errors, []);
-  // the stage-3 annotation keeps its hand-set English lines, and those pass as part of the listed string
-  const ann = ['each agent runs as a process', 'its boundary: what it can reach', 'each agent runs as a process inside its own boundary'].map(idOf);
+  // the drawing's short labels may be kept in English too (they are checked in its JSON block)
+  const ann = ['supervisor', 'process', 'sandbox'].map(idOf);
   assert.deepEqual(pseudoBuild(['ru'], (c, tx) => { for (const i of ann) tx[i] = entries.find(e => e.id === i).en; tx._same_as_english = ann; }).errors, []);
 });
 test('non-Latin scripts: three English words in a row are English left behind', () => {
@@ -412,8 +427,8 @@ test('Latin scripts: a translation made mostly of the English words is refused',
   const cells = {
     'Each in its own supervised process: local, sandbox, container or SSH': 'Cada uno en su propio proceso supervisado: local, sandbox, contenedor o SSH',
     'In your Python or JS process, or on LangSmith Deployment servers': 'En tu proceso de Python o JS, o en servidores de LangSmith Deployment',
-    'REST, WebSocket, CLI, and a skill file for your coding agent': 'REST, WebSocket, CLI y un archivo de skill para tu agente de programación',
-    'bwrap, Docker or Apple container, per agent': 'bwrap, Docker o Apple container, por agente',
+    'REST, WebSocket, CLI, and a skill file for your coding agent.': 'REST, WebSocket, CLI y un archivo de skill para tu agente de programación.',
+    'bwrap, Docker or Apple container, per agent.': 'bwrap, Docker o Apple container, por agente.',
     'GenSwarms compared with LangGraph, CrewAI and AutoGen': 'GenSwarms frente a LangGraph, CrewAI y AutoGen',
   };
   assert.deepEqual(pseudoBuild(['es'], (c, tx) => { for (const [en, v] of Object.entries(cells)) tx[idOf(en)] = v; }).errors, []);

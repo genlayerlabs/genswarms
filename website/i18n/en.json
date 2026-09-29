@@ -95,556 +95,6 @@
    ]
   },
   {
-   "id": "3b3ae940",
-   "kind": "html",
-   "en": "The operating system for AI&nbsp;workforces.",
-   "where": [
-    "story step 1: the page headline (h1; also rail button 1 and the share image). &nbsp; keeps two words together"
-   ]
-  },
-  {
-   "id": "18c49d60",
-   "kind": "html",
-   "en": "Deploy, coordinate and control thousands of AI agents across your organization.",
-   "where": [
-    "story step 1: lead paragraph under the headline"
-   ]
-  },
-  {
-   "id": "d4a74b50",
-   "kind": "html",
-   "en": "Read the docs",
-   "where": [
-    "story step 1: primary button",
-    "closing section: primary button",
-    "404 page: link to the documentation"
-   ]
-  },
-  {
-   "id": "0c77991f",
-   "kind": "html",
-   "en": "View on GitHub",
-   "where": [
-    "story step 1: secondary link",
-    "closing section: secondary link"
-   ]
-  },
-  {
-   "id": "9967a2e3",
-   "kind": "html",
-   "en": "Open source, MIT. Version 0.2.0.",
-   "where": [
-    "story step 1: small line under the buttons"
-   ]
-  },
-  {
-   "id": "89dca929",
-   "kind": "attr",
-   "en": "Figure {n}",
-   "where": [
-    "story figures: accessible name of each drawing ({n} = 1…9)"
-   ],
-   "placeholders": [
-    "{n}"
-   ]
-  },
-  {
-   "id": "2e5eeed2",
-   "kind": "attr",
-   "en": "A single agent with its model, prompt and tools.",
-   "where": [
-    "figure 1: text alternative of the drawing (aria-label; read by screen readers, not shown)"
-   ]
-  },
-  {
-   "id": "55c11e76",
-   "kind": "svg",
-   "en": "control layer",
-   "where": [
-    "figure 9 (the control layer), SVG label: inside the dark “GenSwarms” band above the swarms (one line)"
-   ],
-   "max": 20,
-   "lines": 1
-  },
-  {
-   "id": "75398935",
-   "kind": "svg",
-   "en": "Swarms",
-   "where": [
-    "figure 9 (the control layer), SVG label: bold heading over the row of swarms"
-   ],
-   "max": 30,
-   "lines": 1
-  },
-  {
-   "id": "f3798f81",
-   "kind": "svg",
-   "en": "Models",
-   "where": [
-    "figure 9 (the control layer), SVG label: bold heading over the row of models (hexagons)"
-   ],
-   "max": 30,
-   "lines": 1
-  },
-  {
-   "id": "92713d47",
-   "kind": "svg",
-   "en": "seed",
-   "where": [
-    "figure 8 (the swarm as a document), SVG label: note at the right of “swarm.state”, the swarm’s starting definition (one line)"
-   ],
-   "max": 24,
-   "lines": 1
-  },
-  {
-   "id": "7290deeb",
-   "kind": "svg",
-   "en": "change log",
-   "where": [
-    "figure 8 (the swarm as a document), SVG label: note at the right of “swarm.overlay”, the numbered log of changes (one line)"
-   ],
-   "max": 22,
-   "lines": 1
-  },
-  {
-   "id": "3d04f665",
-   "kind": "svg",
-   "en": "refused: over the {cap}-agent cap",
-   "where": [
-    "figure 8 (the swarm as a document), SVG label (monospace, red): why the last change was refused; {cap} is the agent limit (100). Wraps at 54 columns in the phone drawing; CJK characters take two",
-    "figure 8 (the swarm as a document), SVG label (monospace, red): why the last change was refused; {cap} is the agent limit (100). Wraps at 33 columns in the phone drawing; CJK characters take two"
-   ],
-   "placeholders": [
-    "{cap}"
-   ],
-   "max": 33
-  },
-  {
-   "id": "97dfad27",
-   "kind": "svg",
-   "en": "restore: seed + {n} changes",
-   "where": [
-    "figure 8 (the swarm as a document), SVG label (monospace): a stopped swarm is rebuilt from its seed plus the logged changes; {n} is how many (2). Wraps at 54 columns in the phone drawing",
-    "figure 8 (the swarm as a document), SVG label (monospace): a stopped swarm is rebuilt from its seed plus the logged changes; {n} is how many (2). Wraps at 33 columns in the phone drawing"
-   ],
-   "placeholders": [
-    "{n}"
-   ],
-   "max": 33
-  },
-  {
-   "id": "6727a9fd",
-   "kind": "svg",
-   "en": "the organization",
-   "where": [
-    "figure 3 (the OS layer), SVG label: the line of departments at the top (one line)"
-   ],
-   "max": 39,
-   "lines": 1
-  },
-  {
-   "id": "2a635b98",
-   "kind": "svg",
-   "en": "individual agents",
-   "where": [
-    "figure 3 (the OS layer), SVG label: under the grid of agents"
-   ],
-   "max": 42,
-   "lines": 2
-  },
-  {
-   "id": "2caa6242",
-   "kind": "svg",
-   "en": "operating system",
-   "where": [
-    "figure 3 (the OS layer), SVG label: inside the dark “GenSwarms” band, what the layer is (one line)"
-   ],
-   "max": 17,
-   "lines": 1
-  },
-  {
-   "id": "0f4d09e4",
-   "kind": "svg",
-   "en": "supervisor",
-   "where": [
-    "figure 4 (processes), SVG label: inside the dark “GenSwarms” band, before a small diamond; the software that restarts a crashed process, not a person (one line)"
-   ],
-   "max": 15,
-   "lines": 1
-  },
-  {
-   "id": "712fd4b9",
-   "kind": "svg",
-   "en": "each agent runs as a process",
-   "where": [
-    "figure 4 (processes), SVG annotation beside the agents (desktop drawing; wraps)"
-   ],
-   "max": 20,
-   "lines": 3
-  },
-  {
-   "id": "526fff18",
-   "kind": "svg",
-   "en": "its boundary: what it can reach",
-   "where": [
-    "figure 4 (processes), SVG annotation beside the agents (desktop drawing; wraps)"
-   ],
-   "max": 20,
-   "lines": 3
-  },
-  {
-   "id": "a23db294",
-   "kind": "svg",
-   "en": "crashed, restarted",
-   "where": [
-    "figure 4 (processes), SVG label: status under the one agent that crashes and comes back"
-   ],
-   "max": 41,
-   "lines": 2
-  },
-  {
-   "id": "1d06a0d7",
-   "kind": "svg",
-   "en": "model",
-   "where": [
-    "figure 1 (one agent), SVG label: one of the three things an agent is made of (its model / its prompt / its tools); one line"
-   ],
-   "max": 18,
-   "lines": 1
-  },
-  {
-   "id": "9c7e05e5",
-   "kind": "svg",
-   "en": "prompt",
-   "where": [
-    "figure 1 (one agent), SVG label: one of the three things an agent is made of (its model / its prompt / its tools); one line"
-   ],
-   "max": 14,
-   "lines": 1
-  },
-  {
-   "id": "0284c6ac",
-   "kind": "svg",
-   "en": "tools",
-   "where": [
-    "figure 1 (one agent), SVG label: one of the three things an agent is made of (its model / its prompt / its tools); one line"
-   ],
-   "max": 14,
-   "lines": 1
-  },
-  {
-   "id": "a34f8713",
-   "kind": "svg",
-   "en": "model calls",
-   "where": [
-    "figure 6 (objects), SVG label (desktop drawing): on the dotted lines from two agents to “budget”, the proxy they call their model through"
-   ],
-   "max": 21,
-   "lines": 2
-  },
-  {
-   "id": "ad3f9aa5",
-   "kind": "svg",
-   "en": "dropped",
-   "where": [
-    "figure 5 (declared paths), SVG label (red): next to the crossed-out message that was off the graph"
-   ],
-   "max": 8,
-   "lines": 2
-  },
-  {
-   "id": "bc81483a",
-   "kind": "svg",
-   "en": "events (illustration)",
-   "where": [
-    "figure 5 (declared paths), SVG label (italic): heading over the simulated event log"
-   ],
-   "max": 43,
-   "lines": 1
-  },
-  {
-   "id": "4390d133",
-   "kind": "svg",
-   "en": "agent, uses a model",
-   "where": [
-    "figure 6 (objects), SVG legend: next to the circle symbol (one line)"
-   ],
-   "max": 38,
-   "lines": 1
-  },
-  {
-   "id": "411a8f28",
-   "kind": "svg",
-   "en": "object, plain code",
-   "where": [
-    "figure 6 (objects), SVG legend: next to the square symbol (one line)"
-   ],
-   "max": 38,
-   "lines": 1
-  },
-  {
-   "id": "f5ee181c",
-   "kind": "svg",
-   "en": "swarmidx index",
-   "where": [
-    "figure 7 (packages), SVG label: heading over the list of packages (swarmidx is the package index; keep the name)"
-   ],
-   "max": 32,
-   "lines": 1
-  },
-  {
-   "id": "ec734b65",
-   "kind": "svg",
-   "en": "verified",
-   "where": [
-    "figure 7 (packages), SVG legend: next to the green check mark; each package was checked on this machine (one short word)"
-   ],
-   "max": 16,
-   "lines": 1
-  },
-  {
-   "id": "5fc8b818",
-   "kind": "svg",
-   "en": "each agent runs as a process inside its own boundary",
-   "where": [
-    "figure 4 (processes), SVG annotation beside the agents (phone drawing; wraps)"
-   ],
-   "max": 43,
-   "lines": 3
-  },
-  {
-   "id": "7b347402",
-   "kind": "html",
-   "en": "Your agents need more than models and prompts.",
-   "where": [
-    "story step 2: headline (h2, display size; also names rail button 2)"
-   ]
-  },
-  {
-   "id": "84d5e16a",
-   "kind": "html",
-   "en": "One agent is easy. Many agents working together need somewhere to run, rules for who talks to whom, and a way back when one fails.",
-   "where": [
-    "story step 2: paragraph 1"
-   ]
-  },
-  {
-   "id": "25914cbb",
-   "kind": "attr",
-   "en": "Twelve agents joined by hand-made connections.",
-   "where": [
-    "figure 2: text alternative of the drawing (aria-label; read by screen readers, not shown)"
-   ]
-  },
-  {
-   "id": "3c7c53c0",
-   "kind": "html",
-   "en": "Think of it as an operating system.",
-   "where": [
-    "story step 3: headline (h2, display size; also names rail button 3)"
-   ]
-  },
-  {
-   "id": "d5661343",
-   "kind": "html",
-   "en": "An operating system runs programs it didn’t write. GenSwarms does that for agents: it starts them, isolates them, routes their messages and restarts them when they fail.",
-   "where": [
-    "story step 3: paragraph 1"
-   ]
-  },
-  {
-   "id": "5727784b",
-   "kind": "attr",
-   "en": "The agents in a grid under GenSwarms, the operating system layer, beneath the organization.",
-   "where": [
-    "figure 3: text alternative of the drawing (aria-label; read by screen readers, not shown)"
-   ]
-  },
-  {
-   "id": "d0ea3bcc",
-   "kind": "html",
-   "en": "Every agent is a process.",
-   "where": [
-    "story step 4: headline (h2, display size; also names rail button 4)"
-   ]
-  },
-  {
-   "id": "90e66590",
-   "kind": "html",
-   "en": "Each one runs in its own sandbox, under its own supervisor. If one crashes, it restarts and the others keep working. You set its role, its model and where it runs separately.",
-   "where": [
-    "story step 4: paragraph 1"
-   ]
-  },
-  {
-   "id": "05158e16",
-   "kind": "attr",
-   "en": "Each agent inside its own boundary under a GenSwarms supervisor; one agent crashes and restarts while the others keep running.",
-   "where": [
-    "figure 4: text alternative of the drawing (aria-label; read by screen readers, not shown)"
-   ]
-  },
-  {
-   "id": "51c5fd0f",
-   "kind": "html",
-   "en": "Agents talk only along declared paths.",
-   "where": [
-    "story step 5: headline (h2, display size; also names rail button 5)"
-   ]
-  },
-  {
-   "id": "2cd90562",
-   "kind": "html",
-   "en": "You draw the graph. Every message is checked against it, and anything off the graph is dropped.",
-   "where": [
-    "story step 5: paragraph 1"
-   ]
-  },
-  {
-   "id": "169c0a3b",
-   "kind": "html",
-   "en": "From here the drawings follow one swarm: a support team that answers customers on Telegram.",
-   "where": [
-    "story step 5: italic example line"
-   ]
-  },
-  {
-   "id": "0b15cb70",
-   "kind": "attr",
-   "en": "A support swarm: a Telegram object and triage, research and answer agents on declared paths; a message from research to Telegram is off the graph and dropped.",
-   "where": [
-    "figure 5: text alternative of the drawing (aria-label; read by screen readers, not shown)"
-   ]
-  },
-  {
-   "id": "6573ac5f",
-   "kind": "html",
-   "en": "illustration",
-   "where": [
-    "small caption under figures 5-8, which show simulated events and placeholder data"
-   ]
-  },
-  {
-   "id": "ccb7b646",
-   "kind": "html",
-   "en": "Not everything needs a model.",
-   "where": [
-    "story step 6: headline (h2, display size; also names rail button 6)"
-   ]
-  },
-  {
-   "id": "57b1f883",
-   "kind": "html",
-   "en": "Objects are plain code on the same graph: a Telegram gateway, a scheduler, a budget for model spend. They do the same thing every time.",
-   "where": [
-    "story step 6: paragraph 1"
-   ]
-  },
-  {
-   "id": "4a6b46c6",
-   "kind": "attr",
-   "en": "The same swarm with its objects drawn as squares and its agents as circles: Telegram, a cron scheduler, a browser, and a budget that answer and research call their model through.",
-   "where": [
-    "figure 6: text alternative of the drawing (aria-label; read by screen readers, not shown)"
-   ]
-  },
-  {
-   "id": "3407f33c",
-   "kind": "html",
-   "en": "Install what your agents need.",
-   "where": [
-    "story step 7: headline (h2, display size; also names rail button 7)"
-   ]
-  },
-  {
-   "id": "1880c1e0",
-   "kind": "html",
-   "en": "Telegram, WhatsApp and email connectors, a browser, a scheduler: signed packages from the swarmidx index, verified before they load.",
-   "where": [
-    "story step 7: paragraph 1"
-   ]
-  },
-  {
-   "id": "a916b4a6",
-   "kind": "attr",
-   "en": "Each object comes from a signed package in the swarmidx index, verified before it loads.",
-   "where": [
-    "figure 7: text alternative of the drawing (aria-label; read by screen readers, not shown)"
-   ]
-  },
-  {
-   "id": "2141c796",
-   "kind": "html",
-   "en": "A swarm is a document.",
-   "where": [
-    "story step 8: headline (h2, display size; also names rail button 8)"
-   ]
-  },
-  {
-   "id": "a895f8a4",
-   "kind": "html",
-   "en": "Its definition is data, and every change is logged. A bad change is refused before it runs; a stopped swarm comes back from its database.",
-   "where": [
-    "story step 8: paragraph 1"
-   ]
-  },
-  {
-   "id": "213d8339",
-   "kind": "attr",
-   "en": "The swarm as a document: a seed of agents, objects and edges, a log of two changes, and a change over the 100-agent cap that is refused and never logged.",
-   "where": [
-    "figure 8: text alternative of the drawing (aria-label; read by screen readers, not shown)"
-   ]
-  },
-  {
-   "id": "41acb76d",
-   "kind": "html",
-   "en": "One control layer for your AI organization.",
-   "where": [
-    "story step 9: headline (h2, display size; also names rail button 9)"
-   ]
-  },
-  {
-   "id": "e28ae737",
-   "kind": "html",
-   "en": "Watch every message, crash and restart as it happens. Drive it by API or CLI, or hand it to your coding agent.",
-   "where": [
-    "story step 9: paragraph 1"
-   ]
-  },
-  {
-   "id": "a0b063e5",
-   "kind": "html",
-   "en": "Models provide intelligence.",
-   "where": [
-    "story step 9: closing triad, line 1 of 3 (large display type, one short sentence)"
-   ]
-  },
-  {
-   "id": "a34eb019",
-   "kind": "html",
-   "en": "Agents perform work.",
-   "where": [
-    "story step 9: closing triad, line 2 of 3"
-   ]
-  },
-  {
-   "id": "86d0513d",
-   "kind": "html",
-   "en": "GenSwarms runs the organization.",
-   "where": [
-    "story step 9: closing triad, line 3 of 3"
-   ]
-  },
-  {
-   "id": "e0822c79",
-   "kind": "attr",
-   "en": "GenSwarms on top, several swarms of agents in the middle, models underneath.",
-   "where": [
-    "figure 9: text alternative of the drawing (aria-label; read by screen readers, not shown)"
-   ]
-  },
-  {
    "id": "68a41942",
    "kind": "html",
    "en": "Docs",
@@ -677,19 +127,653 @@
    ]
   },
   {
-   "id": "6ce82780",
-   "kind": "html",
-   "en": "Skip to how it works",
-   "where": [
-    "skip link (first thing keyboard users reach; jumps to the “How it works.” section)"
-   ]
-  },
-  {
    "id": "1b903b80",
    "kind": "attr",
    "en": "GenSwarms home",
    "where": [
-    "header logo link: accessible name"
+    "header and footer logo link: accessible name (the logo is the lowercase wordmark “genswarms”)"
+   ]
+  },
+  {
+   "id": "ad7d36dd",
+   "kind": "html",
+   "en": "One agent: a model, a prompt and some tools.",
+   "where": [
+    "readout at keyframe 2 (one agent up close): caption over the three rows"
+   ]
+  },
+  {
+   "id": "1d06a0d7",
+   "kind": "svg",
+   "en": "model",
+   "where": [
+    "zoom drawing (canvas label): one agent up close: the hexagon (the model that decides the next step)"
+   ],
+   "max": 10,
+   "lines": 1
+  },
+  {
+   "id": "a4b50f7c",
+   "kind": "html",
+   "en": "decides the next step",
+   "where": [
+    "readout at keyframe 2 (one agent): what the model does (a fragment)"
+   ]
+  },
+  {
+   "id": "9c7e05e5",
+   "kind": "svg",
+   "en": "prompt",
+   "where": [
+    "zoom drawing (canvas label): one agent up close: the page (the prompt that says what the job is)"
+   ],
+   "max": 10,
+   "lines": 1
+  },
+  {
+   "id": "6b85faab",
+   "kind": "html",
+   "en": "says what the job is",
+   "where": [
+    "readout at keyframe 2 (one agent): what the prompt does (a fragment)"
+   ]
+  },
+  {
+   "id": "0284c6ac",
+   "kind": "svg",
+   "en": "tools",
+   "where": [
+    "zoom drawing (canvas label): one agent up close: the square (the tools that do the work)"
+   ],
+   "max": 10,
+   "lines": 1
+  },
+  {
+   "id": "010a1ced",
+   "kind": "html",
+   "en": "do the work",
+   "where": [
+    "readout at keyframe 2 (one agent): what the tools do (a fragment)"
+   ]
+  },
+  {
+   "id": "533940e6",
+   "kind": "html",
+   "en": "Twelve agents, each wired to the others by hand.",
+   "where": [
+    "readout at keyframe 3 (agents wired by hand): caption over the three rows"
+   ]
+  },
+  {
+   "id": "42c91ee7",
+   "kind": "html",
+   "en": "who talks to whom",
+   "where": [
+    "readout at keyframe 3 (agents wired by hand): row label (a question, lower case)"
+   ]
+  },
+  {
+   "id": "98ecad30",
+   "kind": "html",
+   "en": "written into each agent",
+   "where": [
+    "readout at keyframe 3 (agents wired by hand): answer to “who talks to whom”"
+   ]
+  },
+  {
+   "id": "64e0fbb4",
+   "kind": "html",
+   "en": "where each one runs",
+   "where": [
+    "readout at keyframe 3 (agents wired by hand): row label"
+   ]
+  },
+  {
+   "id": "6ca90ca9",
+   "kind": "html",
+   "en": "wherever it was started",
+   "where": [
+    "readout at keyframe 3 (agents wired by hand): answer to “where each one runs”"
+   ]
+  },
+  {
+   "id": "7e82e18a",
+   "kind": "html",
+   "en": "when one fails",
+   "where": [
+    "readout at keyframe 3 (agents wired by hand): row label"
+   ]
+  },
+  {
+   "id": "0d6fb0ce",
+   "kind": "html",
+   "en": "nothing restarts it",
+   "where": [
+    "readout at keyframe 3 (agents wired by hand): answer to “when one fails”"
+   ]
+  },
+  {
+   "id": "2b020927",
+   "kind": "html",
+   "en": "start",
+   "where": [
+    "readout at keyframe 4 (the operating system layer): row label, the first of four jobs (a verb)"
+   ]
+  },
+  {
+   "id": "aea03690",
+   "kind": "html",
+   "en": "each agent as its own process",
+   "where": [
+    "readout at keyframe 4 (the operating system layer): what “start” means"
+   ]
+  },
+  {
+   "id": "eb5779e2",
+   "kind": "html",
+   "en": "isolate",
+   "where": [
+    "readout at keyframe 4 (the operating system layer): row label (a verb)"
+   ]
+  },
+  {
+   "id": "2714bd32",
+   "kind": "html",
+   "en": "each one in its own sandbox",
+   "where": [
+    "readout at keyframe 4 (the operating system layer): what “isolate” means"
+   ]
+  },
+  {
+   "id": "fc166eb8",
+   "kind": "html",
+   "en": "route",
+   "where": [
+    "readout at keyframe 4 (the operating system layer): row label (a verb)"
+   ]
+  },
+  {
+   "id": "bc6b4255",
+   "kind": "html",
+   "en": "messages along declared paths only",
+   "where": [
+    "readout at keyframe 4 (the operating system layer): what “route” means"
+   ]
+  },
+  {
+   "id": "16f766f2",
+   "kind": "html",
+   "en": "restart",
+   "where": [
+    "readout at keyframe 4 (the operating system layer): row label (a verb)"
+   ]
+  },
+  {
+   "id": "0f8cc0a3",
+   "kind": "html",
+   "en": "a failed agent, by its supervisor",
+   "where": [
+    "readout at keyframe 4 (the operating system layer): what “restart” means"
+   ]
+  },
+  {
+   "id": "6a1b0578",
+   "kind": "svg",
+   "en": "agent {n}",
+   "where": [
+    "readout at keyframe 5 (processes): one of the twelve unnamed agents ({n} is its number)",
+    "readout at keyframe 10 (one event stream): one of the twelve unnamed agents ({n} is its number)"
+   ],
+   "placeholders": [
+    "{n}"
+   ],
+   "max": 10,
+   "lines": 1
+  },
+  {
+   "id": "76d1bfb6",
+   "kind": "svg",
+   "en": "crashed",
+   "where": [
+    "zoom drawing (canvas label): orange, under the agent that crashes; followed by “→ restarted”; readout at keyframe 5: the agent’s state",
+    "zoom drawing (canvas label): orange, under the agent that crashes; followed by “→ restarted”"
+   ],
+   "max": 12,
+   "lines": 1
+  },
+  {
+   "id": "c0a12858",
+   "kind": "html",
+   "en": "restarted by its supervisor",
+   "where": [
+    "readout at keyframe 5 (processes): the same agent a moment later"
+   ]
+  },
+  {
+   "id": "f3041cff",
+   "kind": "svg",
+   "en": "{n} others",
+   "where": [
+    "readout at keyframe 5 (processes): the rest of the twelve agents ({n} = 11)"
+   ],
+   "placeholders": [
+    "{n}"
+   ],
+   "max": 10,
+   "lines": 1
+  },
+  {
+   "id": "3c49d9cc",
+   "kind": "html",
+   "en": "running",
+   "where": [
+    "readout at keyframe 5 (processes): state of the other agents"
+   ]
+  },
+  {
+   "id": "ad3f9aa5",
+   "kind": "svg",
+   "en": "dropped",
+   "where": [
+    "readout (events): tag on the message that was dropped (it is off the declared graph)",
+    "zoom drawing (canvas label): orange, under the × on the message that is off the declared graph"
+   ],
+   "max": 12,
+   "lines": 1
+  },
+  {
+   "id": "6f4e39ae",
+   "kind": "html",
+   "en": "Objects are plain code on the graph. Answer and research call <b>budget</b> for their model calls.",
+   "where": [
+    "readout at keyframe 7 (objects): caption. <b>budget</b> is the object’s name: keep it as it is"
+   ]
+  },
+  {
+   "id": "e7052aeb",
+   "kind": "html",
+   "en": "agents",
+   "where": [
+    "readout at keyframe 7 (objects): row label (the circles)"
+   ]
+  },
+  {
+   "id": "88127da4",
+   "kind": "svg",
+   "en": "{names}: use a model",
+   "where": [
+    "readout at keyframe 7 (objects): {names} = “triage, research, answer”, the agents’ names"
+   ],
+   "placeholders": [
+    "{names}"
+   ],
+   "max": 40,
+   "lines": 2
+  },
+  {
+   "id": "f0f7f39e",
+   "kind": "html",
+   "en": "objects",
+   "where": [
+    "readout at keyframe 7 (objects): row label (the squares)"
+   ]
+  },
+  {
+   "id": "9a24dc0c",
+   "kind": "svg",
+   "en": "{names}: plain code",
+   "where": [
+    "readout at keyframe 7 (objects): {names} = “telegram, cron, browser, budget”, the objects’ names"
+   ],
+   "placeholders": [
+    "{names}"
+   ],
+   "max": 40,
+   "lines": 2
+  },
+  {
+   "id": "ec734b65",
+   "kind": "svg",
+   "en": "verified",
+   "where": [
+    "readout at keyframe 8 (packages): after each package and its digest; it was checked against the signed log on this machine (one short word)"
+   ],
+   "max": 16,
+   "lines": 1
+  },
+  {
+   "id": "0487a062",
+   "kind": "html",
+   "en": "Refused changes are never logged. A stopped swarm restores from its database: the seed, then the logged changes, in order.",
+   "where": [
+    "readout at keyframe 9 (the swarm document): caption"
+   ]
+  },
+  {
+   "id": "e08e8491",
+   "kind": "html",
+   "en": "restore",
+   "where": [
+    "readout at keyframe 9 (the swarm document): row label (a noun or verb: what happens when a stopped swarm comes back)"
+   ]
+  },
+  {
+   "id": "8a4f108b",
+   "kind": "html",
+   "en": "seed, then changes 1, 2, 3",
+   "where": [
+    "readout at keyframe 9 (the swarm document): the order of the restore"
+   ]
+  },
+  {
+   "id": "bc81483a",
+   "kind": "svg",
+   "en": "events (illustration)",
+   "where": [
+    "readout heading over the event log (keyframes 5 and 6); the events are simulated"
+   ],
+   "max": 43
+  },
+  {
+   "id": "d8ae088a",
+   "kind": "html",
+   "en": "packages",
+   "where": [
+    "readout heading at keyframe 8, before “· swarmidx (illustration)”: the list of packages"
+   ]
+  },
+  {
+   "id": "899061c9",
+   "kind": "html",
+   "en": "(illustration)",
+   "where": [
+    "readout heading suffix: the events and packages shown are simulated (after “events”, “packages · swarmidx”, “one event stream”)"
+   ]
+  },
+  {
+   "id": "43af7c02",
+   "kind": "html",
+   "en": "one event stream",
+   "where": [
+    "readout heading at keyframe 10, before “(illustration)”: every swarm’s events in one stream"
+   ]
+  },
+  {
+   "id": "7cb06027",
+   "kind": "svg",
+   "en": "organization",
+   "where": [
+    "zoom caption, top left of the drawing: the scale the camera is at (the whole organization; one word, lower case)"
+   ],
+   "max": 14,
+   "lines": 1
+  },
+  {
+   "id": "d25187dc",
+   "kind": "svg",
+   "en": "team",
+   "where": [
+    "zoom caption: the scale the camera is at (one swarm, a team of agents; one word, lower case)"
+   ],
+   "max": 14,
+   "lines": 1
+  },
+  {
+   "id": "0608c405",
+   "kind": "svg",
+   "en": "agent",
+   "where": [
+    "zoom caption: the scale the camera is at (a single agent; one word, lower case); also the label under the agent drawn up close",
+    "legend under the hero drawing: the circle mark (one word)"
+   ],
+   "max": 14,
+   "lines": 1
+  },
+  {
+   "id": "cb333b03",
+   "kind": "svg",
+   "en": "{swarms} swarms · {agents} agents",
+   "where": [
+    "zoom caption, after the scale while the whole organization is in view ({swarms} = 36, {agents} = about 2,900; numbers are formatted for your language)"
+   ],
+   "placeholders": [
+    "{agents}",
+    "{swarms}"
+   ],
+   "max": 30,
+   "lines": 1
+  },
+  {
+   "id": "7242d340",
+   "kind": "svg",
+   "en": "start · isolate · route · restart",
+   "where": [
+    "zoom drawing (canvas label): the four jobs written inside the GenSwarms layer bar, right of the wordmark (four short verbs; hidden when the bar is too short for them)"
+   ],
+   "max": 36,
+   "lines": 1
+  },
+  {
+   "id": "0f4d09e4",
+   "kind": "svg",
+   "en": "supervisor",
+   "where": [
+    "zoom drawing (canvas label): callout at the right of the process tree: the diamond above each agent",
+    "zoom drawing (canvas label): callout at the right of the process tree: the diamond above each agent; also the legend under the hero drawing"
+   ],
+   "max": 15,
+   "lines": 1
+  },
+  {
+   "id": "c2e2d662",
+   "kind": "svg",
+   "en": "process",
+   "where": [
+    "zoom drawing (canvas label): callout at the right of the process tree: each agent runs as its own process"
+   ],
+   "max": 15,
+   "lines": 1
+  },
+  {
+   "id": "9ed037b8",
+   "kind": "svg",
+   "en": "sandbox",
+   "where": [
+    "zoom drawing (canvas label): callout at the right of the process tree: the dashed box around each agent"
+   ],
+   "max": 15,
+   "lines": 1
+  },
+  {
+   "id": "545c357f",
+   "kind": "svg",
+   "en": "restarted",
+   "where": [
+    "zoom drawing (canvas label): after “crashed →”, once its supervisor has restarted the agent"
+   ],
+   "max": 14,
+   "lines": 1
+  },
+  {
+   "id": "a34f8713",
+   "kind": "svg",
+   "en": "model calls",
+   "where": [
+    "zoom drawing (canvas label): under the dotted lines from answer and research to the budget object"
+   ],
+   "max": 16,
+   "lines": 1
+  },
+  {
+   "id": "92713d47",
+   "kind": "svg",
+   "en": "seed",
+   "where": [
+    "zoom drawing (canvas label): the swarm document: note at the right of its first heading, swarm.state (the swarm’s starting definition)"
+   ],
+   "max": 22,
+   "lines": 1
+  },
+  {
+   "id": "d493c317",
+   "kind": "svg",
+   "en": "log of changes",
+   "where": [
+    "zoom drawing (canvas label): the swarm document: note at the right of its second heading, swarm.overlay"
+   ],
+   "max": 22,
+   "lines": 1
+  },
+  {
+   "id": "09d607fd",
+   "kind": "svg",
+   "en": "{n} declared",
+   "where": [
+    "zoom drawing (canvas label): the swarm document, the “paths” row: how many message paths the swarm declares ({n} = 4)"
+   ],
+   "placeholders": [
+    "{n}"
+   ],
+   "max": 20,
+   "lines": 1
+  },
+  {
+   "id": "3d04f665",
+   "kind": "svg",
+   "en": "refused: over the {cap}-agent cap",
+   "where": [
+    "zoom drawing, the swarm document: why the last change was refused ({cap} = 100; keep it short, it may wrap once)"
+   ],
+   "placeholders": [
+    "{cap}"
+   ],
+   "max": 33,
+   "lines": 2
+  },
+  {
+   "id": "2a4a3109",
+   "kind": "svg",
+   "en": "never logged",
+   "where": [
+    "zoom drawing (canvas label): the swarm document, under the refused change: it gets no number and is not written to the log"
+   ],
+   "max": 22,
+   "lines": 1
+  },
+  {
+   "id": "039b47cb",
+   "kind": "svg",
+   "en": "defines",
+   "where": [
+    "zoom drawing (canvas label): beside the arrow from the swarm document up to the running swarm (the document defines it)"
+   ],
+   "max": 12,
+   "lines": 1
+  },
+  {
+   "id": "cb79fe53",
+   "kind": "svg",
+   "en": "restores from its database",
+   "where": [
+    "zoom drawing: under the database cylinder left of the swarm document (a stopped swarm comes back from it; may wrap to two lines)"
+   ],
+   "max": 20,
+   "lines": 2
+  },
+  {
+   "id": "e08af9a7",
+   "kind": "attr",
+   "en": "Illustration: an organization of 36 swarms, several thousand agents. Each swarm is a small structure of agents (circles) and objects (squares) on declared paths, under supervisors. Messages pulse along the paths; now and then one agent crashes and its supervisor restarts it.",
+   "where": [
+    "the zoom drawing, keyframe 0: its text alternative (aria-label of the canvas; read by screen readers, not shown). It changes as the reader scrolls"
+   ]
+  },
+  {
+   "id": "c73bd527",
+   "kind": "attr",
+   "en": "Illustration: the camera zooms into one swarm, a support team.",
+   "where": [
+    "the zoom drawing, keyframe 1: its text alternative (aria-label of the canvas; read by screen readers, not shown). It changes as the reader scrolls"
+   ]
+  },
+  {
+   "id": "e725de12",
+   "kind": "attr",
+   "en": "Illustration: one agent, seen up close: a model, a prompt and some tools.",
+   "where": [
+    "the zoom drawing, keyframe 2: its text alternative (aria-label of the canvas; read by screen readers, not shown). It changes as the reader scrolls"
+   ]
+  },
+  {
+   "id": "4ec5795e",
+   "kind": "attr",
+   "en": "Illustration: twelve agents, each wired to the others by hand.",
+   "where": [
+    "the zoom drawing, keyframe 3: its text alternative (aria-label of the canvas; read by screen readers, not shown). It changes as the reader scrolls"
+   ]
+  },
+  {
+   "id": "2b71ee3f",
+   "kind": "attr",
+   "en": "Illustration: the agents in rows under the GenSwarms layer, which starts, isolates, routes and restarts them.",
+   "where": [
+    "the zoom drawing, keyframe 4: its text alternative (aria-label of the canvas; read by screen readers, not shown). It changes as the reader scrolls"
+   ]
+  },
+  {
+   "id": "e12cf2d5",
+   "kind": "attr",
+   "en": "Illustration: each agent in its own sandbox under its own supervisor; one agent crashes and is restarted while the others keep running.",
+   "where": [
+    "the zoom drawing, keyframe 5: its text alternative (aria-label of the canvas; read by screen readers, not shown). It changes as the reader scrolls"
+   ]
+  },
+  {
+   "id": "31adcd27",
+   "kind": "attr",
+   "en": "Illustration: a support team: a Telegram object and triage, answer and research agents on declared paths. A message from research to Telegram is off the graph and dropped.",
+   "where": [
+    "the zoom drawing, keyframe 6: its text alternative (aria-label of the canvas; read by screen readers, not shown). It changes as the reader scrolls"
+   ]
+  },
+  {
+   "id": "e5015e42",
+   "kind": "attr",
+   "en": "Illustration: the same team with more objects: cron, a browser, and a budget that answer and research call for their model calls.",
+   "where": [
+    "the zoom drawing, keyframe 7: its text alternative (aria-label of the canvas; read by screen readers, not shown). It changes as the reader scrolls"
+   ]
+  },
+  {
+   "id": "3d579ae6",
+   "kind": "attr",
+   "en": "Illustration: each object comes from a signed package, verified before it loads.",
+   "where": [
+    "the zoom drawing, keyframe 8: its text alternative (aria-label of the canvas; read by screen readers, not shown). It changes as the reader scrolls"
+   ]
+  },
+  {
+   "id": "7596f4cc",
+   "kind": "attr",
+   "en": "Illustration: the swarm as a document: a seed and a log of changes. A change over the 100-agent cap is refused and never logged.",
+   "where": [
+    "the zoom drawing, keyframe 9: its text alternative (aria-label of the canvas; read by screen readers, not shown). It changes as the reader scrolls"
+   ]
+  },
+  {
+   "id": "9ff6bfcc",
+   "kind": "attr",
+   "en": "Illustration: the camera pulls back to the whole organization, now under one control layer.",
+   "where": [
+    "the zoom drawing, keyframe 10: its text alternative (aria-label of the canvas; read by screen readers, not shown). It changes as the reader scrolls"
+   ]
+  },
+  {
+   "id": "0a4470d6",
+   "kind": "html",
+   "en": "Skip to content",
+   "where": [
+    "skip link (first thing keyboard users reach; jumps past the header to the page’s content)"
    ]
   },
   {
@@ -709,23 +793,258 @@
    ]
   },
   {
-   "id": "873d252d",
-   "kind": "attr",
-   "en": "Story chapters",
+   "id": "1615307c",
+   "kind": "svg",
+   "en": "object",
    "where": [
-    "story rail (desktop): accessible name of the list of chapter buttons"
+    "legend under the hero drawing: the square mark (plain code on the graph; one word)"
+   ],
+   "max": 14,
+   "lines": 1
+  },
+  {
+   "id": "93882429",
+   "kind": "svg",
+   "en": "message on a declared path",
+   "where": [
+    "legend under the hero drawing: a line with a short bright dash moving along it"
+   ],
+   "max": 30,
+   "lines": 1
+  },
+  {
+   "id": "6573ac5f",
+   "kind": "html",
+   "en": "illustration",
+   "where": [
+    "small label at the bottom right of the drawing: everything it shows is an illustration"
    ]
   },
   {
-   "id": "1133cf5c",
-   "kind": "attr",
-   "en": "Step {n}: {title}",
+   "id": "3b3ae940",
+   "kind": "html",
+   "en": "The operating system for AI&nbsp;workforces.",
    "where": [
-    "story rail (desktop): accessible name of each chapter button; {title} is that step’s headline"
-   ],
-   "placeholders": [
-    "{n}",
-    "{title}"
+    "story step 1: the page headline (h1; also the share image). &nbsp; keeps two words together"
+   ]
+  },
+  {
+   "id": "18c49d60",
+   "kind": "html",
+   "en": "Deploy, coordinate and control thousands of AI agents across your organization.",
+   "where": [
+    "story step 1: lead paragraph under the headline"
+   ]
+  },
+  {
+   "id": "d4a74b50",
+   "kind": "html",
+   "en": "Read the docs",
+   "where": [
+    "story step 1: primary button",
+    "closing section: primary button",
+    "404 page: link to the documentation"
+   ]
+  },
+  {
+   "id": "0c77991f",
+   "kind": "html",
+   "en": "View on GitHub",
+   "where": [
+    "story step 1: secondary link",
+    "closing section: secondary link"
+   ]
+  },
+  {
+   "id": "23457129",
+   "kind": "html",
+   "en": "license",
+   "where": [
+    "hero facts row: small label over “Open source, MIT” (lower case)"
+   ]
+  },
+  {
+   "id": "cad9c020",
+   "kind": "html",
+   "en": "Open source, MIT",
+   "where": [
+    "hero facts row: the license (also on the share image)"
+   ]
+  },
+  {
+   "id": "c692273d",
+   "kind": "html",
+   "en": "version",
+   "where": [
+    "hero facts row: small label over “0.2.0” (lower case)"
+   ]
+  },
+  {
+   "id": "f2e18ffc",
+   "kind": "html",
+   "en": "runtime",
+   "where": [
+    "hero facts row: small label over “Elixir / OTP”, what GenSwarms runs on (lower case)"
+   ]
+  },
+  {
+   "id": "7b347402",
+   "kind": "html",
+   "en": "Your agents need more than models and prompts.",
+   "where": [
+    "story step 2: headline (h2, display size)"
+   ]
+  },
+  {
+   "id": "84d5e16a",
+   "kind": "html",
+   "en": "One agent is easy. Many agents working together need somewhere to run, rules for who talks to whom, and a way back when one fails.",
+   "where": [
+    "story step 2: paragraph 1"
+   ]
+  },
+  {
+   "id": "3c7c53c0",
+   "kind": "html",
+   "en": "Think of it as an operating system.",
+   "where": [
+    "story step 3: headline (h2, display size)"
+   ]
+  },
+  {
+   "id": "d5661343",
+   "kind": "html",
+   "en": "An operating system runs programs it didn’t write. GenSwarms does that for agents: it starts them, isolates them, routes their messages and restarts them when they fail.",
+   "where": [
+    "story step 3: paragraph 1"
+   ]
+  },
+  {
+   "id": "d0ea3bcc",
+   "kind": "html",
+   "en": "Every agent is a process.",
+   "where": [
+    "story step 4: headline (h2, display size)"
+   ]
+  },
+  {
+   "id": "90e66590",
+   "kind": "html",
+   "en": "Each one runs in its own sandbox, under its own supervisor. If one crashes, it restarts and the others keep working. You set its role, its model and where it runs separately.",
+   "where": [
+    "story step 4: paragraph 1"
+   ]
+  },
+  {
+   "id": "51c5fd0f",
+   "kind": "html",
+   "en": "Agents talk only along declared paths.",
+   "where": [
+    "story step 5: headline (h2, display size)"
+   ]
+  },
+  {
+   "id": "2cd90562",
+   "kind": "html",
+   "en": "You draw the graph. Every message is checked against it, and anything off the graph is dropped.",
+   "where": [
+    "story step 5: paragraph 1"
+   ]
+  },
+  {
+   "id": "169c0a3b",
+   "kind": "html",
+   "en": "From here the drawings follow one swarm: a support team that answers customers on Telegram.",
+   "where": [
+    "story step 5: small example line under the paragraph"
+   ]
+  },
+  {
+   "id": "ccb7b646",
+   "kind": "html",
+   "en": "Not everything needs a model.",
+   "where": [
+    "story step 6: headline (h2, display size)"
+   ]
+  },
+  {
+   "id": "57b1f883",
+   "kind": "html",
+   "en": "Objects are plain code on the same graph: a Telegram gateway, a scheduler, a budget for model spend. They do the same thing every time.",
+   "where": [
+    "story step 6: paragraph 1"
+   ]
+  },
+  {
+   "id": "3407f33c",
+   "kind": "html",
+   "en": "Install what your agents need.",
+   "where": [
+    "story step 7: headline (h2, display size)"
+   ]
+  },
+  {
+   "id": "1880c1e0",
+   "kind": "html",
+   "en": "Telegram, WhatsApp and email connectors, a browser, a scheduler: signed packages from the swarmidx index, verified before they load.",
+   "where": [
+    "story step 7: paragraph 1"
+   ]
+  },
+  {
+   "id": "2141c796",
+   "kind": "html",
+   "en": "A swarm is a document.",
+   "where": [
+    "story step 8: headline (h2, display size)"
+   ]
+  },
+  {
+   "id": "a895f8a4",
+   "kind": "html",
+   "en": "Its definition is data, and every change is logged. A bad change is refused before it runs; a stopped swarm comes back from its database.",
+   "where": [
+    "story step 8: paragraph 1"
+   ]
+  },
+  {
+   "id": "41acb76d",
+   "kind": "html",
+   "en": "One control layer for your AI organization.",
+   "where": [
+    "story step 9: headline (h2, display size)"
+   ]
+  },
+  {
+   "id": "e28ae737",
+   "kind": "html",
+   "en": "Watch every message, crash and restart as it happens. Drive it by API or CLI, or hand it to your coding agent.",
+   "where": [
+    "story step 9: paragraph 1"
+   ]
+  },
+  {
+   "id": "a0b063e5",
+   "kind": "html",
+   "en": "Models provide intelligence.",
+   "where": [
+    "story step 9: closing triad, line 1 of 3 (display type, one short sentence; also on the share image)"
+   ]
+  },
+  {
+   "id": "a34eb019",
+   "kind": "html",
+   "en": "Agents perform work.",
+   "where": [
+    "story step 9: closing triad, line 2 of 3"
+   ]
+  },
+  {
+   "id": "86d0513d",
+   "kind": "html",
+   "en": "GenSwarms runs the organization.",
+   "where": [
+    "story step 9: closing triad, line 3 of 3"
    ]
   },
   {
@@ -737,19 +1056,27 @@
    ]
   },
   {
+   "id": "fdf7837b",
+   "kind": "html",
+   "en": "The parts of an operating system, and what GenSwarms puts in each place.",
+   "where": [
+    "sub-line beside the “How it works.” heading"
+   ]
+  },
+  {
    "id": "ed7308bb",
    "kind": "html",
    "en": "Processes",
    "where": [
-    "spec sheet: row label (one word or two, bold)"
+    "spec sheet: row label (one word or two)"
    ]
   },
   {
-   "id": "cf800878",
+   "id": "7a956af2",
    "kind": "html",
-   "en": "every agent a supervised OTP process: role, model and backend set separately",
+   "en": "Every agent a supervised OTP process: role, model and backend set separately.",
    "where": [
-    "spec sheet: the “Processes” row (a short fragment, not a sentence)"
+    "spec sheet: the “Processes” row (a short line, not a full sentence)"
    ]
   },
   {
@@ -757,15 +1084,15 @@
    "kind": "html",
    "en": "Isolation",
    "where": [
-    "spec sheet: row label (one word or two, bold)"
+    "spec sheet: row label (one word or two)"
    ]
   },
   {
-   "id": "760fd5b8",
+   "id": "a7b45c42",
    "kind": "html",
-   "en": "bwrap, Docker or Apple container, per agent",
+   "en": "bwrap, Docker or Apple container, per agent.",
    "where": [
-    "spec sheet: the “Isolation” row (a short fragment, not a sentence)"
+    "spec sheet: the “Isolation” row (a short line, not a full sentence)"
    ]
   },
   {
@@ -773,15 +1100,15 @@
    "kind": "html",
    "en": "Network",
    "where": [
-    "spec sheet: row label (one word or two, bold)"
+    "spec sheet: row label (one word or two)"
    ]
   },
   {
-   "id": "39386aff",
+   "id": "b02df163",
    "kind": "html",
-   "en": "isolated agents reach their model endpoint only",
+   "en": "Isolated agents reach their model endpoint only.",
    "where": [
-    "spec sheet: the “Network” row (a short fragment, not a sentence)"
+    "spec sheet: the “Network” row (a short line, not a full sentence)"
    ]
   },
   {
@@ -789,15 +1116,15 @@
    "kind": "html",
    "en": "Messages",
    "where": [
-    "spec sheet: row label (one word or two, bold)"
+    "spec sheet: row label (one word or two)"
    ]
   },
   {
-   "id": "d55a9496",
+   "id": "ce5bafa3",
    "kind": "html",
-   "en": "only along declared paths, checked each hop",
+   "en": "Only along declared paths, checked each hop.",
    "where": [
-    "spec sheet: the “Messages” row (a short fragment, not a sentence)"
+    "spec sheet: the “Messages” row (a short line, not a full sentence)"
    ]
   },
   {
@@ -805,15 +1132,15 @@
    "kind": "html",
    "en": "Services",
    "where": [
-    "spec sheet: row label (one word or two, bold)"
+    "spec sheet: row label (one word or two)"
    ]
   },
   {
-   "id": "8403b415",
+   "id": "837e43c3",
    "kind": "html",
-   "en": "objects: deterministic code on the same graph",
+   "en": "Objects: deterministic code on the same graph.",
    "where": [
-    "spec sheet: the “Services” row (a short fragment, not a sentence)"
+    "spec sheet: the “Services” row (a short line, not a full sentence)"
    ]
   },
   {
@@ -821,7 +1148,7 @@
    "kind": "html",
    "en": "Drivers",
    "where": [
-    "spec sheet: row label (one word or two, bold)"
+    "spec sheet: row label (one word or two)"
    ]
   },
   {
@@ -829,15 +1156,15 @@
    "kind": "html",
    "en": "Packages",
    "where": [
-    "spec sheet: row label (one word or two, bold)"
+    "spec sheet: row label (one word or two)"
    ]
   },
   {
-   "id": "fa899489",
+   "id": "620402be",
    "kind": "html",
-   "en": "gsp and swarmidx: signed, content-addressed, checked on your machine",
+   "en": "gsp and swarmidx: signed, content-addressed, checked on your machine.",
    "where": [
-    "spec sheet: the “Packages” row (a short fragment, not a sentence)"
+    "spec sheet: the “Packages” row (a short line, not a full sentence)"
    ]
   },
   {
@@ -845,15 +1172,15 @@
    "kind": "html",
    "en": "State",
    "where": [
-    "spec sheet: row label (one word or two, bold)"
+    "spec sheet: row label (one word or two)"
    ]
   },
   {
-   "id": "36e77013",
+   "id": "bff34e70",
    "kind": "html",
-   "en": "a seed plus a log of changes; bad changes refused; restore from the database",
+   "en": "A seed plus a log of changes. Bad changes refused. Restore from the database.",
    "where": [
-    "spec sheet: the “State” row (a short fragment, not a sentence)"
+    "spec sheet: the “State” row (a short line, not a full sentence)"
    ]
   },
   {
@@ -861,15 +1188,15 @@
    "kind": "html",
    "en": "Control",
    "where": [
-    "spec sheet: row label (one word or two, bold)"
+    "spec sheet: row label (one word or two)"
    ]
   },
   {
-   "id": "3f22753b",
+   "id": "dfac9de1",
    "kind": "html",
-   "en": "REST, WebSocket, CLI, and a skill file for your coding agent",
+   "en": "REST, WebSocket, CLI, and a skill file for your coding agent.",
    "where": [
-    "spec sheet: the “Control” row (a short fragment, not a sentence)"
+    "spec sheet: the “Control” row (a short line, not a full sentence)"
    ]
   },
   {
@@ -877,15 +1204,15 @@
    "kind": "html",
    "en": "Events",
    "where": [
-    "spec sheet: row label (one word or two, bold)"
+    "spec sheet: row label (one word or two)"
    ]
   },
   {
-   "id": "ce64624e",
+   "id": "c2593f94",
    "kind": "html",
-   "en": "every message, crash and restart, live",
+   "en": "Every message, crash and restart, live.",
    "where": [
-    "spec sheet: the “Events” row (a short fragment, not a sentence)"
+    "spec sheet: the “Events” row (a short line, not a full sentence)"
    ]
   },
   {
@@ -894,6 +1221,14 @@
    "en": "How is it different from LangGraph, CrewAI or AutoGen?",
    "where": [
     "section heading (h2) over the comparison table"
+   ]
+  },
+  {
+   "id": "d938a770",
+   "kind": "html",
+   "en": "Frameworks organize agents in your code. GenSwarms runs each agent as its own supervised process.",
+   "where": [
+    "sub-line beside the comparison heading"
    ]
   },
   {
@@ -1033,11 +1368,27 @@
    ]
   },
   {
+   "id": "57e8c7e2",
+   "kind": "html",
+   "en": "From each project’s own documentation, September 2026.",
+   "where": [
+    "small note under the comparison table: where the competitors’ cells come from"
+   ]
+  },
+  {
    "id": "d15f403e",
    "kind": "html",
    "en": "What it guarantees, and what it doesn’t yet.",
    "where": [
     "section heading (h2) over the guarantees and limits"
+   ]
+  },
+  {
+   "id": "d09cd058",
+   "kind": "html",
+   "en": "What ships in 0.2.0 today, and the limits we know about.",
+   "where": [
+    "sub-line beside the guarantees heading"
    ]
   },
   {
@@ -1049,35 +1400,35 @@
    ]
   },
   {
-   "id": "32814eeb",
+   "id": "19b6c67d",
    "kind": "html",
-   "en": "a crash restarts one agent, not the swarm",
+   "en": "A crash restarts one agent, not the swarm.",
    "where": [
-    "guarantees section: an item under “Guarantees” (a fragment, lower case)"
+    "guarantees section: an item under “Guarantees” (one short line)"
    ]
   },
   {
-   "id": "90dcde9c",
+   "id": "1de79ed2",
    "kind": "html",
-   "en": "messages follow declared paths only",
+   "en": "Messages follow declared paths only.",
    "where": [
-    "guarantees section: an item under “Guarantees” (a fragment, lower case)"
+    "guarantees section: an item under “Guarantees” (one short line)"
    ]
   },
   {
-   "id": "b1ae0f2b",
+   "id": "817dc80f",
    "kind": "html",
-   "en": "bad configurations and changes are refused before they run",
+   "en": "Bad configurations and changes are refused before they run.",
    "where": [
-    "guarantees section: an item under “Guarantees” (a fragment, lower case)"
+    "guarantees section: an item under “Guarantees” (one short line)"
    ]
   },
   {
-   "id": "1f16f72f",
+   "id": "f294f1c2",
    "kind": "html",
-   "en": "packages are verified against a signed log",
+   "en": "Packages are verified against a signed log.",
    "where": [
-    "guarantees section: an item under “Guarantees” (a fragment, lower case)"
+    "guarantees section: an item under “Guarantees” (one short line)"
    ]
   },
   {
@@ -1089,51 +1440,51 @@
    ]
   },
   {
-   "id": "01f18cc0",
+   "id": "bf0dfbad",
    "kind": "html",
-   "en": "one operator token, no per-user roles",
+   "en": "One operator token, no per-user roles.",
    "where": [
-    "guarantees section: an item under “Not yet” (a fragment, lower case)"
+    "guarantees section: an item under “Not yet” (one short line)"
    ]
   },
   {
-   "id": "632855ea",
+   "id": "a1804765",
    "kind": "html",
-   "en": "at-least-once delivery, not exactly once",
+   "en": "At-least-once delivery, not exactly once.",
    "where": [
-    "guarantees section: an item under “Not yet” (a fragment, lower case)"
+    "guarantees section: an item under “Not yet” (one short line)"
    ]
   },
   {
-   "id": "163d4e0f",
+   "id": "c1071d66",
    "kind": "html",
-   "en": "spend budgets come as a package, not in the core",
+   "en": "Spend budgets come as a package, not in the core.",
    "where": [
-    "guarantees section: an item under “Not yet” (a fragment, lower case)"
+    "guarantees section: an item under “Not yet” (one short line)"
    ]
   },
   {
-   "id": "7c9e677f",
+   "id": "90361c3e",
    "kind": "html",
-   "en": "updating a package restarts the agent; no live swap yet",
+   "en": "Updating a package restarts the agent; no live swap yet.",
    "where": [
-    "guarantees section: an item under “Not yet” (a fragment, lower case)"
+    "guarantees section: an item under “Not yet” (one short line)"
    ]
   },
   {
-   "id": "e2855769",
+   "id": "2944b590",
    "kind": "html",
-   "en": "100 agents per swarm by default (configurable)",
+   "en": "100 agents per swarm by default (configurable).",
    "where": [
-    "guarantees section: an item under “Not yet” (a fragment, lower case)"
+    "guarantees section: an item under “Not yet” (one short line)"
    ]
   },
   {
-   "id": "4713393e",
+   "id": "c39d7104",
    "kind": "html",
-   "en": "Start with one team. Scale to thousands of agents.",
+   "en": "<span>Start with one team.</span> <span>Scale to thousands of agents.</span>",
    "where": [
-    "closing section headline (h2, very large type)"
+    "closing section headline (h2, large type): two sentences, each set on its own line (keep the two <span> elements)"
    ]
   },
   {
@@ -1165,7 +1516,7 @@
    "kind": "html",
    "en": "Copy",
    "where": [
-    "copy button next to the prompt (short: the button is 84px wide)"
+    "copy button next to the prompt (short: the button is about 80px wide)"
    ]
   },
   {
@@ -1177,11 +1528,11 @@
    ]
   },
   {
-   "id": "7b7d0d74",
+   "id": "9a976fc2",
    "kind": "attr",
-   "en": "Select and copy",
+   "en": "Selected",
    "where": [
-    "copy button: text shown when the browser cannot copy (the prompt is selected for the reader)"
+    "copy button: text shown when the browser cannot copy (the prompt is selected, for the reader to copy)"
    ]
   },
   {
@@ -1201,9 +1552,9 @@
    ]
   },
   {
-   "id": "3229609e",
+   "id": "e071ace2",
    "kind": "html",
-   "en": "License",
+   "en": "License (MIT)",
    "where": [
     "footer link to the license file"
    ]

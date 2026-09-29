@@ -2,21 +2,22 @@
    header picker: a native disclosure of plain links, so it works without JavaScript (langbar.js only
    closes it on an outside click or Escape) */
 .lang{position:relative}
-.lang summary{list-style:none;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;min-width:44px;cursor:pointer;color:var(--ink-2);font:500 13px/1 var(--fm);letter-spacing:.04em;border-radius:6px}
+.lang summary{list-style:none;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;min-width:44px;cursor:pointer;color:var(--ink-2);font:500 12.5px/1 var(--fm);letter-spacing:.02em;border-radius:3px}
 .lang summary::-webkit-details-marker{display:none}
 .lang summary::after{content:"";width:5px;height:5px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:translateY(-2px) rotate(45deg)}
 .lang[open] summary::after{transform:translateY(1px) rotate(-135deg)}
 .lang summary:hover,.lang[open] summary{color:var(--ink)}
-.lang ul{position:absolute;right:0;top:100%;z-index:20;list-style:none;margin:2px 0 0;padding:6px;min-width:170px;background:var(--sand);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 32px rgba(51,48,31,.16)}
-.top nav .lang a{display:flex!important;align-items:center;min-height:44px;padding:0 12px;border-radius:6px;color:var(--ink-2);font:400 15px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans","Apple SD Gothic Neo","Noto Sans KR","PingFang SC","Noto Sans SC",sans-serif;text-decoration:none;white-space:nowrap}
-.top nav .lang a:hover{background:var(--sand-2);color:var(--ink)}
+.lang ul{position:absolute;right:0;top:100%;z-index:30;list-style:none;margin:6px 0 0;padding:6px;min-width:176px;background:var(--bg-2);border:1px solid var(--hl-2);border-radius:4px;box-shadow:0 16px 40px rgba(0,0,0,.45)}
+.top nav .lang a{display:flex;align-items:center;min-height:44px;padding:0 12px;border-radius:3px;color:var(--ink-2);font:400 15px/1.2 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans","Apple SD Gothic Neo","Noto Sans KR","PingFang SC","Noto Sans SC",sans-serif;text-decoration:none;white-space:nowrap}
+.top nav .lang a:hover{background:var(--hl);color:var(--ink)}
 .top nav .lang a[aria-current]{color:var(--ink);font-weight:600}
 /* the footer's language links: every version, for readers and crawlers */
-.foot .foot-langs{flex-basis:100%;gap:0 20px;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans","Apple SD Gothic Neo","Noto Sans KR","PingFang SC","Noto Sans SC",sans-serif}
-.foot-langs a[aria-current]{color:var(--sand)}
+.foot .foot-langs{flex-basis:100%;gap:0 20px;border-top:1px solid var(--hl);padding-top:6px;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans","Apple SD Gothic Neo","Noto Sans KR","PingFang SC","Noto Sans SC",sans-serif}
+.foot-langs a{font-size:13.5px}
+.foot-langs a[aria-current]{color:var(--ink)}
 /* the suggestion bar: one dismissible line in the visitor's language, above the header */
-.langbar{position:relative;z-index:11;display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 4px 0 16px;background:var(--ink);color:var(--sand);font:500 15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans","Apple SD Gothic Neo","Noto Sans KR","PingFang SC","Noto Sans SC",sans-serif}
+.langbar{position:relative;z-index:21;display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 4px 0 16px;background:var(--ink);color:var(--bg);font:500 15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans","Apple SD Gothic Neo","Noto Sans KR","PingFang SC","Noto Sans SC",sans-serif}
 .langbar p{margin:0;padding:11px 0;min-width:0}
-.langbar a{font-weight:600;text-decoration:underline;text-decoration-color:var(--clay-l);text-underline-offset:3px;white-space:nowrap}
-.langbar button{flex:none;width:44px;height:44px;border:0;border-radius:8px;background:none;color:inherit;font:400 24px/1 system-ui,sans-serif;cursor:pointer}
-.langbar :focus-visible{outline-color:var(--clay-l)}
+.langbar a{font-weight:600;text-decoration:underline;text-decoration-color:var(--or);text-decoration-thickness:2px;text-underline-offset:3px;white-space:nowrap}
+.langbar button{flex:none;width:44px;height:44px;border:0;border-radius:3px;background:none;color:inherit;font:400 24px/1 system-ui,sans-serif;cursor:pointer}
+.langbar :focus-visible{outline-color:var(--bg)}
