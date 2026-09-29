@@ -230,7 +230,9 @@ test('the canvas stays light: DPR capped at 2, paused off screen and in hidden t
   assert.match(run, /visibilitychange/);
   assert.match(run, /if \(!rm && onScreen && !D\.hidden\) raf = requestAnimationFrame\(frame\)/);
   // resizes are debounced; a slow device drops resolution and messages
-  assert.match(run, /setTimeout\(function \(\) \{ layout\(\); kick\(\); \}, 120\)/);
+  assert.match(run, /clearTimeout\(rt\);\s*rt = setTimeout\(function \(\) \{\s*layout\(\);[\s\S]*?\}, 120\);/);
+  // a new width keeps the reader's place; a height-only change (a phone's URL bar) does not move the reading line
+  assert.match(run, /if \(innerWidth !== lastW \|\| Math\.abs\(innerHeight - vhStable\) > 150\) vhStable = innerHeight;/);
   assert.match(run, /pulseCap = 24/);
   // nothing Chrome-only on the canvas
   assert.doesNotMatch(src('zoom-draw.js') + src('zoom-support.js'), /roundRect|\.filter\s*=|letterSpacing|fontKerning/);

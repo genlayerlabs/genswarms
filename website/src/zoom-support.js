@@ -83,6 +83,9 @@
     if (s > 0.55) for (j = 0; j < CO.length; j++) {
       var c = CO[j], ca = c[3] ? bA : Math.max(bA, yA);
       if (ca < 0.01) continue;
+      // (a callout that would not fit whole beside the tree is left out rather than pushed over it)
+      if (g.font !== F.f115) g.font = F.f115;
+      if (LX(690) + g.measureText(S[c[2]]).width > st.vw - 4) continue;
       g.globalAlpha = ca; g.strokeStyle = C.ink3; g.beginPath(); g.moveTo(LX(c[1]), LY(c[0])); g.lineTo(LX(684), LY(c[0])); g.stroke();
       lab(g, st, S[c[2]], LX(690), LY(c[0]) + 4, 'left', F.f115, C.ink2, false, 'callout');
     }

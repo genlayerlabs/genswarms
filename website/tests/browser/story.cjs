@@ -81,6 +81,29 @@ if (require.main === module) (async () => {
     }
     await c.close();
   }
+  // turning a phone: the layout follows, the canvas is redrawn at the new size, the reader's place is kept
+  {
+    const c = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+    p = await c.newPage();
+    const errs = []; p.on('pageerror', e => errs.push(e.message));
+    await p.goto(BASE); await p.waitForTimeout(500);
+    await p.evaluate(() => scrollTo(0, Z.scrollFor(6))); await p.waitForTimeout(900);
+    const size = () => p.evaluate(() => { const c = document.querySelector('.stage canvas'), r = c.getBoundingClientRect(); return { cine: document.documentElement.classList.contains('cine'), ok: Math.abs(c.width - Math.round(r.width * 2)) <= 1 && Math.abs(c.height - Math.round(r.height * 2)) <= 1, k: +document.querySelector('.stage').dataset.k }; });
+    for (const [w, h, cine] of [[844, 390, true], [390, 844, false]]) {
+      await p.setViewportSize({ width: w, height: h }); await p.waitForTimeout(900);
+      const s = await size();
+      ok(s.cine === cine && s.ok, `turned to ${w}x${h}: ${JSON.stringify(s)}`);
+      ok(Math.abs(s.k - 6) <= 1, `turned to ${w}x${h}: still near keyframe 6 (${s.k})`);
+    }
+    // the URL bar hiding: the window gets taller by its height and nothing else changes (the stage and the steps are
+    // sized in svh, which ignores it); the drawing does not move. (Emulated: a viewport resize would change svh too.)
+    const q0 = await p.evaluate(() => Z.debug().q);
+    await p.evaluate(() => { const h = innerHeight + 80; Object.defineProperty(window, 'innerHeight', { get: () => h, configurable: true }); dispatchEvent(new Event('resize')); });
+    await p.waitForTimeout(900);
+    ok(Math.abs(await p.evaluate(() => Z.debug().q) - q0) < 0.05, 'URL bar: the camera does not move');
+    ok(!errs.length, errs.join(' | '));
+    await c.close();
+  }
   // focus is never hidden under the stage or the header
   for (const [w, h] of [[1440, 900], [390, 844]]) {
     p = await b.newPage({ viewport: { width: w, height: h } });

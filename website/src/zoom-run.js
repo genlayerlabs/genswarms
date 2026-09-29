@@ -40,7 +40,7 @@
 
   var W = null, Wasp = 0, cams = [], paths = [], anchors = [], s0 = 1, vw = 0, vh = 0, dpr = 1, maxDpr = 2, rm = mqR.matches;
   var q = 0, last = 0, raf = 0, onScreen = true, kShown = -1, nextCrash = 2.2, nextChain = 0.6, acc = 0, hold = -1;
-  var capKey = -1, capLvShown = '', cine = false, navH = 56, colTop = 0, colH = 0, vhStable = 0, ema = 16.7, slow = 0;
+  var lastW = 0, capKey = -1, capLvShown = '', cine = false, navH = 56, colTop = 0, colH = 0, vhStable = 0, ema = 16.7, slow = 0;
 
   function colors() {
     var cs = getComputedStyle(root), m = { bg: '--bg', bg1: '--bg-1', bg2: '--bg-2', ink: '--ink', ink2: '--ink-2', ink3: '--ink-3', or: '--or', hl3: '--hl-3' };
@@ -154,7 +154,10 @@
     if (nvw !== vw || nvh !== vh || ndpr !== dpr) { vw = nvw; vh = nvh; dpr = ndpr; cv.width = Math.round(vw * dpr); cv.height = Math.round(vh * dpr); }
     var fam = colors();
     st.F = Z.fonts(fam); docLayout(fam);
-    navH = top ? top.offsetHeight : 56; vhStable = innerHeight;
+    navH = top ? top.offsetHeight : 56;
+    // a phone's URL bar showing or hiding changes the height a little and nothing else: the reading line stays put
+    if (innerWidth !== lastW || Math.abs(innerHeight - vhStable) > 150) vhStable = innerHeight;
+    lastW = innerWidth;
     colTop = col.getBoundingClientRect().top + scrollY; colH = col.offsetHeight;
     // the part of the stage the drawing may use, per keyframe (room for the caption and the readout)
     var padT = capEl.offsetTop + capEl.offsetHeight + (cine ? 22 : 12), padS = cine ? 36 : 16;
@@ -189,7 +192,7 @@
         var ap = T.answer, sf = safe[k], s = Math.min(sf[2], sf[3]) * (narrow ? 0.37 : 0.31) / A;
         cams[k] = { ux: ap[0] + ox, uy: ap[1] + oy + 1.2, s: s, sf: sf };
       } else {
-        if (k === 9 && docFocus) c = [280, 500, 790, 990];
+        if (k === 9 && docFocus) c = [SUP.doc.x - 8, SUP.doc.y - 26, SUP.doc.x + SUP.doc.w + 8, SUP.doc.y + st.doc.h + 18];
         // phones: the team's frames are horizontally just the drawing (its labels are fitted as items)
         else if (narrow && SUP.camX[k]) c = [SUP.camX[k][0], c[1], SUP.camX[k][1], c[3]];
         var items = (k === 9 && docFocus ? [] : labelItems(k, narrow)).map(function (it) { return [it[0] + ox, it[1] + oy, it[2], it[3], it[4], it[5]]; });
@@ -346,8 +349,23 @@
   }
   function kick() { if (!raf && onScreen && !D.hidden) { raf = requestAnimationFrame(frame); } }
 
-  var rt = 0;
-  function onResize() { clearTimeout(rt); rt = setTimeout(function () { layout(); kick(); }, 120); }
+  // the scroll position that puts the reading line on camera position qq
+  function scrollForQ(qq) {
+    var k = Math.min(Math.floor(qq), 9), f = Math.min(1, qq - k), a = anchors[k] + (anchors[k + 1] - anchors[k]) * f;
+    return a - (readLine() - scrollY);
+  }
+  var rt = 0, placeQ = -1, placeW = innerWidth;
+  // a new width (a phone turned, a window resized) reflows the story: keep the reader on the same part of it
+  function onResize() {
+    if (innerWidth !== placeW && placeQ < 0 && q > 0.05 && q < 9.95) placeQ = q;
+    clearTimeout(rt);
+    rt = setTimeout(function () {
+      layout();
+      if (placeQ >= 0) { scrollTo(0, Math.max(0, scrollForQ(placeQ))); q = placeQ; }
+      placeQ = -1; placeW = innerWidth;
+      kick();
+    }, 120);
+  }
   addEventListener('resize', onResize, { passive: true });
   addEventListener('orientationchange', onResize, { passive: true });
   addEventListener('scroll', function () { if (rm || !raf) kick(); }, { passive: true });
