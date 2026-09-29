@@ -227,8 +227,10 @@ function typeProblems() {
     else console.log(`${tag}: ${got ? `${got.lang} | ${got.text} | ${got.href}` : 'none'}`);
     if (got && got.href !== dirOf[expect]) problems.push(`${tag}: links to ${got.href}, not ${dirOf[expect]}`);
     if (got) {
-      const top = await p.evaluate(() => { const b = document.querySelector('.langbar').getBoundingClientRect(), t = document.querySelector('.top').getBoundingClientRect(); return t.top >= b.bottom - 1; });
-      if (!top) problems.push(`${tag}: the header overlaps the bar`);
+      // the bar floats over the bottom of the screen (it never pushes the page down: no layout shift), clear of the header
+      const pos = await p.evaluate(() => { const bar = document.querySelector('.langbar'), b = bar.getBoundingClientRect(), t = document.querySelector('.top').getBoundingClientRect(); return { fixed: getComputedStyle(bar).position === 'fixed', bottom: Math.abs(b.bottom - innerHeight) <= 1, clear: b.top >= t.bottom }; });
+      if (!pos.fixed || !pos.bottom) problems.push(`${tag}: the bar is not fixed to the bottom of the screen`);
+      if (!pos.clear) problems.push(`${tag}: the bar overlaps the header`);
     }
     if (then) await then(p, got, tag);
     await c.close();

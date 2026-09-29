@@ -175,10 +175,6 @@ test('every version has its own head: lang, canonical, reciprocal hreflang, og, 
     for (const m of h.matchAll(/href="#([^"]+)"/g)) assert.ok(h.includes(`id="${m[1]}"`), `${l.code}: #${m[1]}`);
   }
 });
-// the committed translations: complete once phase 2 of the v4 port has translated the new catalogue. Until then the
-// build refuses (listing the ids each language is missing), and the tests that need a committed build are skipped.
-const site = build({ i18nDir: new URL('i18n/', WEB), outDir: WEB });
-const PENDING = site.errors.length > 0 && site.errors.every(e => / missing \(/.test(e) || /is still English|markup differs|placeholders differ|lost the protected/.test(e));
 const plain = s => s.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ');
 test('each version has its own share card: the translated headline, the organization drawn by the page’s engine, no buttons', () => {
   const tables = Object.fromEntries(LANGS.slice(1).map(l => [l.code, pseudo(l.code, entries)]));
@@ -264,8 +260,8 @@ test('the English page does not change: only the language additions', () => {
     .replace(/(<style>[\s\S]*?)\n\/\* ---------- languages[\s\S]*?(<\/style>)/, '$1$2')
     .replace(/\n\.lang\{[\s\S]*?(\n<\/style>)/, '$1');
   const pages = [['pseudo build', full.outputs['index.html']]];
-  // (the committed page too, once phase 2 has rebuilt it)
-  if (!PENDING) pages.push(['committed page', readFileSync(new URL('index.html', WEB), 'utf8')]);
+  // and the committed page
+  pages.push(['committed page', readFileSync(new URL('index.html', WEB), 'utf8')]);
   for (const [name, html] of pages) {
     assert.equal(strip(html), alone.replace(/\n<\/style>/, '\n</style>'), name);
     // and every English text run is unchanged
@@ -346,13 +342,8 @@ test('--check verifies the outputs, the lock and the share images', () => {
   assert.notEqual(ogSource(r2.cards.en.replace('.og-foot b{font-weight:500;color:var(--ink)}', '.og-foot b{font-weight:600;color:var(--ink)}')), r2.lock.og.en.source);
   rmSync(d, { recursive: true, force: true });
 });
-test('the committed site passes --check', { skip: PENDING && 'phase 2: the committed translations do not cover the new catalogue yet' }, () => {
+test('the committed site passes --check', () => {
   assert.deepEqual(check({ i18nDir: new URL('i18n/', WEB), outDir: WEB }), []);
-});
-test('until the translations cover the catalogue, the committed site refuses to build (and so to deploy)', { skip: !PENDING && 'the translations are complete' }, () => {
-  assert.ok(site.errors.length);
-  for (const l of LANGS.slice(1)) assert.ok(site.errors.some(e => e.startsWith(`${l.code}: `)), `${l.code} is listed`);
-  assert.ok(check({ i18nDir: new URL('i18n/', WEB), outDir: WEB }).length, '--check fails');
 });
 test('pseudo-locales keep what must not change', () => {
   for (const l of LANGS.slice(1)) {

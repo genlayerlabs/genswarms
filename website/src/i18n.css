@@ -16,7 +16,7 @@
 .foot-langs a{font-size:13.5px}
 .foot-langs a[aria-current]{color:var(--ink)}
 /* the suggestion bar: one dismissible line in the visitor's language, above the header */
-.langbar{position:relative;z-index:21;display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 4px 0 16px;background:var(--ink);color:var(--bg);font:500 15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans","Apple SD Gothic Neo","Noto Sans KR","PingFang SC","Noto Sans SC",sans-serif}
+.langbar{position:fixed;left:0;right:0;bottom:0;z-index:30;padding-bottom:env(safe-area-inset-bottom)!important;border-top:1px solid var(--hl-2,rgba(255,255,255,.14));display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 4px 0 16px;background:var(--ink);color:var(--bg);font:500 15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans","Apple SD Gothic Neo","Noto Sans KR","PingFang SC","Noto Sans SC",sans-serif}
 .langbar p{margin:0;padding:11px 0;min-width:0}
 .langbar a{font-weight:600;text-decoration:underline;text-decoration-color:var(--or);text-decoration-thickness:2px;text-underline-offset:3px;white-space:nowrap}
 .langbar button{flex:none;width:44px;height:44px;border:0;border-radius:3px;background:none;color:inherit;font:400 24px/1 system-ui,sans-serif;cursor:pointer}

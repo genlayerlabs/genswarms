@@ -45,14 +45,18 @@ const TITLES = 'h1,h2,h3,.triad span,.spec dt,.cmp tbody th';
 const LONG = `h1,h2,h3,.triad span,.spec dt{hyphens:auto;-webkit-hyphens:auto;overflow-wrap:break-word}
 #cmp-h{hyphens:manual;-webkit-hyphens:manual}
 @media (max-width:759px){h1{font-size:clamp(30px,8.6vw,64px)}.step h2{font-size:clamp(25px,6.6vw,40px)}.sec-head h2{font-size:clamp(26px,6.2vw,40px)}}
-@media (min-height:640px){.cine h1{font-size:clamp(34px,min(3.7vw,7.4vh),54px)}}`;
+@media (min-height:640px){.cine h1{font-size:clamp(34px,min(3.3vw,6.6vh),48px)}}
+@media (min-width:760px){html:not(.cine) h1{font-size:clamp(34px,8.4vw,64px)}}
+.triad span{hyphens:manual;-webkit-hyphens:manual}
+@media (min-width:760px){h2{hyphens:manual;-webkit-hyphens:manual}}`;
 // CJK: no negative tracking on titles, taller title lines
 const CJK_CSS = `${TITLES}{letter-spacing:0}h1{line-height:1.14}.step h2,.close h2,.sec-head h2{line-height:1.2}.triad span{line-height:1.4}`;
 // the comparison table: words stay whole (hyphenating split "agen-te", "Lang-Smith", "Gen-Swarms"); a word longer
 // than its column still breaks
 const TABLE = `.cmp th,.cmp td{overflow-wrap:break-word}`;
 export const TYPE = {
-  es: { fonts: [FONTS_ALL], css: TABLE },
+  // the Spanish hero is one phrase longer ("fuerza laboral de IA"): a size down on desktop keeps it to four lines, not six
+  es: { fonts: [FONTS_ALL], css: `${TABLE}@media (min-height:640px){.cine h1{font-size:clamp(34px,min(3.7vw,7.4vh),54px)}}` },
   ru: { fonts: [FONTS_ALL], css: `${LONG}${TABLE}` },
   tr: { fonts: [FONTS_ALL], css: `${LONG}${TABLE}` },
   ko: { fonts: [FONTS_MONO], css: `${cjkVars(SYS.ko)}body{word-break:keep-all;overflow-wrap:break-word}${CJK_CSS}` },

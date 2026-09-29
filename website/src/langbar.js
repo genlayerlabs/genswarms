@@ -41,9 +41,8 @@
   a.href = s.href; a.hreflang = want; a.textContent = s.go;
   line.appendChild(a);
   x.type = 'button'; x.setAttribute('aria-label', s.close); x.textContent = '\u00d7';
-  // the bar sits above the (sticky) header, in the page's flow: it scrolls away with the page
-  x.addEventListener('click', function () { set(here); bar.parentNode.removeChild(bar); dispatchEvent(new Event('resize')); });
+  // the bar floats over the bottom of the screen: it never pushes the page down as it appears (no layout shift)
+  x.addEventListener('click', function () { set(here); bar.parentNode.removeChild(bar); });
   bar.appendChild(line); bar.appendChild(x);
-  document.body.insertBefore(bar, document.body.firstChild);
-  dispatchEvent(new Event('resize'));
+  document.body.appendChild(bar);
 })();

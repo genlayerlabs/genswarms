@@ -22,7 +22,7 @@ the build refuses stale or partial translations).
 4. `node website/build.mjs` again: writes `index.html`, `<lang>/index.html`, `404.html`, `sitemap.xml`, `llms.txt` and `build.lock.json`.
 5. `node website/tools/og.cjs`: the share images (see below; no server needed). Then, with `website/` served (e.g.
    `python3 -m http.server 8790 --directory website`), the checks: `node --test website/tests/*.mjs`,
-   `node website/tests/browser/i18n-audit.cjs http://localhost:8790/` (every language × 14 sizes, suggestion bar),
+   `node website/tests/browser/i18n-audit.cjs http://localhost:8790/` (every language × 18 sizes, suggestion bar),
    `audit.cjs` and `story.cjs`.
 6. `node website/build.mjs --check` passes, then commit. CI runs the tests and `--check` on pull requests and before
    every deploy; after a deploy, `node website/build.mjs --verify https://genswarms.com/` checks every version is served right.
