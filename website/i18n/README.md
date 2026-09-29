@@ -14,7 +14,8 @@ the build refuses stale or partial translations).
 
 ## Day to day
 
-1. Edit the English in `website/src` (`content.mjs`, `page.mjs`, `figures.mjs`).
+1. Edit the English in `website/src` (`content.mjs`, `page.mjs`). The zoom drawing's words are catalogued in
+   `content.mjs` (`canvasStrings`) and reach the canvas as a JSON block (`#zoom-strings`) in each page's language.
 2. `node website/build.mjs --extract`: rewrites `en.json`. A changed sentence gets a new id.
 3. `node website/build.mjs`: lists every id each language is missing (or whose markup, placeholders, protected names or
    length are wrong) and writes nothing until they are fixed. Translate those ids in `<lang>.json`, keeping the ledger's terms.
@@ -29,15 +30,26 @@ the build refuses stale or partial translations).
 ## Share images
 
 Each version has its own share card (`og-image.png`, `og-<lang>.png`, 1200×630), drawn from HTML the build makes
-per language (`src/card.mjs`, never deployed): the logo, the page's headline, the closing triad of step 9 (one line
-each, the last in clay), `genswarms.com` with the first sentence of the "Open source, MIT." line, and step 9's drawing
-(the control layer over the swarms and the models) with its translated labels. It has no strings of its own: every
-word is the page's, so translating the page translates the card. `tools/og.cjs` renders each card at 2x and scales it
-down; the card's script steps the headline size down (from the per-language size in `card.mjs`) until nothing
-overflows and the last line is not a stranded word, and og.cjs refuses a card that still doesn't fit. The build
-hashes each card into `build.lock.json` (`og`), so `--check` fails when a headline, a triad line, a figure label or
-the card template changed and the image wasn't re-rendered. Pages carry `og:image:width`/`height` and
-`og:image:alt` (the page title).
+per language (`src/card.mjs`, never deployed): the wordmark, the page's headline, `genswarms.com` with the hero's
+"Open source, MIT", and on the right a still of the organization the page's zoom starts from, drawn on a canvas by the
+page's own engine (`src/zoom-*.js`) under the zoom caption ("organization · 36 swarms · 2,861 agents", numbers in the
+language's format). It has no strings of its own: every word is the page's, so translating the page translates the
+card. `tools/og.cjs` renders each card at 2x and scales it down; the card's script draws the world, then steps the
+headline size down (from the per-language size in `card.mjs`) until nothing overflows and the last line is not a
+stranded word, and og.cjs refuses a card that still doesn't fit. The build hashes each card into `build.lock.json`
+(`og`), so `--check` fails when the headline, a caption string or the card template changed and the image wasn't
+re-rendered. Pages carry `og:image:width`/`height` and `og:image:alt` (the page title).
+
+The icons (`favicon.svg`, hand-made: a Geist Mono "g" as an outline and the wordmark's cursor) have PNG versions
+rendered by `tools/icons.cjs` (`favicon-32.png`, `apple-touch-icon.png`).
+
+## The zoom drawing in other languages
+
+The canvas measures every label in the page's own font stack (`--fc` in `page.css`, set per writing system in
+`TYPE`, `src/page.mjs`), fits each camera frame around its labels, wraps the long ones (the refused change, the
+database note) and leaves out a label rather than clip it or push it over the drawing. Keep labels near their `max`
+budget anyway: a shorter label keeps the drawing larger. `story.cjs` and `i18n-audit.cjs` check every keyframe at
+every size: no label over another, over a node, outside the canvas, or under the caption or the readout.
 
 Browser tools need `NODE_PATH` pointing at a `node_modules` with `playwright-core`, and Chrome (`CHROME=` to override).
 Without a URL, `i18n-audit.cjs` builds pseudo-locales (`website/tools/pseudo.mjs`) into a temp folder and audits those.
