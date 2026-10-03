@@ -1,6 +1,6 @@
 {
  "_about": "Written by `node website/build.mjs` after a successful build; `--check` (CI, deploy) refuses when the English source, a translation or a built file no longer matches it.",
- "source": "7638fb0c545d691aab0ec6ae8a32d3f56e206bc27b8e1736371c1b95add39a9d",
+ "source": "6a740b34f33178c48682e77f4529e5c25a9c34302ab2fa0a7abbbdc6205cf1ff",
  "i18n": {
   "en.json": "d7a97e267bc2868150d45879a036fd6fd7e2f3d5e861552787e25298625e0fff",
   "es.json": "6a395030583b961285603da81527f3d656679df71a8c551d7c299dfa3714247c",
@@ -10,21 +10,21 @@
   "tr.json": "9443f4268c432fdc54d48cc46d6efcf7d474d6305ca8be7feca585b6994656a3"
  },
  "outputs": {
-  "index.html": "57723acb3a299e420031f924c21a1d967841d6b07e011db9bbf42c2851ccf82d",
+  "index.html": "da8bf4954fa7ffb016998dfee9f485c9d1655976a68e98dddc0ceff9c3eb5ad2",
   "es/index.html": "c0b1daef4d739d1e8dd5f84328eb5b48b49b7b45976e6c3871a0763fe7c20160",
   "ko/index.html": "ac80efd08fbca14a01b1e00130511eb7c66965f25fd453c6068ea152f530fbf5",
-  "zh/index.html": "5660cfe191f039f0847b7d44d87f3df0a93e36e713c58fd94e26c3f2f6cd253d",
+  "zh/index.html": "790da775ce50a075b2fb3a855eacbf56145e723be8cf37f1f7d1bc505fa84b05",
   "ru/index.html": "b73de936e43e44659bc97ec0269d6187966125c09fb5df18399f061e5332e59f",
   "tr/index.html": "903fc12cd6ba6d5ff71411cd13672d48b0398c38df70e54b37f435f7ce4a3c60",
   "404.html": "7beeadba2b9c186f07053f9cffde1a46de726ba1a6d165c9224189fd9ed88200",
-  "sitemap.xml": "ebeda2e218d7ddd6751cca7cfafe754575e0d1a2b60a4b2925e5657d6b1cfe1e",
+  "sitemap.xml": "e76a9d5d50845fbf190cd934f8527368861b2e0cb6a442da44a6d0aa8df8b023",
   "llms.txt": "001fad65364fef111475b284facd760455f0ae2b9d0fcc1a56b11d9a7dc60e6c"
  },
  "lastmod": {
-  "index.html": "2026-09-29",
+  "index.html": "2026-10-03",
   "es/index.html": "2026-09-29",
   "ko/index.html": "2026-09-29",
-  "zh/index.html": "2026-09-29",
+  "zh/index.html": "2026-10-03",
   "ru/index.html": "2026-09-29",
   "tr/index.html": "2026-09-29"
  },

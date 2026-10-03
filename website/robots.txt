@@ -3,3 +3,6 @@ Allow: /
 
 Sitemap: https://genswarms.com/sitemap.xml
 Sitemap: https://genswarms.com/docs/sitemap.xml
+
+# Daum webmaster ownership (re-checked; registration resets after 24 months: renew it, keep this line)
+#DaumWebMasterTool:3c4e668954d3a6a77e8fe609413b4008c4b10a83860d9084d2ded9a32ce2d008:Wz/rfTo9osfCpgVJS36Djg==

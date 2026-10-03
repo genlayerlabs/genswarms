@@ -55,6 +55,14 @@ const CJK_CSS = `${TITLES}{letter-spacing:0}h1{line-height:1.14}.step h2,.close 
 // the comparison table: words stay whole (hyphenating split "agen-te", "Lang-Smith", "Gen-Swarms"); a word longer
 // than its column still breaks
 const TABLE = `.cmp th,.cmp td{overflow-wrap:break-word}`;
+// Search-engine ownership tokens (public by design; the engines re-check them, so never remove one). Read on the
+// home page only: they go on the English root, the address every engine registered.
+const VERIFY = [
+  ['google-site-verification', 'CJFNLAV8IRvef7Kscm938Wf155OZRpV4ZgTFHwU_Y54'],
+  ['msvalidate.01', 'C324D5BD33F0F9834F2E293190961E7F'],
+  ['yandex-verification', '1ebc073be9023f14'],
+  ['naver-site-verification', '348ffab166ec7c43083ebaa3eeae4b64885a6cc0'],
+];
 export const TYPE = {
   // the Spanish hero is one phrase longer ("fuerza laboral de IA"): a size down on desktop keeps it to four lines, not six
   es: { fonts: [FONTS_ALL], css: `${TABLE}@media (min-height:640px){.cine h1{font-size:clamp(34px,min(3.7vw,7.4vh),54px)}}` },
@@ -178,7 +186,7 @@ export function renderPage({ lang: code = 'en', langs = null, bar = null, ogImag
 <title>${escText(title)}</title>
 <meta name="description" content="${escAttr(desc)}">
 <link rel="canonical" href="${url}">${hreflang}
-<meta http-equiv="content-language" content="${code}">
+<meta http-equiv="content-language" content="${code}">${code === 'zh-Hans' ? '\n<meta name="applicable-device" content="pc,mobile">' : ''}
 <meta name="theme-color" content="#0D0E10">
 <meta property="og:type" content="website"><meta property="og:locale" content="${cur.og}">
 <meta property="og:title" content="${escAttr(title)}">
@@ -186,7 +194,7 @@ export function renderPage({ lang: code = 'en', langs = null, bar = null, ogImag
 <meta property="og:url" content="${url}"><meta property="og:image" content="${ORIGIN}${ogImage}">
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="${escAttr(title)}">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/favicon-32.png" sizes="32x32"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+${code === 'en' ? VERIFY.map(([n, v]) => `<meta name="${n}" content="${v}">`).join('') + '\n' : ''}<link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/favicon-32.png" sizes="32x32"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <script type="application/ld+json">${json(ld)}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

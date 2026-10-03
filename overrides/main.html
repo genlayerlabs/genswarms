@@ -2,6 +2,9 @@
 
 {% block extrahead %}
   {{ super() }}
+  {#- the docs are English only: say so to Bing and Baidu (content-language) and to share previews (og:locale) #}
+  <meta http-equiv="content-language" content="en">
+  <meta property="og:locale" content="en_US">
   {%- if page %}
   <script type="application/ld+json">
   {
