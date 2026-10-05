@@ -116,7 +116,7 @@ The `--example` filter matches a path *segment*, so it works against the
 directory name. For instance, `--example tic-tac-toe` selects
 `examples/tic-tac-toe/tic_tac_toe_swarm.exs` because the path contains
 `/tic-tac-toe/`. The bundled example directories are: `bridge`, `bwrap-skills`,
-`dynamic-swarm`, `massive-swarm`, `party`, and `tic-tac-toe`.
+`dynamic-swarm`, `jev-cron`, `massive-swarm`, `party`, and `tic-tac-toe`.
 
 ### Output
 

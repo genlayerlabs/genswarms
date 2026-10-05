@@ -153,6 +153,7 @@ API Server (Phoenix)                 Daemon Process (genswarms start)
 | `SSHBackend` | `lib/genswarms/backends/ssh_backend.ex` | SSH remote execution |
 | `ObjectHandler` | `lib/genswarms/objects/object_handler.ex` | Behaviour for custom objects |
 | `ObjectServer` | `lib/genswarms/objects/object_server.ex` | GenServer wrapper for object handlers (supports :send_many) |
+| `JevCron` | `lib/genswarms/objects/jev_cron/jev_cron.ex` | Built-in object: on a timer/message, Jev (`/v1/decisions`) picks one configured action (templated sends, memory changes) |
 | `LogWatcher` | `lib/genswarms/agents/log_watcher.ex` | Polls agent logs + .outbox/ for message routing |
 | `BwrapBackend` | `lib/genswarms/backends/bwrap_backend.ex` | Bubblewrap sandbox backend |
 | `TmuxBackend` | `lib/genswarms/backends/tmux_backend.ex` | Persistent Codex/Claude/OpenCode TUI panes with host, per-agent Docker, or per-agent bwrap runners |
@@ -365,6 +366,8 @@ already ends in the template name, otherwise the replica name is appended).
 | `SUBZEROCLAW_MODEL` | Default model (e.g., `anthropic/claude-sonnet-4`) |
 | `SUBZEROCLAW_PATH` | Path to subzeroclaw binary |
 | `SUBZEROCLAW_MOCK_SCRIPT` | Path to mock script JSON (skips LLM API calls, passed through to bwrap) |
+| `GENSWARMS_JEV_ENDPOINT` | Router base URL for `JevCron` decisions (`/v1/decisions`) |
+| `GENSWARMS_JEV_API_KEY` | Bearer key for `JevCron` decisions (never in config) |
 | `SECRET_KEY_BASE` | Phoenix secret (production) |
 | `PORT` | HTTP port (default: 4000) |
 | `SWARM_TOPOLOGY` | (Container only) Comma-separated list of connected targets for `swarm-msg list` |

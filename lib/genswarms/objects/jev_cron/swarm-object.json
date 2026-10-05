@@ -1,0 +1,22 @@
+{
+  "module": "Genswarms.Objects.JevCron",
+  "note": "Built-in jev-cron: a timer/message trigger whose action is chosen by a Jev decision model. The endpoint is deliberately not mutable.",
+  "config_schema": {
+    "type": "object",
+    "properties": {
+      "every": {"type": ["string", "integer"], "x-mutable": true, "description": "Timer period: milliseconds or \"30s\", \"5m\", \"1h\", \"1d\" (minimum 1s). Omit for message-only."},
+      "on_message": {"type": "boolean", "x-mutable": true, "description": "Trigger a decision on every received message (default true)."},
+      "run_at_start": {"type": "boolean", "x-mutable": true, "description": "Decide once right after start (default false)."},
+      "instructions": {"type": "string", "x-mutable": true, "description": "The question Jev answers."},
+      "context": {"x-mutable": true, "description": "Static JSON context included in the decision state."},
+      "actions": {"type": "array", "x-mutable": true, "description": "2..32 actions: {id, when, send?: {to, text} | [...], remember?: {}, forget?: []}."},
+      "fallback": {"type": "string", "x-mutable": true, "description": "Action id applied when confidence < min_confidence (omit: do nothing)."},
+      "min_confidence": {"type": "number", "x-mutable": true, "description": "0..1, default 0."},
+      "history": {"type": "integer", "x-mutable": true, "description": "Recent decisions included in the state (0..50, default 5)."},
+      "timeout_ms": {"type": "integer", "x-mutable": true, "description": "Decision timeout (1000..120000, default 30000)."},
+      "budget_usd_per_day": {"type": "number", "x-mutable": true, "description": "Stop deciding for the rest of the UTC day once reached."},
+      "policy_ir": {"x-mutable": true, "description": "Router policy selecting the decision model (passed through to /v1/decisions)."},
+      "endpoint": {"type": "string", "description": "Router base URL; must be GENSWARMS_JEV_ENDPOINT or an allowlisted host. Not mutable."}
+    }
+  }
+}

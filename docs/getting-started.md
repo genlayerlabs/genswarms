@@ -179,6 +179,8 @@ Set these in `.env` (or your shell). Only `SUBZEROCLAW_API_KEY` is required to r
 | `SUBZEROCLAW_SRC` | Source directory mounted/built into Docker and Apple container agents | `../subzeroclaw` |
 | `SUBZEROCLAW_MOCK_SCRIPT` | Path to a mock script JSON; passed through to the bwrap sandbox so the agent returns canned responses instead of calling the LLM | - |
 | `SUBZEROCLAW_RECORD_SCRIPT` | Path passed through to the bwrap sandbox to record agent interactions for later mock replay | - |
+| `GENSWARMS_JEV_ENDPOINT` | Router base URL for [jev-cron](objects.md#jev-cron) decisions (`/v1/decisions`) | - |
+| `GENSWARMS_JEV_API_KEY` | Bearer key for jev-cron decisions; never part of a swarm config | - |
 | `SWARM_DATA_DIR` | Swarm data directory (`:swarm_data_dir` app config) | `~/.subzeroclaw/swarms` |
 | `SKILLS_DIR` | Skills directory (`:skills_dir` app config) | `priv/skills` |
 | `SWARM_TOPOLOGY` | (Container only) comma-separated targets for `swarm-msg list`; set automatically per agent | Auto-set |

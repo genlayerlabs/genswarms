@@ -128,5 +128,14 @@ defmodule Genswarms.Objects.ObjectHandler do
   """
   @callback terminate(reason :: term(), state :: term()) :: :ok
 
-  @optional_callbacks [terminate: 2, handle_info: 2, handle_agent_reply: 4]
+  @doc """
+  Validates the object's config before the swarm starts.
+
+  Optional. When exported, `SwarmConfig` calls it during config validation
+  (`genswarms config validate`, swarm start), so a config `init/1` would
+  reject fails early with `{:invalid_object_config, name, reason}`.
+  """
+  @callback validate_config(config :: map()) :: {:ok, term()} | {:error, reason :: term()}
+
+  @optional_callbacks [terminate: 2, handle_info: 2, handle_agent_reply: 4, validate_config: 1]
 end

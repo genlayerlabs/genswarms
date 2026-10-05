@@ -574,7 +574,7 @@ defmodule Genswarms.Config.SwarmConfig do
     # Verify handler module exists and implements the behaviour
     if Code.ensure_loaded?(handler) do
       if function_exported?(handler, :init, 1) and function_exported?(handler, :handle_message, 3) do
-        {:ok, object}
+        validate_object_config(handler, object)
       else
         {:error, {:invalid_handler, handler, "must implement init/1 and handle_message/3"}}
       end
@@ -612,6 +612,19 @@ defmodule Genswarms.Config.SwarmConfig do
   end
 
   defp validate_object(_), do: {:error, :invalid_object_config}
+
+  # Handlers may validate their own config up front (optional
+  # `validate_config/1`), so `config validate` catches what init/1 would reject.
+  defp validate_object_config(handler, object) do
+    if function_exported?(handler, :validate_config, 1) do
+      case handler.validate_config(Map.get(object, :config, %{})) do
+        {:ok, _} -> {:ok, object}
+        {:error, reason} -> {:error, {:invalid_object_config, object.name, reason}}
+      end
+    else
+      {:ok, object}
+    end
+  end
 
   defp normalize_name(name) when is_atom(name), do: name
   defp normalize_name(name) when is_binary(name), do: String.to_atom(name)

@@ -52,6 +52,7 @@ end
 | `interface()` | yes | Return a schema describing the object's actions (introspection). |
 | `handle_info(msg, state)` | no | Handle process messages such as timers. |
 | `terminate(reason, state)` | no | Cleanup when the object stops. |
+| `validate_config(config)` | no | Reject a bad config at validation time (`genswarms config validate`, swarm start) instead of at `init/1`. |
 
 `handle_info/2` and `terminate/2` are the only optional callbacks — the
 behaviour declares `@optional_callbacks [terminate: 2, handle_info: 2]`. The
@@ -334,6 +335,89 @@ objects: [
 ```
 
 See [configuration.md](configuration.md) for the full configuration DSL.
+
+## Jev-cron
+
+`Genswarms.Objects.JevCron` is a built-in object that answers a closed question
+on a timer and/or on every message it receives. It asks a **Jev** decision model
+(the unhardcoded router's `/v1/decisions`) to choose **one action out of a fixed
+catalogue**, then applies that action deterministically. Jev never writes text:
+it returns one probability per action id, and everything the object sends comes
+from your templates. A decision costs about $0.00002 and takes about 1 s, so a
+jev-cron is a cheap gate in front of expensive LLM agents.
+
+```elixir
+objects: [
+  %{
+    name: :watch,
+    handler: Genswarms.Objects.JevCron,
+    config: %{
+      every: "10m",
+      instructions: "Decide whether the coder must act now.",
+      context: %{service: "api"},
+      actions: [
+        %{id: "nothing", when: "Routine or already handled"},
+        %{id: "wake", when: "Something is broken and needs a code fix",
+          send: %{to: :coder, text: "Please fix: {{message}}"},
+          remember: %{"last_issue" => "{{message}}"}},
+        %{id: "clear", when: "A flagged problem is resolved", forget: ["last_issue"]}
+      ],
+      min_confidence: 0.6,
+      fallback: "nothing"
+    }
+  }
+],
+topology: [{:watch, :coder}, {:coder, :watch}]
+```
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `every` | none | Timer period: ms, or `"30s"`, `"5m"`, `"1h"`, `"1d"` (minimum 1 s). Omit for message-only. |
+| `on_message` | `true` | Decide on every message routed to the object. |
+| `run_at_start` | `false` | Decide once right after the object starts. |
+| `instructions` | required | The question Jev answers. |
+| `actions` | required | 2–32 actions, each `%{id, when}` plus optional `send` (`%{to, text}` or a list), `remember` (map merged into memory) and `forget` (keys dropped from memory). `when` is the label Jev scores. |
+| `min_confidence` | `0.0` | Below it, `fallback` applies instead of the top action. |
+| `fallback` | none | Action id used on low confidence. With no fallback, nothing happens. |
+| `context` | none | Static JSON included in every decision state. |
+| `history` | `5` | Recent decisions included in the state (0–50). |
+| `policy_ir` | none | Router policy that selects the decision model, passed through unchanged. |
+| `budget_usd_per_day` | none | Once the router-reported cost reaches this, decisions stop for the rest of the UTC day. |
+| `timeout_ms` | `30000` | Decision timeout. |
+| `endpoint` | env | Router base URL; see below. |
+
+**Decision state.** Jev sees `now`, `trigger` (`"timer"` or `"message"`), `from`
+and `message` (for messages), `context`, the object's `memory`, and `recent`
+decisions. `remember`/`forget` change the memory, so each decision can depend
+on what earlier ones did.
+
+**Templates.** `send.text` and string `remember` values can use `{{message}}`,
+`{{from}}`, `{{trigger}}`, `{{now}}`, `{{action}}`, `{{confidence}}`,
+`{{memory}}` and `{{memory.KEY}}`.
+
+**Concurrency.** Only one decision is in flight at a time. Messages that arrive
+meanwhile wait in a queue (the oldest is dropped beyond 20), and a timer tick
+that fires during a decision is skipped. Router errors and malformed answers
+trigger no action and are logged as `jev_error`.
+
+**Endpoint and key.** The router base URL comes from `GENSWARMS_JEV_ENDPOINT`;
+the bearer key comes from `GENSWARMS_JEV_API_KEY` and is never part of the
+config. A per-object `endpoint` is accepted only if it equals the env endpoint
+or its host is listed in `GENSWARMS_ALLOWED_ENDPOINTS`; otherwise the object
+fails to start. Requests go through `curl`, with the key in a private
+temporary file rather than in argv.
+
+**Observability.** Each decision is a `jev_decision` event with the trigger,
+the top and applied action, the confidence, the full distribution, the targets
+sent to, the model, the latency and the cost. Query them with
+`genswarms events -s <swarm>`, `GET /api/swarms/:name/events`, or the
+genswarms-fleet MCP.
+
+**Validation and live tuning.** `genswarms config validate` checks a jev-cron
+config before start. Every key except `endpoint` is `x-mutable`, so you can
+retune a running jev-cron with `PATCH /api/swarms/:name/objects/:object/config`;
+the object restarts with the merged config. See
+[`examples/jev-cron`](https://github.com/genlayerlabs/genswarms/tree/main/examples/jev-cron).
 
 ## System objects
 
