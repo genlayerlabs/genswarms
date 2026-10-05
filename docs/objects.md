@@ -54,9 +54,9 @@ end
 | `terminate(reason, state)` | no | Cleanup when the object stops. |
 | `validate_config(config)` | no | Reject a bad config at validation time (`genswarms config validate`, swarm start) instead of at `init/1`. |
 
-`handle_info/2` and `terminate/2` are the only optional callbacks — the
-behaviour declares `@optional_callbacks [terminate: 2, handle_info: 2]`. The
-`ObjectServer` checks at runtime (with `function_exported?/3`) whether the
+`handle_info/2`, `terminate/2`, `handle_agent_reply/4` and `validate_config/1` are
+optional — the behaviour declares them in `@optional_callbacks`. The
+`ObjectServer` (and `SwarmConfig`, for `validate_config/1`) checks at runtime (with `function_exported?/3`) whether the
 handler exports them before calling them, so you only implement them if you
 need them.
 
