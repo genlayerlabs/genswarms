@@ -127,5 +127,24 @@ defmodule Genswarms.Config.LoaderTest do
     test "returns error for non-existent file" do
       assert {:error, {:file_not_found, _}} = Loader.load("/nonexistent/path.exs")
     end
+
+    test "preserves opaque runtime structs in trusted Elixir config" do
+      path =
+        Path.join(System.tmp_dir!(), "loader_struct_#{System.unique_integer([:positive])}.exs")
+
+      File.write!(path, """
+      %{
+        name: "test-swarm",
+        agents: [%{name: :agent1, backend: :local}],
+        topology: [],
+        options: %{opaque: %URI{scheme: "https", host: "example.com"}}
+      }
+      """)
+
+      on_exit(fn -> File.rm(path) end)
+
+      assert {:ok, config} = Loader.load(path)
+      assert %URI{scheme: "https", host: "example.com"} = config.options.opaque
+    end
   end
 end

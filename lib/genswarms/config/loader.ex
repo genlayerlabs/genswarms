@@ -155,6 +155,8 @@ defmodule Genswarms.Config.Loader do
 
   defp atomize_keys(value), do: value
 
+  defp deep_atomize_keys(%_{} = struct), do: struct
+
   defp deep_atomize_keys(map) when is_map(map) do
     Map.new(map, fn
       {k, v} when is_binary(k) -> {String.to_atom(k), deep_atomize_keys(v)}
