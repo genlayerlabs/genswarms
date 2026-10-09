@@ -1,0 +1,20 @@
+{
+  "name": "genswarms",
+  "interface": {
+    "displayName": "GenSwarms"
+  },
+  "plugins": [
+    {
+      "name": "genswarms",
+      "source": {
+        "source": "local",
+        "path": "./plugins/genswarms"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "genswarms",
+  "version": "0.1.0",
+  "description": "Operate and extend GenSwarms, the Elixir/OTP runtime for directed swarms of subzeroclaw agents.",
+  "author": {
+    "name": "GenLayer Labs",
+    "url": "https://github.com/genlayerlabs"
+  },
+  "homepage": "https://genswarms.com",
+  "repository": "https://github.com/genlayerlabs/genswarms",
+  "license": "MIT",
+  "skills": "./skills/"
+}
