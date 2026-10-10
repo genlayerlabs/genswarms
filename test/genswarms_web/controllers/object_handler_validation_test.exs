@@ -22,7 +22,12 @@ defmodule GenswarmsWeb.ObjectHandlerValidationTest do
   end
 
   defp add_object(handler) do
-    params = %{"swarm_name" => "__no_such_swarm__", "name" => "obj", "handler" => handler}
+    params = %{
+      "swarm_name" => "__no_such_swarm__",
+      "name" => Atom.to_string(:obj),
+      "handler" => handler
+    }
+
     build_conn() |> SwarmController.add_object(params)
   end
 

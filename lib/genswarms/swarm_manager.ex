@@ -13,6 +13,7 @@ defmodule Genswarms.SwarmManager do
   require Logger
 
   alias Genswarms.Agents.{AgentSupervisor, AgentServer}
+  alias Genswarms.Backends.DockerBackend
   alias Genswarms.Observability.LogStore
   alias Genswarms.Config.{Loader, SwarmConfig}
   alias Genswarms.Objects.ObjectSupervisor
@@ -91,7 +92,7 @@ defmodule Genswarms.SwarmManager do
   """
   @spec send_task(String.t(), atom() | String.t(), String.t()) :: :ok | {:error, term()}
   def send_task(swarm_name, agent_name, task) do
-    agent_name = if is_binary(agent_name), do: String.to_atom(agent_name), else: agent_name
+    agent_name = normalize_name(agent_name)
     AgentServer.send_task(swarm_name, agent_name, task)
   end
 
@@ -236,7 +237,12 @@ defmodule Genswarms.SwarmManager do
   end
 
   defp normalize_name(name) when is_atom(name), do: name
-  defp normalize_name(name) when is_binary(name), do: String.to_atom(name)
+
+  defp normalize_name(name) when is_binary(name) do
+    String.to_existing_atom(name)
+  rescue
+    ArgumentError -> name
+  end
 
   @doc """
   Returns the effective in-memory SwarmConfig for a swarm (seed ⊕ overlay).
@@ -896,17 +902,8 @@ defmodule Genswarms.SwarmManager do
   end
 
   defp do_pause_containers(swarm_name) do
-    prefix = "szc-#{swarm_name}-"
-
-    case System.cmd("docker", ["ps", "--filter", "name=#{prefix}", "--format", "{{.Names}}"],
-           stderr_to_stdout: true
-         ) do
-      {output, 0} ->
-        containers =
-          output
-          |> String.split("\n", trim: true)
-          |> Enum.filter(&String.starts_with?(&1, prefix))
-
+    case DockerBackend.swarm_containers(swarm_name, :running) do
+      {:ok, containers} ->
         if containers == [] do
           {:ok, 0}
         else
@@ -921,33 +918,14 @@ defmodule Genswarms.SwarmManager do
           {:ok, Enum.count(results, &(&1 == :ok))}
         end
 
-      {err, _} ->
+      {:error, err} ->
         {:error, err}
     end
   end
 
   defp do_resume_containers(swarm_name) do
-    prefix = "szc-#{swarm_name}-"
-
-    case System.cmd(
-           "docker",
-           [
-             "ps",
-             "--filter",
-             "name=#{prefix}",
-             "--filter",
-             "status=paused",
-             "--format",
-             "{{.Names}}"
-           ],
-           stderr_to_stdout: true
-         ) do
-      {output, 0} ->
-        containers =
-          output
-          |> String.split("\n", trim: true)
-          |> Enum.filter(&String.starts_with?(&1, prefix))
-
+    case DockerBackend.swarm_containers(swarm_name, :paused) do
+      {:ok, containers} ->
         if containers == [] do
           {:ok, 0}
         else
@@ -962,7 +940,7 @@ defmodule Genswarms.SwarmManager do
           {:ok, Enum.count(results, &(&1 == :ok))}
         end
 
-      {err, _} ->
+      {:error, err} ->
         {:error, err}
     end
   end
@@ -1531,7 +1509,7 @@ defmodule Genswarms.SwarmManager do
   defp spec_has_name?(spec, name) do
     case Map.get(spec, :name) do
       ^name -> true
-      n when is_binary(n) -> String.to_atom(n) == name
+      n when is_binary(n) -> n == to_string(name)
       _ -> false
     end
   end
@@ -1540,7 +1518,7 @@ defmodule Genswarms.SwarmManager do
 
   defp find_template_spec(agents, base_name) do
     # Prefer `base_name_1`, fall back to `base_name`, fall back to any `base_name_*`
-    Enum.find(agents, &spec_has_name?(&1, :"#{base_name}_1")) ||
+    Enum.find(agents, &(to_string(&1.name) == "#{base_name}_1")) ||
       Enum.find(agents, &spec_has_name?(&1, base_name)) ||
       Enum.find(agents, fn spec ->
         n = Map.get(spec, :name) |> to_string()
@@ -1662,27 +1640,8 @@ defmodule Genswarms.SwarmManager do
   end
 
   defp check_containers_paused(swarm_name) do
-    prefix = "szc-#{swarm_name}-"
-
-    case System.cmd(
-           "docker",
-           [
-             "ps",
-             "--filter",
-             "name=#{prefix}",
-             "--filter",
-             "status=paused",
-             "--format",
-             "{{.Names}}"
-           ],
-           stderr_to_stdout: true
-         ) do
-      {output, 0} ->
-        containers =
-          output
-          |> String.split("\n", trim: true)
-          |> Enum.filter(&String.starts_with?(&1, prefix))
-
+    case DockerBackend.swarm_containers(swarm_name, :paused) do
+      {:ok, containers} ->
         length(containers) > 0
 
       _ ->

@@ -537,7 +537,7 @@ defmodule Mix.Tasks.Genswarms.Status do
 
   use Mix.Task
 
-  alias Genswarms.CLI.{Output, SwarmRegistry}
+  alias Genswarms.CLI.{Output, SwarmRegistry, EnvManager}
 
   @impl Mix.Task
   def run(args) do
@@ -550,7 +550,7 @@ defmodule Mix.Tasks.Genswarms.Status do
     if opts[:help] do
       Mix.shell().info(@moduledoc)
     else
-      load_env()
+      EnvManager.load_for_cli()
       SwarmRegistry.init()
       SwarmRegistry.cleanup_stale()
 
@@ -559,15 +559,6 @@ defmodule Mix.Tasks.Genswarms.Status do
         [swarm_name] -> show_swarm_detail(swarm_name)
         _ -> Output.error("Usage: mix swarm status [swarm_name]")
       end
-    end
-  end
-
-  defp load_env do
-    alias Genswarms.CLI.EnvManager
-
-    case EnvManager.auto_load() do
-      {:ok, path} -> IO.puts("[Genswarms] Loaded environment from #{path}")
-      {:error, :not_found} -> :ok
     end
   end
 
@@ -889,12 +880,12 @@ defmodule Mix.Tasks.Genswarms.Task do
 
   use Mix.Task
 
-  alias Genswarms.CLI.{Output, APIClient, SwarmRegistry}
+  alias Genswarms.CLI.{Output, APIClient, SwarmRegistry, EnvManager}
 
   @impl Mix.Task
   def run([swarm_name, agent_name, task]) do
     # Only need SQLite for task queueing, not full app
-    load_env()
+    EnvManager.load_for_cli()
     SwarmRegistry.init()
 
     # Check if server is running (uses httpc, not full app)
@@ -912,15 +903,6 @@ defmodule Mix.Tasks.Genswarms.Task do
 
   def run(_) do
     Output.error("Usage: mix swarm task <swarm_name> <agent_name> <task>")
-  end
-
-  defp load_env do
-    alias Genswarms.CLI.EnvManager
-
-    case EnvManager.auto_load() do
-      {:ok, path} -> IO.puts("[Genswarms] Loaded environment from #{path}")
-      {:error, :not_found} -> :ok
-    end
   end
 
   defp send_via_api(swarm_name, agent_name, task) do

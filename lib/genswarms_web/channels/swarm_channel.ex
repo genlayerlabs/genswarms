@@ -99,7 +99,7 @@ defmodule GenswarmsWeb.SwarmChannel do
     # in other BEAMs are visible too — the live stream then arrives via EventRelay).
     recent_logs =
       if agent do
-        EventStore.query(swarm: swarm_name, agent: String.to_atom(agent), limit: 50)
+        EventStore.query(swarm: swarm_name, agent: agent, limit: 50)
       else
         EventStore.query(swarm: swarm_name, limit: 50)
       end
@@ -242,7 +242,7 @@ defmodule GenswarmsWeb.SwarmChannel do
     log_subs = socket.assigns.log_subscriptions
 
     Enum.any?(log_subs, fn {agent, _topic} ->
-      is_nil(agent) or event.agent == String.to_atom(agent)
+      is_nil(agent) or to_string(event.agent) == agent
     end)
   end
 
@@ -257,9 +257,9 @@ defmodule GenswarmsWeb.SwarmChannel do
   defp matches_filters?(event, filters) do
     Enum.all?(filters, fn {key, value} ->
       case key do
-        "level" -> event.level == String.to_atom(value)
-        "category" -> event.category == String.to_atom(value)
-        "event_type" -> event.event_type == String.to_atom(value)
+        "level" -> to_string(event.level) == value
+        "category" -> to_string(event.category) == value
+        "event_type" -> to_string(event.event_type) == value
         _ -> true
       end
     end)
@@ -268,7 +268,7 @@ defmodule GenswarmsWeb.SwarmChannel do
   defp maybe_add_filter(opts, filters, key, opt_key) do
     case Map.get(filters, key) do
       nil -> opts
-      value -> Keyword.put(opts, opt_key, String.to_atom(value))
+      value -> Keyword.put(opts, opt_key, value)
     end
   end
 

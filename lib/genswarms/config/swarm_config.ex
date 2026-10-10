@@ -183,7 +183,9 @@ defmodule Genswarms.Config.SwarmConfig do
   Parses and validates a swarm configuration map.
   """
   @spec parse(map()) :: {:ok, t()} | {:error, term()}
-  def parse(config) when is_map(config) do
+  def parse(config), do: parse_with_names(config, &normalize_name/1)
+
+  defp parse_with_names(config, normalize) when is_map(config) do
     with {:ok, name} <- validate_name(config),
          {:ok, agents} <- validate_agents(config),
          {:ok, objects} <- validate_objects(config),
@@ -192,9 +194,9 @@ defmodule Genswarms.Config.SwarmConfig do
       {:ok,
        %__MODULE__{
          name: name,
-         agents: normalize_agents(agents),
-         objects: normalize_objects(objects),
-         topology: normalize_topology(topology),
+         agents: normalize_agents(agents, normalize),
+         objects: normalize_objects(objects, normalize),
+         topology: normalize_topology(topology, normalize),
          skills_base_dir: Map.get(config, :skills_base_dir),
          created_at: DateTime.utc_now(),
          options: options
@@ -202,7 +204,49 @@ defmodule Genswarms.Config.SwarmConfig do
     end
   end
 
-  def parse(_), do: {:error, :invalid_config_format}
+  defp parse_with_names(_, _), do: {:error, :invalid_config_format}
+
+  @doc "Validates a request before admitting its declared names under the VM name policy."
+  def parse_request(config, opts \\ []) do
+    with {:ok, validated} <- parse_with_names(config, &Function.identity/1),
+         :ok <-
+           Genswarms.Config.RequestNames.admit(
+             Enum.map(validated.agents ++ validated.objects, & &1.name),
+             opts
+           ) do
+      if Keyword.get(opts, :allocate, true), do: parse_existing(validated), else: {:ok, validated}
+    end
+  rescue
+    _ -> {:error, :invalid_config_format}
+  end
+
+  @doc "Parses request configuration using existing node names only. Local files may declare new names."
+  def parse_existing(config) when is_map(config) do
+    config
+    |> Map.update(:agents, nil, &existing_specs/1)
+    |> Map.update(:objects, [], &existing_specs/1)
+    |> Map.update(
+      :topology,
+      [],
+      &Enum.map(&1, fn
+        {from, to} -> {existing_name!(from), existing_name!(to)}
+        edge -> edge
+      end)
+    )
+    |> parse()
+  rescue
+    ArgumentError -> {:error, :unknown_name}
+    _ -> {:error, :invalid_config_format}
+  end
+
+  def parse_existing(_), do: {:error, :invalid_config_format}
+
+  defp existing_specs(specs) do
+    Enum.map(specs, fn spec -> Map.update!(spec, :name, &existing_name!/1) end)
+  end
+
+  defp existing_name!(name) when is_atom(name), do: name
+  defp existing_name!(name) when is_binary(name), do: String.to_existing_atom(name)
 
   @doc """
   Builds an adjacency map from the topology edges.
@@ -510,8 +554,8 @@ defmodule Genswarms.Config.SwarmConfig do
 
   defp validate_topology(%{topology: topology}, agents, objects) when is_list(topology) do
     # Combine agent and object names for topology validation
-    agent_names = Enum.map(agents, fn %{name: name} -> normalize_name(name) end) |> MapSet.new()
-    object_names = Enum.map(objects, fn %{name: name} -> normalize_name(name) end) |> MapSet.new()
+    agent_names = Enum.map(agents, fn %{name: name} -> to_string(name) end) |> MapSet.new()
+    object_names = Enum.map(objects, fn %{name: name} -> to_string(name) end) |> MapSet.new()
     all_names = MapSet.union(agent_names, object_names)
 
     errors =
@@ -534,8 +578,8 @@ defmodule Genswarms.Config.SwarmConfig do
 
   defp validate_edge({from, to}, agent_names, _idx)
        when (is_atom(from) or is_binary(from)) and (is_atom(to) or is_binary(to)) do
-    from_name = normalize_name(from)
-    to_name = normalize_name(to)
+    from_name = to_string(from)
+    to_name = to_string(to)
 
     cond do
       not MapSet.member?(agent_names, from_name) ->
@@ -629,24 +673,24 @@ defmodule Genswarms.Config.SwarmConfig do
   defp normalize_name(name) when is_atom(name), do: name
   defp normalize_name(name) when is_binary(name), do: String.to_atom(name)
 
-  defp normalize_agents(agents) do
+  defp normalize_agents(agents, normalize) do
     Enum.map(agents, fn agent ->
       agent
-      |> Map.update!(:name, &normalize_name/1)
+      |> Map.update!(:name, normalize)
       # Default to bwrap for 10k+ scale
       |> Map.put_new(:backend, :bwrap)
     end)
   end
 
-  defp normalize_topology(topology) do
+  defp normalize_topology(topology, normalize) do
     Enum.map(topology, fn {from, to} ->
-      {normalize_name(from), normalize_name(to)}
+      {normalize.(from), normalize.(to)}
     end)
   end
 
-  defp normalize_objects(objects) do
+  defp normalize_objects(objects, normalize) do
     Enum.map(objects, fn object ->
-      Map.update!(object, :name, &normalize_name/1)
+      Map.update!(object, :name, normalize)
     end)
   end
 end

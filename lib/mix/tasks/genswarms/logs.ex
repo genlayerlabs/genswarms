@@ -83,7 +83,7 @@ defmodule Mix.Tasks.Genswarms.Logs do
       if opts[:follow] do
         {:ok, _} = Application.ensure_all_started(:genswarms)
       else
-        load_env()
+        EnvManager.load_for_cli()
         SwarmRegistry.init()
       end
 
@@ -342,11 +342,4 @@ defmodule Mix.Tasks.Genswarms.Logs do
   end
 
   defp format_timestamp(_), do: Output.colorize("[--:--:--]", :dim)
-
-  defp load_env do
-    case EnvManager.auto_load() do
-      {:ok, path} -> IO.puts("[Genswarms] Loaded environment from #{path}")
-      {:error, :not_found} -> :ok
-    end
-  end
 end

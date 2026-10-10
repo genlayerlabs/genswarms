@@ -202,7 +202,16 @@ defmodule Genswarms.CLI.SwarmRegistry do
   defp collect_task_rows(db, stmt, acc) do
     case Exqlite.Sqlite3.step(db, stmt) do
       {:row, [id, agent, task]} ->
-        row = %{id: id, agent: String.to_atom(agent), task: task}
+        # Task destinations can arrive through HTTP in a different VM. Keep
+        # unknown names as strings so a queued lookup never creates an atom.
+        agent_name =
+          try do
+            String.to_existing_atom(agent)
+          rescue
+            ArgumentError -> agent
+          end
+
+        row = %{id: id, agent: agent_name, task: task}
         collect_task_rows(db, stmt, [row | acc])
 
       :done ->

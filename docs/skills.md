@@ -6,10 +6,11 @@ description: Author per-agent skills in GenSwarms — plain markdown instruction
 
 Skills are markdown files that define an agent's role, capabilities, and behavior. Each agent is assigned a list of skills in its config; when the agent starts, those files are copied into the agent's own skills directory with template variables resolved per agent.
 
-Two components are involved:
+The main components are:
 
-- `Genswarms.Skills.SkillsManager` — a GenServer that loads the skills repository (`priv/skills` by default) into an ETS cache on startup and serves skill content over the REST API.
+- `Genswarms.Skills.SkillsManager` — a GenServer that loads the skills repository (`priv/skills` by default) into an ETS cache on startup for CLI listing and explicit reloads.
 - `Genswarms.Agents.AgentServer` — at agent start, `prepare_skills/1` resolves each skill entry to a source path, substitutes template variables, and writes the result into the agent's per-agent skills directory.
+- `GenswarmsWeb.SkillsController` — lists and reads repository files directly from disk for the REST API.
 
 ## What a skill is
 
@@ -127,7 +128,7 @@ EOF
 Genswarms.Skills.SkillsManager.reload_skills()
 ```
 
-Note that this refreshes the repository cache used by the REST API; agents copy their skills at start, so already-running agents keep the skill files they were deployed with until they restart.
+This refreshes the cached repository listing used by the CLI. The REST API reads repository files directly from disk. Agents copy their skills at start, so already-running agents keep their deployed files until they restart.
 
 ## Per-agent workspaces
 
@@ -167,7 +168,7 @@ whole pool.
 
 ## Skills over the REST API
 
-`SkillsManager` (the repository) and the per-agent skills directories are exposed through the API. See [rest-api.md](rest-api.md) for full request/response details.
+The API exposes repository files and the per-agent skills directories. See [rest-api.md](rest-api.md) for full request/response details.
 
 | Method | Path | Description |
 |--------|------|-------------|

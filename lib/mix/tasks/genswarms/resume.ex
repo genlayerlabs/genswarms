@@ -12,6 +12,8 @@ defmodule Mix.Tasks.Genswarms.Resume do
 
   use Mix.Task
 
+  alias Genswarms.Backends.DockerBackend
+
   @shortdoc "Resume a paused swarm"
 
   @impl Mix.Task
@@ -25,27 +27,7 @@ defmodule Mix.Tasks.Genswarms.Resume do
 
   defp resume_swarm(swarm_name) do
     # Find all paused containers for this swarm
-    prefix = "szc-#{swarm_name}-"
-
-    {output, 0} =
-      System.cmd(
-        "docker",
-        [
-          "ps",
-          "--filter",
-          "name=#{prefix}",
-          "--filter",
-          "status=paused",
-          "--format",
-          "{{.Names}}"
-        ],
-        stderr_to_stdout: true
-      )
-
-    containers =
-      output
-      |> String.split("\n", trim: true)
-      |> Enum.filter(&String.starts_with?(&1, prefix))
+    {:ok, containers} = DockerBackend.swarm_containers(swarm_name, :paused)
 
     if containers == [] do
       Mix.shell().info("No paused containers found")

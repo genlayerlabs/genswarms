@@ -34,6 +34,50 @@ does not turn an authorized executable choice into a sandbox.
     set `GENSWARMS_API_TOKEN` (it is not exposed to agents) and/or run agents
     with [network isolation](#agent-network-isolation).
 
+## HTTP node-name policy
+
+Node names currently become Erlang atoms, which are never garbage-collected.
+HTTP creation therefore has two operator-selectable modes:
+
+| Setting | Default | Effect |
+|---------|---------|--------|
+| `GENSWARMS_RESTRICTED_NAMES` | `false` | `true` permits only names already present in the server VM; `false` permits bounded dynamic creation |
+| `GENSWARMS_MAX_DYNAMIC_NAMES` | `10000` | Maximum newly allocated HTTP node names over the VM's entire lifetime, shared across all swarms and callers |
+
+Embedded applications can set `config :genswarms, restricted_names: true` or
+`max_dynamic_names: 10000` instead. These settings belong to the operator, not
+to request bodies or per-swarm `options`. Boolean settings accept `true`/`false`
+or `1`/`0`; the budget must be a non-negative integer. Invalid settings reject
+admission with `invalid_name_policy` instead of disabling protection.
+
+Dynamic mode preserves creating swarms, agents, objects and replicas through
+the API. Only explicit creation admits names. Agent output, messages, lookups,
+topology edits, filters and arbitrary configuration keys never create atoms in
+either mode. Names admitted through HTTP use the identifier syntax (letter,
+then letters/digits/underscore/hyphen), at most 255 ASCII bytes.
+
+The budget counts unique newly allocated names, not live agents. Deletion,
+failed starts and process/application restarts do not refund reservations;
+only a fresh Erlang VM resets the counter. A request interrupted during
+allocation can consume its reservation even if not all names were created.
+Reusing existing names is free and still works after exhaustion. Admission is
+serialized and whole batches are checked before allocating, so concurrent
+requests and repeated create/delete cycles cannot bypass the cap. Inline config
+validation does not allocate or reserve names.
+
+The effective budget cannot exceed one quarter of the VM atom-table limit,
+even if configured higher. New allocations also stop when less than one quarter
+of the table would remain free. Admission errors are `dynamic_name_limit_reached`
+or `atom_table_capacity_low` (`400`); existing-node operations remain available.
+This bounds HTTP-created names; it does not constrain trusted local Elixir code
+or operator-controlled config files, which can still create atoms independently.
+
+Restricted mode returns `restricted_names` (`400`) for fresh names. Existing
+means an atom in **this server VM**, not necessarily an active node. Loading
+configuration in a separate CLI process does not register its names in the API
+server. An allowed operator-controlled `config_path` loaded by the server can
+declare names. Choose this mode for deployments whose node names are predefined.
+
 ## Network binding
 
 | Variable | Default | Effect |
@@ -137,8 +181,9 @@ host.
 
 ## API config-path restriction
 
-`POST /api/swarms {"config_path": "..."}` loads a server-side file. The path is
-restricted to a directory:
+`POST /api/swarms {"config_path": "..."}` and
+`POST /api/config/validate {"config_path": "..."}` load a server-side file.
+The path is restricted to a directory:
 
 | Variable | Default | Effect |
 |----------|---------|--------|
@@ -146,6 +191,12 @@ restricted to a directory:
 
 Paths that escape (absolute or `..` traversal) are rejected with `400`. The CLI
 is operator-run and unrestricted.
+
+This directory is a trust boundary: keep its files and symlink targets under
+operator control, outside agent-writable workspaces. The path guard checks
+lexical containment; it does not resolve symlinks. Local files may declare new
+node names and executable `.exs` configuration independently of the HTTP
+node-name policy above.
 
 ## Behavior changes to be aware of
 

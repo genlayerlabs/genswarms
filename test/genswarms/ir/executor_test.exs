@@ -34,6 +34,18 @@ defmodule Genswarms.IR.ExecutorTest do
 
   defp sm, do: [swarm_manager: StubSM]
 
+  test "unknown topology endpoints fail without creating atoms or applying edges" do
+    name = "edge_unknown_#{System.unique_integer([:positive])}"
+
+    for op <- [:add_edge, :remove_edge] do
+      action = {op, {"a", name}}
+      assert {:error, {^action, :unknown_name}} = Executor.apply_plan("s", [action], sm())
+      refute_receive {:add_edges, _}
+      refute_receive {:remove_edges, _}
+      assert_raise ArgumentError, fn -> String.to_existing_atom(name) end
+    end
+  end
+
   describe "ToConfig round-trips FromConfig" do
     test "provider overrides survive the config to IR round trip" do
       provider = %{

@@ -115,6 +115,16 @@ defmodule Genswarms.DynamicSwarmTest do
     assert {:ok, [:sink]} = Router.get_connections(swarm, :first)
   end
 
+  test "unknown lookup and scale names do not create atoms", %{swarm: swarm} do
+    name = "lookup_unknown_#{System.unique_integer([:positive])}"
+    assert {:error, _} = SwarmManager.remove_agent(swarm, name)
+    assert {:error, _} = SwarmManager.remove_object(swarm, name)
+    assert {:error, _} = SwarmManager.update_object_config(swarm, name, %{x: 1})
+    assert {:error, {:no_template, _}} = SwarmManager.scale_agent_group(swarm, name, 1)
+    assert_raise ArgumentError, fn -> String.to_existing_atom(name) end
+    assert_raise ArgumentError, fn -> String.to_existing_atom(name <> "_1") end
+  end
+
   test "dynamic backend tuple cannot bypass the host-path policy", %{swarm: swarm} do
     spec = %{name: :forbidden, backend: {:mock, %{extra_ro_binds: [{"/etc", "/etc"}]}}}
 

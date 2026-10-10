@@ -38,12 +38,46 @@ defmodule GenswarmsWeb.ConfigControllerTest do
     refute File.exists?(marker), "RCE: .exs request content was executed by the controller"
   end
 
+  test "request config paths outside the operator config directory are rejected" do
+    path =
+      Path.join(System.tmp_dir!(), "config_request_#{System.unique_integer([:positive])}.json")
+
+    name = "path_unknown_#{System.unique_integer([:positive])}"
+
+    File.write!(
+      path,
+      Jason.encode!(%{name: "path-test", agents: [%{name: name, backend: "mock"}]})
+    )
+
+    on_exit(fn -> File.rm(path) end)
+
+    conn = post_validate(%{"config_path" => path})
+    assert conn.status == 400
+    assert_raise ArgumentError, fn -> String.to_existing_atom(name) end
+  end
+
   test "accepts a valid JSON content config" do
     content = ~s|{"name":"n","agents":[{"name":"a","backend":"local"}],"topology":[]}|
     conn = post_validate(%{"content" => content, "format" => "json"})
 
     assert conn.status == 200
     assert %{"valid" => true} = Jason.decode!(conn.resp_body)
+  end
+
+  test "validation of fresh names does not intern them or consume the dynamic budget" do
+    before = Genswarms.Config.RequestNames.allocated()
+    name = "validate_fresh_#{System.unique_integer([:positive])}"
+    config = %{"name" => "validate-dynamic", "agents" => [%{"name" => name, "backend" => "mock"}]}
+
+    for params <- [
+          %{"config" => config},
+          %{"content" => Jason.encode!(config), "format" => "json"}
+        ] do
+      conn = post_validate(params)
+      assert conn.status == 200
+      assert_raise ArgumentError, fn -> String.to_existing_atom(name) end
+      assert Genswarms.Config.RequestNames.allocated() == before
+    end
   end
 
   test "accepts Apple container scalar backend in JSON content" do

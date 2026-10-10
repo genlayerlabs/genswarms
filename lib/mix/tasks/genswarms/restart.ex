@@ -24,7 +24,7 @@ defmodule Mix.Tasks.Genswarms.Restart do
 
   use Mix.Task
 
-  alias Genswarms.CLI.{Output, SwarmRegistry}
+  alias Genswarms.CLI.{Output, SwarmRegistry, EnvManager}
 
   @impl Mix.Task
   def run(args) do
@@ -39,7 +39,7 @@ defmodule Mix.Tasks.Genswarms.Restart do
     else
       case rest do
         [swarm_name] ->
-          load_env()
+          EnvManager.load_for_cli()
           SwarmRegistry.init()
           restart_swarm(swarm_name, opts)
 
@@ -156,15 +156,6 @@ defmodule Mix.Tasks.Genswarms.Restart do
         :error
     after
       5000 -> :error
-    end
-  end
-
-  defp load_env do
-    alias Genswarms.CLI.EnvManager
-
-    case EnvManager.auto_load() do
-      {:ok, path} -> IO.puts("[Genswarms] Loaded environment from #{path}")
-      {:error, :not_found} -> :ok
     end
   end
 end

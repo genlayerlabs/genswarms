@@ -83,7 +83,7 @@ defmodule GenswarmsWeb.EventsController do
 
     opts =
       if params["level"] do
-        level = String.to_existing_atom(params["level"])
+        level = params["level"]
         Keyword.put(opts, :level, level)
       else
         opts
@@ -91,7 +91,7 @@ defmodule GenswarmsWeb.EventsController do
 
     opts =
       if params["category"] do
-        category = String.to_existing_atom(params["category"])
+        category = params["category"]
         Keyword.put(opts, :category, category)
       else
         opts
@@ -106,7 +106,7 @@ defmodule GenswarmsWeb.EventsController do
 
     opts =
       if params["agent"] do
-        agent = String.to_atom(params["agent"])
+        agent = params["agent"]
         Keyword.put(opts, :agent, agent)
       else
         opts
@@ -114,7 +114,7 @@ defmodule GenswarmsWeb.EventsController do
 
     opts =
       if params["event_type"] do
-        event_type = String.to_existing_atom(params["event_type"])
+        event_type = params["event_type"]
         Keyword.put(opts, :event_type, event_type)
       else
         opts

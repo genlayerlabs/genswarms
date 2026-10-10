@@ -225,7 +225,6 @@ defmodule Genswarms.Backends.Bwrap.AgentTelemetry do
     # Initialize stats
     :ets.insert(@stats_table, {:total_lines, 0})
     :ets.insert(@stats_table, {:total_bytes, 0})
-    :ets.insert(@stats_table, {:last_prune, System.monotonic_time(:second)})
 
     # Attach telemetry handler for stats
     :telemetry.attach(
@@ -234,9 +233,6 @@ defmodule Genswarms.Backends.Bwrap.AgentTelemetry do
       &handle_telemetry/4,
       nil
     )
-
-    # Schedule periodic stats update
-    schedule_stats_update()
 
     {:ok, %{prune_pending: MapSet.new()}}
   end
@@ -271,12 +267,6 @@ defmodule Genswarms.Backends.Bwrap.AgentTelemetry do
   end
 
   @impl true
-  def handle_info(:update_stats, state) do
-    # Periodic stats snapshot
-    schedule_stats_update()
-    {:noreply, state}
-  end
-
   def handle_info({:prune_check, sandbox_id}, state) do
     # Check if prune is needed and not already pending
     if not MapSet.member?(state.prune_pending, sandbox_id) do
@@ -337,9 +327,5 @@ defmodule Genswarms.Backends.Bwrap.AgentTelemetry do
   defp count_entries(sandbox_id) do
     match_spec = [{{{sandbox_id, :_}, :_}, [], [true]}]
     :ets.select_count(@table, match_spec)
-  end
-
-  defp schedule_stats_update do
-    Process.send_after(self(), :update_stats, 60_000)
   end
 end

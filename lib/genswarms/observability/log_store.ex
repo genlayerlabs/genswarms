@@ -318,8 +318,7 @@ defmodule Genswarms.Observability.LogStore do
   defp filter_by_agent(events, nil), do: events
 
   defp filter_by_agent(events, agent) do
-    agent_atom = if is_binary(agent), do: String.to_atom(agent), else: agent
-    Enum.filter(events, &(&1.agent == agent_atom))
+    Enum.filter(events, &(to_string(&1.agent) == to_string(agent)))
   end
 
   defp filter_by_event_type(events, nil), do: events

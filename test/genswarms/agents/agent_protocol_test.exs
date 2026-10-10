@@ -43,6 +43,22 @@ defmodule Genswarms.Agents.AgentProtocolTest do
   end
 
   describe "decode/1" do
+    test "unknown JSON names and types are rejected without creating atoms" do
+      for fields <- [
+            %{"type" => "send", "to" => "unknown_protocol_to"},
+            %{"type" => "message", "from" => "unknown_protocol_from"},
+            %{"type" => "unknown_protocol_type"}
+          ] do
+        name = "protocol_unknown_#{System.unique_integer([:positive])}"
+        key = if fields["to"], do: "to", else: if(fields["from"], do: "from", else: "type")
+
+        assert {:error, :unknown_name} =
+                 AgentProtocol.decode(Jason.encode!(Map.put(fields, key, name)))
+
+        assert_raise ArgumentError, fn -> String.to_existing_atom(name) end
+      end
+    end
+
     test "decodes task message" do
       json = ~s({"type": "task", "content": "test", "from": "orchestrator"})
       assert {:ok, msg} = AgentProtocol.decode(json)
@@ -96,6 +112,26 @@ defmodule Genswarms.Agents.AgentProtocolTest do
   end
 
   describe "parse_output/1" do
+    test "drops unknown destinations while preserving other messages" do
+      name = "protocol_unknown_#{System.unique_integer([:positive])}"
+
+      messages =
+        AgentProtocol.parse_output("""
+        <<SWARM_MSG:TO=#{name}:START>>
+        drop
+        <<SWARM_MSG:END>>
+        <<SWARM_MSG:TO=coder:START>>
+        keep
+        <<SWARM_MSG:END>>
+        """)
+
+      assert Enum.filter(messages, &(&1.type == :send)) == [
+               %{type: :send, to: :coder, content: "keep"}
+             ]
+
+      assert_raise ArgumentError, fn -> String.to_existing_atom(name) end
+    end
+
     test "parses output without mentions" do
       messages = AgentProtocol.parse_output("Just regular output")
 

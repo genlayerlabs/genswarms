@@ -17,6 +17,8 @@ defmodule Genswarms.Config.Loader do
   """
   @spec load(String.t()) :: {:ok, SwarmConfig.t()} | {:error, term()}
   def load(path) do
+    Code.ensure_loaded!(SwarmConfig)
+
     expanded_path = Path.expand(path)
 
     # Match application startup: tests and embedded callers can disable dotenv.
@@ -32,13 +34,27 @@ defmodule Genswarms.Config.Loader do
 
   @doc """
   Loads configuration from a string with explicit format.
+  Request node names use the VM admission policy. Set `allocate: false` for
+  validation without interning names (the returned node names stay strings).
   """
   @spec load_string(String.t(), :exs | :json | :yaml) ::
           {:ok, SwarmConfig.t()} | {:error, term()}
-  def load_string(content, format) do
+  @spec load_string(String.t(), :exs | :json | :yaml, keyword()) ::
+          {:ok, SwarmConfig.t()} | {:error, term()}
+  def load_string(content, format, opts \\ []) do
+    Code.ensure_loaded!(SwarmConfig)
+
     with {:ok, config} <- parse_string(content, format) do
-      SwarmConfig.parse(config)
+      SwarmConfig.parse_request(config, opts)
     end
+  end
+
+  @doc "Normalizes request config keys safely and admits declared node names under the VM policy."
+  def load_map(config, opts \\ []) do
+    Code.ensure_loaded!(SwarmConfig)
+
+    with {:ok, normalized} <- normalize_config(config, &existing_key/1),
+         do: SwarmConfig.parse_request(normalized, opts)
   end
 
   # Private functions
@@ -74,7 +90,7 @@ defmodule Genswarms.Config.Loader do
 
   defp load_json(path) do
     with {:ok, content} <- File.read(path),
-         {:ok, data} <- Jason.decode(content, keys: :atoms) do
+         {:ok, data} <- Jason.decode(content) do
       normalize_config(data)
     end
   end
@@ -82,7 +98,7 @@ defmodule Genswarms.Config.Loader do
   defp load_yaml(path) do
     with {:ok, content} <- File.read(path),
          {:ok, data} <- YamlElixir.read_from_string(content) do
-      normalize_config(atomize_keys(data))
+      normalize_config(data)
     end
   end
 
@@ -95,26 +111,43 @@ defmodule Genswarms.Config.Loader do
   end
 
   defp parse_string(content, :json) do
-    with {:ok, data} <- Jason.decode(content, keys: :atoms) do
-      normalize_config(data)
+    with {:ok, data} <- Jason.decode(content) do
+      normalize_config(data, &existing_key/1)
     end
   end
 
   defp parse_string(content, :yaml) do
     with {:ok, data} <- YamlElixir.read_from_string(content) do
-      normalize_config(atomize_keys(data))
+      normalize_config(data, &existing_key/1)
     end
   end
 
-  defp normalize_config(config) when is_map(config) do
-    # Convert string keys to atoms and handle nested structures
-    config = deep_atomize_keys(config)
+  # Local config files are operator-owned; request configs supply existing_key/1.
+  defp normalize_config(config, key_fun \\ &String.to_atom/1)
+
+  defp normalize_config(config, key_fun) when is_map(config) do
+    config = deep_atomize_keys(config, key_fun)
     # Normalize agent backends from strings to atoms
     config = normalize_agent_backends(config)
+    config = normalize_topology(config)
     {:ok, config}
   end
 
-  defp normalize_config(config), do: {:ok, config}
+  defp normalize_config(config, _key_fun), do: {:ok, config}
+
+  defp normalize_topology(%{topology: edges} = config) when is_list(edges) do
+    %{
+      config
+      | topology:
+          Enum.map(edges, fn
+            [from, to] -> {from, to}
+            %{from: from, to: to} -> {from, to}
+            edge -> edge
+          end)
+    }
+  end
+
+  defp normalize_topology(config), do: config
 
   # Convert serialized backend values to runtime forms.
   defp normalize_agent_backends(%{agents: agents} = config) when is_list(agents) do
@@ -128,7 +161,7 @@ defmodule Genswarms.Config.Loader do
     normalized =
       case String.split(backend, ":", parts: 2) do
         ["tmux", client] when client in ~w(codex claude opencode) -> {:tmux, client}
-        [bare] -> String.to_atom(bare)
+        [bare] -> existing_key(bare)
         _ -> backend
       end
 
@@ -142,31 +175,25 @@ defmodule Genswarms.Config.Loader do
 
   defp normalize_agent_backend(agent), do: agent
 
-  defp atomize_keys(map) when is_map(map) do
+  defp deep_atomize_keys(map, key_fun) when is_map(map) do
     Map.new(map, fn
-      {k, v} when is_binary(k) -> {String.to_atom(k), atomize_keys(v)}
-      {k, v} -> {k, atomize_keys(v)}
+      {k, v} when is_binary(k) -> {key_fun.(k), deep_atomize_keys(v, key_fun)}
+      {k, v} -> {k, deep_atomize_keys(v, key_fun)}
     end)
   end
 
-  defp atomize_keys(list) when is_list(list) do
-    Enum.map(list, &atomize_keys/1)
+  defp deep_atomize_keys(list, key_fun) when is_list(list) do
+    Enum.map(list, &deep_atomize_keys(&1, key_fun))
   end
 
-  defp atomize_keys(value), do: value
+  defp deep_atomize_keys({a, b}, key_fun),
+    do: {deep_atomize_keys(a, key_fun), deep_atomize_keys(b, key_fun)}
 
-  defp deep_atomize_keys(map) when is_map(map) do
-    Map.new(map, fn
-      {k, v} when is_binary(k) -> {String.to_atom(k), deep_atomize_keys(v)}
-      {k, v} when is_atom(k) -> {k, deep_atomize_keys(v)}
-      {k, v} -> {k, deep_atomize_keys(v)}
-    end)
+  defp deep_atomize_keys(value, _key_fun), do: value
+
+  defp existing_key(key) do
+    String.to_existing_atom(key)
+  rescue
+    ArgumentError -> key
   end
-
-  defp deep_atomize_keys(list) when is_list(list) do
-    Enum.map(list, &deep_atomize_keys/1)
-  end
-
-  defp deep_atomize_keys({a, b}), do: {deep_atomize_keys(a), deep_atomize_keys(b)}
-  defp deep_atomize_keys(value), do: value
 end

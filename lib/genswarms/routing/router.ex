@@ -112,6 +112,18 @@ defmodule Genswarms.Routing.Router do
     GenServer.cast(__MODULE__, {:route_ask, swarm_name, from, to, content, correlation_id})
   end
 
+  @doc "Answers an ask whose destination cannot be resolved, without interning its name."
+  @spec reject_ask(String.t(), atom(), String.t(), String.t()) :: :ok
+  def reject_ask(swarm_name, from, correlation_id, target_name) do
+    ask_error(
+      swarm_name,
+      from,
+      correlation_id,
+      "target_not_found",
+      "no such object: #{String.slice(target_name, 0, 100)}"
+    )
+  end
+
   @doc """
   Broadcasts a message from an agent to all connected agents.
   """

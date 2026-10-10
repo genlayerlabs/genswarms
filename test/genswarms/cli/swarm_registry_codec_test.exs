@@ -10,6 +10,13 @@ defmodule Genswarms.CLI.SwarmRegistryCodecTest do
     {:ok, swarm: swarm}
   end
 
+  test "queued unknown task destinations stay strings without creating atoms", %{swarm: swarm} do
+    name = "queued_unknown_#{System.unique_integer([:positive])}"
+    assert :ok = SwarmRegistry.queue_task(swarm, name, "x")
+    assert [%{agent: ^name, task: "x"}] = SwarmRegistry.get_pending_tasks(swarm)
+    assert_raise ArgumentError, fn -> String.to_existing_atom(name) end
+  end
+
   test "overlay payload preserves tuples, lists, atoms and literal tilde strings", %{swarm: swarm} do
     payload = %{
       name: :worker,

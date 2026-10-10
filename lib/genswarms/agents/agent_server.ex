@@ -1336,7 +1336,12 @@ defmodule Genswarms.Agents.AgentServer do
 
   defp normalize_reply_to(nil), do: nil
   defp normalize_reply_to(name) when is_atom(name), do: name
-  defp normalize_reply_to(name) when is_binary(name), do: String.to_atom(name)
+
+  defp normalize_reply_to(name) when is_binary(name) do
+    String.to_existing_atom(name)
+  rescue
+    ArgumentError -> nil
+  end
 
   # Config timing values must be positive integers; anything else would crash
   # Process.send_after on the FIRST task — as a restart loop. Warn and fall
@@ -1438,7 +1443,9 @@ defmodule Genswarms.Agents.AgentServer do
     )
 
     # Return the new state to update - handled specially in handle_agent_output
-    {:update_state, String.to_atom(agent_state)}
+    {:update_state, String.to_existing_atom(agent_state)}
+  rescue
+    ArgumentError -> :ok
   end
 
   defp route_message(_msg, _state), do: :ok

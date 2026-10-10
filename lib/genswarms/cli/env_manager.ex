@@ -76,6 +76,15 @@ defmodule Genswarms.CLI.EnvManager do
     end
   end
 
+  @doc "Loads the discovered environment file and prints its path for CLI commands."
+  @spec load_for_cli() :: :ok
+  def load_for_cli do
+    case auto_load() do
+      {:ok, path} -> IO.puts("[Genswarms] Loaded environment from #{path}")
+      {:error, :not_found} -> :ok
+    end
+  end
+
   @doc """
   Finds a .env file starting from dir and searching up.
   """

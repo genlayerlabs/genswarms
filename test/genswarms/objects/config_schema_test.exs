@@ -20,6 +20,16 @@ defmodule Genswarms.Objects.ConfigSchemaTest do
     assert atom_patch == %{templates: %{greeting: "pt_PT"}, max_per_run: 5}
   end
 
+  test "unknown nested keys stay strings and do not create atoms" do
+    key = "nested_unknown_#{System.unique_integer([:positive])}"
+    patch = %{"templates" => [%{key => %{"greeting" => "hello"}}]}
+
+    assert {:ok, %{templates: [%{^key => %{greeting: "hello"}}]}} =
+             ConfigSchema.validate_with_schema(@schema, patch)
+
+    assert_raise ArgumentError, fn -> String.to_existing_atom(key) end
+  end
+
   test "non-mutable keys are rejected, even schema'd ones" do
     assert {:error, {:immutable_keys, ["phone_id"]}} =
              ConfigSchema.validate_with_schema(@schema, %{"phone_id" => "1"})

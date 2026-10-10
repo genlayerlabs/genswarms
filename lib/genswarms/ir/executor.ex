@@ -110,12 +110,16 @@ defmodule Genswarms.IR.Executor do
     with :ok <- normalize(sm.remove_object(swarm, o.name)), do: sm.add_object(swarm, o)
   end
 
-  defp exec(sm, swarm, {:add_edge, e}), do: sm.add_topology_edges(swarm, [edge(e)])
-  defp exec(sm, swarm, {:remove_edge, e}), do: sm.remove_topology_edges(swarm, [edge(e)])
+  defp exec(sm, swarm, {op, e}) when op in [:add_edge, :remove_edge] do
+    fun = if op == :add_edge, do: :add_topology_edges, else: :remove_topology_edges
+    apply(sm, fun, [swarm, [edge(e)]])
+  rescue
+    ArgumentError -> {:error, :unknown_name}
+  end
 
   # Topology endpoints reference nodes that exist by the time edges are applied
   # (the plan starts nodes first).
-  defp edge({from, to}), do: {String.to_atom(from), String.to_atom(to)}
+  defp edge({from, to}), do: {String.to_existing_atom(from), String.to_existing_atom(to)}
 
   defp normalize(:ok), do: :ok
   defp normalize({:ok, _}), do: :ok

@@ -17,9 +17,8 @@ defmodule Genswarms.Objects.ConfigSchema do
 
   Only after a patch passes are its keys converted to atoms — the schema is
   a closed, package-authored set, so no caller-controlled atom minting at
-  the top level. Nested map keys under an approved field are atomized with
-  a hard cap on total keys (this surface sits behind the API token; the cap
-  bounds the atom table impact of a compromised operator credential).
+  the top level. Nested map keys under an approved field use existing atoms
+  only; unknown keys remain strings. Total patch keys are also bounded.
   """
 
   # deepest known package layout: <root>/lib/a/b/objects/handler.ex
@@ -94,12 +93,17 @@ defmodule Genswarms.Objects.ConfigSchema do
     end
   end
 
-  # keys validated against the closed schema set above; nested keys bounded
+  # Unknown nested keys remain strings, even under a schema-approved field.
   defp atomize(%{} = m), do: Map.new(m, fn {k, v} -> {to_atom(k), atomize(v)} end)
   defp atomize(l) when is_list(l), do: Enum.map(l, &atomize/1)
   defp atomize(v), do: v
 
-  defp to_atom(k) when is_binary(k), do: String.to_atom(k)
+  defp to_atom(k) when is_binary(k) do
+    String.to_existing_atom(k)
+  rescue
+    ArgumentError -> k
+  end
+
   defp to_atom(k), do: k
 
   @doc """

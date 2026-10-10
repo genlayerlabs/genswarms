@@ -4,9 +4,7 @@ defmodule Genswarms.CLI.Output do
 
   Provides consistent formatting for terminal output including:
   - Colored text (success, error, warning, info)
-  - Spinners for long-running operations
   - Tables for structured data
-  - Progress indicators
   """
 
   # ANSI color codes
@@ -26,7 +24,6 @@ defmodule Genswarms.CLI.Output do
   @cross "✗"
   @arrow "→"
   @bullet "•"
-  @spinner_frames ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
   @doc """
   Returns whether color output is enabled.
@@ -180,92 +177,7 @@ defmodule Genswarms.CLI.Output do
     end)
   end
 
-  @doc """
-  Prints a status line (name with colored status).
-  """
-  def status_line(name, status, extra \\ nil) do
-    status_str = format_status(status)
-
-    line =
-      if extra do
-        "  #{name}: #{status_str} #{colorize("(#{extra})", :dim)}"
-      else
-        "  #{name}: #{status_str}"
-      end
-
-    puts(line)
-  end
-
-  @doc """
-  Formats a status atom with appropriate color.
-  """
-  def format_status(status) do
-    case status do
-      :running -> colorize("running", :green)
-      :idle -> colorize("idle", :green)
-      :starting -> colorize("starting", :yellow)
-      :stopping -> colorize("stopping", :yellow)
-      :stopped -> colorize("stopped", :dim)
-      :error -> colorize("error", :red)
-      :working -> colorize("working", :cyan)
-      :initializing -> colorize("initializing", :yellow)
-      other -> to_string(other)
-    end
-  end
-
-  @doc """
-  Runs a function while showing a spinner.
-  Returns the result of the function.
-  """
-  def with_spinner(message, fun) do
-    # For non-TTY or when colors disabled, just run the function
-    unless colors_enabled?() and IO.ANSI.enabled?() do
-      puts("#{message}...")
-      result = fun.()
-      success("Done")
-      result
-    else
-      spinner_pid = start_spinner(message)
-      result = fun.()
-      stop_spinner(spinner_pid, message)
-      result
-    end
-  end
-
-  @doc """
-  Starts a spinner animation in a separate process.
-  Returns the PID.
-  """
-  def start_spinner(message) do
-    parent = self()
-
-    spawn(fn ->
-      spinner_loop(message, 0, parent)
-    end)
-  end
-
-  @doc """
-  Stops a running spinner.
-  """
-  def stop_spinner(pid, message) do
-    send(pid, :stop)
-    # Clear the spinner line and print success
-    IO.write("\r\e[K")
-    success(message)
-  end
-
   # Private functions
-
-  defp spinner_loop(message, frame_idx, parent) do
-    receive do
-      :stop -> :ok
-    after
-      80 ->
-        frame = Enum.at(@spinner_frames, rem(frame_idx, length(@spinner_frames)))
-        IO.write("\r#{colorize(frame, :cyan)} #{message}")
-        spinner_loop(message, frame_idx + 1, parent)
-    end
-  end
 
   defp color_code(:reset), do: @reset
   defp color_code(:bold), do: @bold

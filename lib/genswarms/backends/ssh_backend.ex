@@ -36,6 +36,7 @@ defmodule Genswarms.Backends.SSHBackend do
   @behaviour Genswarms.Backends.BackendBehaviour
 
   require Logger
+  alias Genswarms.Backends.OciCli
   alias Genswarms.Observability.LogStore
 
   defstruct [
@@ -381,8 +382,11 @@ defmodule Genswarms.Backends.SSHBackend do
     # SUBZEROCLAW_MODEL env fallback: it is the dead var, and it would clobber an
     # inherited SUBZEROCLAW_REQUEST_EXTRA routing policy with a bare {"model": ...}.
     model = Map.get(config, :model)
-    request_extra = config_json(config, :request_extra) || (model && Jason.encode!(%{"model" => model}))
-    compact_extra = config_json(config, :compact_extra)
+
+    request_extra =
+      OciCli.config_json(config, :request_extra) || (model && Jason.encode!(%{"model" => model}))
+
+    compact_extra = OciCli.config_json(config, :compact_extra)
 
     env_vars =
       [
@@ -411,16 +415,6 @@ defmodule Genswarms.Backends.SSHBackend do
   # replace every embedded single quote with the '\'' sequence. The result is a
   # single shell word that reproduces the input verbatim, with no metacharacter
   # left active.
-  # Accept request_extra/compact_extra as a JSON string or an Elixir map.
-  defp config_json(config, key) do
-    case Map.get(config, key) do
-      nil -> nil
-      v when is_binary(v) -> v
-      v when is_map(v) -> Jason.encode!(v)
-      _ -> nil
-    end
-  end
-
   defp shell_escape(value) do
     escaped = value |> to_string() |> String.replace("'", "'\\''")
     "'" <> escaped <> "'"

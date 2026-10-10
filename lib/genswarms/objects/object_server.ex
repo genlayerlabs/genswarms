@@ -961,11 +961,8 @@ defmodule Genswarms.Objects.ObjectServer do
     content = Map.get(response, "content", "")
 
     case action do
-      "reply" when not is_nil(to) ->
-        route_message(state.swarm_name, state.name, String.to_atom(to), content)
-
-      "send" when not is_nil(to) ->
-        route_message(state.swarm_name, state.name, String.to_atom(to), content)
+      action when action in ["reply", "send"] and is_binary(to) ->
+        route_process_message(state, to, content)
 
       "broadcast" ->
         Router.broadcast(state.swarm_name, state.name, content)
@@ -976,6 +973,15 @@ defmodule Genswarms.Objects.ObjectServer do
 
     new_state = %{state | buffer: "", state: :idle, message_count: state.message_count + 1}
     {:noreply, new_state}
+  end
+
+  defp route_process_message(state, to, content) do
+    route_message(state.swarm_name, state.name, String.to_existing_atom(to), content)
+  rescue
+    ArgumentError ->
+      Logger.warning(
+        "[#{state.swarm_name}/#{state.name}] Dropping unknown target: #{inspect(String.slice(to, 0, 100))}"
+      )
   end
 
   defp route_message(swarm_name, from, to, content) do

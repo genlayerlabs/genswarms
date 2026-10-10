@@ -55,6 +55,36 @@ defmodule Genswarms.Backends.DockerBackend do
   @impl true
   def backend_type, do: :docker
 
+  @doc """
+  Lists this swarm's `:running`, `:all`, or `:paused` Docker containers.
+  Docker's name filter also matches substrings, so the literal swarm prefix
+  is checked before returning names. CLI failures remain errors for callers
+  to handle according to their operation.
+  """
+  def swarm_containers(swarm_name, state) when state in [:running, :all, :paused] do
+    prefix = "szc-#{swarm_name}-"
+
+    args =
+      ["ps"] ++
+        if(state == :all, do: ["-a"], else: []) ++
+        ["--filter", "name=#{prefix}"] ++
+        if(state == :paused, do: ["--filter", "status=paused"], else: []) ++
+        ["--format", "{{.Names}}"]
+
+    case OciCli.cmd("docker", args) do
+      {output, 0} ->
+        containers =
+          output
+          |> String.split("\n", trim: true)
+          |> Enum.filter(&String.starts_with?(&1, prefix))
+
+        {:ok, containers}
+
+      {output, _} ->
+        {:error, output}
+    end
+  end
+
   @impl true
   def start(name, config) do
     swarm_name = Map.get(config, :swarm_name, "default")

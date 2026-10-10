@@ -61,7 +61,7 @@ defmodule Mix.Tasks.Genswarms.Events do
 
   use Mix.Task
 
-  alias Genswarms.CLI.{Output, SwarmRegistry}
+  alias Genswarms.CLI.{Output, SwarmRegistry, EnvManager}
 
   @impl Mix.Task
   def run(args) do
@@ -94,18 +94,9 @@ defmodule Mix.Tasks.Genswarms.Events do
     if opts[:help] do
       Mix.shell().info(@moduledoc)
     else
-      load_env()
+      EnvManager.load_for_cli()
       SwarmRegistry.init()
       query_events(opts)
-    end
-  end
-
-  defp load_env do
-    alias Genswarms.CLI.EnvManager
-
-    case EnvManager.auto_load() do
-      {:ok, path} -> IO.puts("[Genswarms] Loaded environment from #{path}")
-      {:error, :not_found} -> :ok
     end
   end
 

@@ -26,39 +26,6 @@ defmodule Genswarms.CLI.APIClient do
   end
 
   @doc """
-  Lists all swarms.
-  """
-  def list_swarms do
-    case request(:get, "/api/swarms") do
-      {:ok, %{"swarms" => swarms}} -> {:ok, swarms}
-      {:ok, swarms} when is_list(swarms) -> {:ok, swarms}
-      error -> error
-    end
-  end
-
-  @doc """
-  Gets status of a specific swarm.
-  """
-  def get_swarm(name) do
-    request(:get, "/api/swarms/#{name}")
-  end
-
-  @doc """
-  Starts a swarm from a config file.
-  """
-  def start_swarm(config_path) do
-    body = Jason.encode!(%{config_path: config_path})
-    request(:post, "/api/swarms", body)
-  end
-
-  @doc """
-  Stops a swarm.
-  """
-  def stop_swarm(name) do
-    request(:delete, "/api/swarms/#{name}")
-  end
-
-  @doc """
   Sends a task to an agent.
   """
   def send_task(swarm_name, agent_name, task) do
@@ -67,60 +34,11 @@ defmodule Genswarms.CLI.APIClient do
   end
 
   @doc """
-  Sends a message between agents.
-  """
-  def send_message(swarm_name, from, to, content) do
-    body = Jason.encode!(%{from: from, to: to, content: content})
-    request(:post, "/api/swarms/#{swarm_name}/messages", body)
-  end
-
-  @doc """
-  Gets the topology of a swarm.
-  """
-  def get_topology(swarm_name) do
-    request(:get, "/api/swarms/#{swarm_name}/topology")
-  end
-
-  @doc """
-  Gets events from the LogStore.
-  """
-  def get_events(opts \\ []) do
-    query_string = build_query_string(opts)
-    request(:get, "/api/events#{query_string}")
-  end
-
-  @doc """
-  Gets events for a specific swarm.
-  """
-  def get_swarm_events(swarm_name, opts \\ []) do
-    query_string = build_query_string(opts)
-    request(:get, "/api/swarms/#{swarm_name}/events#{query_string}")
-  end
-
-  @doc """
-  Gets events for a specific agent.
-  """
-  def get_agent_events(swarm_name, agent_name, opts \\ []) do
-    query_string = build_query_string(opts)
-    request(:get, "/api/swarms/#{swarm_name}/agents/#{agent_name}/events#{query_string}")
-  end
-
-  @doc """
   Makes a POST request to the given path with the given body.
   """
   def post(path, body) do
     encoded = if is_binary(body), do: body, else: Jason.encode!(body)
     request(:post, path, encoded)
-  end
-
-  defp build_query_string(opts) do
-    params =
-      opts
-      |> Enum.filter(fn {_k, v} -> v != nil end)
-      |> Enum.map(fn {k, v} -> "#{k}=#{URI.encode_www_form(to_string(v))}" end)
-      |> Enum.join("&")
-
-    if params == "", do: "", else: "?" <> params
   end
 
   # Private

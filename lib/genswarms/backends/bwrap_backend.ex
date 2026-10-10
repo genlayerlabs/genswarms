@@ -69,7 +69,7 @@ defmodule Genswarms.Backends.BwrapBackend do
     SeccompProfile
   }
 
-  alias Genswarms.Backends.EgressGuard
+  alias Genswarms.Backends.{EgressGuard, OciCli}
   alias Genswarms.Observability.LogStore
 
   defstruct [
@@ -563,9 +563,9 @@ defmodule Genswarms.Backends.BwrapBackend do
     model = Map.get(config, :model)
 
     request_extra =
-      config_json(config, :request_extra) || (model && Jason.encode!(%{"model" => model}))
+      OciCli.config_json(config, :request_extra) || (model && Jason.encode!(%{"model" => model}))
 
-    compact_extra = config_json(config, :compact_extra)
+    compact_extra = OciCli.config_json(config, :compact_extra)
     mock_script = Map.get(config, :mock_script) || System.get_env("SUBZEROCLAW_MOCK_SCRIPT")
     # If recording enabled, always write to workspace inside bwrap
     record_script =
@@ -820,14 +820,14 @@ defmodule Genswarms.Backends.BwrapBackend do
     # for back-compat); compaction policy in SUBZEROCLAW_COMPACT_EXTRA. No dead
     # SUBZEROCLAW_MODEL var — it would clobber an inherited REQUEST_EXTRA policy.
     request_extra_env =
-      case config_json(config, :request_extra) ||
+      case OciCli.config_json(config, :request_extra) ||
              (Map.get(config, :model) && Jason.encode!(%{"model" => Map.get(config, :model)})) do
         nil -> []
         json -> [{~c"SUBZEROCLAW_REQUEST_EXTRA", String.to_charlist(json)}]
       end
 
     compact_extra_env =
-      case config_json(config, :compact_extra) do
+      case OciCli.config_json(config, :compact_extra) do
         nil -> []
         json -> [{~c"SUBZEROCLAW_COMPACT_EXTRA", String.to_charlist(json)}]
       end
@@ -849,16 +849,6 @@ defmodule Genswarms.Backends.BwrapBackend do
       end
 
     base_env ++ request_extra_env ++ compact_extra_env ++ endpoint_env ++ topology_env
-  end
-
-  # Accept request_extra/compact_extra as a JSON string or an Elixir map.
-  defp config_json(config, key) do
-    case Map.get(config, key) do
-      nil -> nil
-      v when is_binary(v) -> v
-      v when is_map(v) -> Jason.encode!(v)
-      _ -> nil
-    end
   end
 
   defp find_subzeroclaw_binary(config) do

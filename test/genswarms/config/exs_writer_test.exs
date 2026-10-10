@@ -78,6 +78,47 @@ defmodule Genswarms.Config.ExsWriterTest do
     assert {:ok, _ast} = Code.string_to_quoted(src)
   end
 
+  test "round-trips long and escaped literal data without inspection truncation" do
+    values = %{
+      "quoted \"map\" field" => %{"string field" => {:ok, "café🚀"}},
+      numbers: Enum.to_list(1..80),
+      text: String.duplicate("quoted \"value\"\n", 500),
+      interpolation: ~S(#{raise "snapshot interpolation executed"}),
+      bytes: <<255, 0, 34, 92>>,
+      charlist: [65, 66, 67]
+    }
+
+    agent = %{
+      name: :worker,
+      backend: {:ssh, "user@host", %{key_path: "~/.ssh/id", port: 2222}},
+      skills: ["quoted \"skill\".md"],
+      model: "provider/model",
+      endpoint: "https://example.test/v1",
+      presets: [:base],
+      config: values
+    }
+
+    object = %{name: :sink, handler: Genswarms.Objects.ObjectHandler, config: values}
+
+    config = %SwarmConfig{
+      name: "snapshot",
+      agents: [agent],
+      objects: [object],
+      topology: [{:worker, :sink}]
+    }
+
+    src = ExsWriter.to_exs_source(config)
+    assert {:ok, _ast} = Code.string_to_quoted(src)
+    {restored, []} = Code.eval_string(src)
+
+    assert restored == %{
+             name: "snapshot",
+             agents: [agent],
+             objects: [object],
+             topology: [{:worker, :sink}]
+           }
+  end
+
   test "agents without secrets are unaffected" do
     src = source([%{name: :plain, backend: :local, config: %{population_size: 5}}])
     refute src =~ "[REDACTED]"

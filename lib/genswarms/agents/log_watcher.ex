@@ -105,7 +105,7 @@ defmodule Genswarms.Agents.LogWatcher do
             log_conversation_entries(new_content, state)
 
             # Parse swarm messages for routing.
-            messages = parse_swarm_messages(new_content)
+            messages = parse_swarm_messages(new_content, state)
 
             # Deduplication is already handled by position tracking — we only
             # ever read content past last_pos, so each message is seen once. The
@@ -125,13 +125,13 @@ defmodule Genswarms.Agents.LogWatcher do
     end
   end
 
-  defp parse_swarm_messages(content) do
+  defp parse_swarm_messages(content, state) do
     # Match RES: entries containing SWARM_MSG
     res_blocks =
       ~r/\] RES: (.*?)(?=\n\[\d{4}-|\z)/s
       |> Regex.scan(content)
 
-    messages = Enum.flat_map(res_blocks, fn [_, res] -> parse_msg_block(res) end)
+    messages = Enum.flat_map(res_blocks, fn [_, res] -> parse_msg_block(res, state) end)
 
     # Debug: log if we found multiple messages
     if length(messages) > 1 do
@@ -141,13 +141,20 @@ defmodule Genswarms.Agents.LogWatcher do
     messages
   end
 
-  defp parse_msg_block(content) do
+  defp parse_msg_block(content, state) do
     # Match SWARM_MSG blocks - newline after START is optional
     sends =
       ~r/<<SWARM_MSG:TO=([a-zA-Z_][a-zA-Z0-9_]*):START>>\n?(.*?)<<SWARM_MSG:END>>/s
       |> Regex.scan(content)
-      |> Enum.map(fn [_, to, msg] ->
-        %{type: :send, to: String.to_atom(to), content: String.trim(msg)}
+      |> Enum.flat_map(fn [_, to, msg] ->
+        case target_atom(to) do
+          {:ok, target} ->
+            [%{type: :send, to: target, content: String.trim(msg)}]
+
+          :error ->
+            warn_unknown_target(to, state)
+            []
+        end
       end)
 
     broadcasts =
@@ -156,6 +163,20 @@ defmodule Genswarms.Agents.LogWatcher do
       |> Enum.map(fn [_, msg] -> %{type: :broadcast, content: String.trim(msg)} end)
 
     sends ++ broadcasts
+  end
+
+  # Sandbox-controlled names must never create atoms: atoms are not garbage
+  # collected, and the VM's atom table is finite. Configured targets already exist.
+  defp target_atom(name) do
+    {:ok, String.to_existing_atom(name)}
+  rescue
+    ArgumentError -> :error
+  end
+
+  defp warn_unknown_target(name, state) do
+    Logger.warning(
+      "[#{state.swarm_name}/#{state.agent_name}] Dropping unknown target: #{inspect(String.slice(name, 0, 100))}"
+    )
   end
 
   defp route_message(%{type: :send, to: to, content: content}, state) do
@@ -344,8 +365,15 @@ defmodule Genswarms.Agents.LogWatcher do
           {:ok, %{"to" => to, "content" => msg, "reply_to" => corr}}
           when is_binary(to) and is_binary(msg) and not is_nil(corr) ->
             if Ask.valid_correlation_id?(corr) do
-              Logger.info("[#{state.swarm_name}/#{state.agent_name}] Outbox ask → #{to}")
-              Router.ask(state.swarm_name, state.agent_name, String.to_atom(to), msg, corr)
+              case target_atom(to) do
+                {:ok, target} ->
+                  Logger.info("[#{state.swarm_name}/#{state.agent_name}] Outbox ask → #{target}")
+                  Router.ask(state.swarm_name, state.agent_name, target, msg, corr)
+
+                :error ->
+                  warn_unknown_target(to, state)
+                  Router.reject_ask(state.swarm_name, state.agent_name, corr, to)
+              end
             else
               Logger.warning(
                 "[#{state.swarm_name}/#{state.agent_name}] Dropping ask with invalid correlation id"
@@ -356,11 +384,20 @@ defmodule Genswarms.Agents.LogWatcher do
             :ok
 
           {:ok, %{"to" => to, "content" => msg}} when is_binary(to) and is_binary(msg) ->
-            Logger.info("[#{state.swarm_name}/#{state.agent_name}] Outbox → #{to}")
-            target = String.to_atom(to)
-            Router.route(state.swarm_name, state.agent_name, target, msg)
+            result =
+              case target_atom(to) do
+                {:ok, target} ->
+                  Logger.info("[#{state.swarm_name}/#{state.agent_name}] Outbox → #{target}")
+                  Router.route(state.swarm_name, state.agent_name, target, msg)
+                  {:routed, target}
+
+                :error ->
+                  warn_unknown_target(to, state)
+                  :ok
+              end
+
             File.rm(file_path)
-            {:routed, target}
+            result
 
           {:ok, %{"broadcast" => true, "content" => msg}} when is_binary(msg) ->
             Logger.info("[#{state.swarm_name}/#{state.agent_name}] Outbox broadcast")

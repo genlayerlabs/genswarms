@@ -7,6 +7,8 @@ defmodule Genswarms.CLI.EnvManagerTest do
 
   alias Genswarms.CLI.EnvManager
 
+  import ExUnit.CaptureIO
+
   setup do
     root = Path.join(System.tmp_dir!(), "envmgr_#{System.unique_integer([:positive])}")
     proj = Path.join(root, "proj")
@@ -61,6 +63,28 @@ defmodule Genswarms.CLI.EnvManagerTest do
 
       assert {:ok, 1} = EnvManager.load(env)
       assert System.get_env(var) == "value"
+    end
+  end
+
+  describe "load_for_cli/0" do
+    test "loads a discovered file and prints only its path", %{proj: proj, sub: sub} do
+      var = "ENVMGR_CLI_#{System.unique_integer([:positive])}"
+      on_exit(fn -> System.delete_env(var) end)
+      env = Path.join(proj, ".env")
+      File.write!(env, "#{var}=value")
+
+      File.cd!(sub, fn ->
+        expected_path = Path.join(Path.dirname(File.cwd!()), ".env")
+        output = capture_io(fn -> assert :ok = EnvManager.load_for_cli() end)
+        assert output == "[Genswarms] Loaded environment from #{expected_path}\n"
+      end)
+
+      assert System.get_env(var) == "value"
+    end
+
+    test "stays silent when no environment file is found", %{sub: sub} do
+      assert File.cd!(sub, fn -> capture_io(fn -> assert :ok = EnvManager.load_for_cli() end) end) ==
+               ""
     end
   end
 end

@@ -11,6 +11,8 @@ defmodule Genswarms.Backends.LocalBackend do
 
   require Logger
 
+  alias Genswarms.Backends.OciCli
+
   defstruct [:port, :name, :skills_dir, :session_id, :buffer]
 
   @type t :: %__MODULE__{
@@ -250,7 +252,7 @@ defmodule Genswarms.Backends.LocalBackend do
   # routing policy_ir for the unhardcoded router. Accept `:request_extra` directly
   # (map or JSON string); for back-compat wrap a bare `:model` as {"model": ...}.
   defp maybe_add_request_extra_env(config) do
-    case config_json(config, :request_extra) || bare_model_extra(config) do
+    case OciCli.config_json(config, :request_extra) || bare_model_extra(config) do
       nil -> []
       json -> [{~c"SUBZEROCLAW_REQUEST_EXTRA", String.to_charlist(json)}]
     end
@@ -259,7 +261,7 @@ defmodule Genswarms.Backends.LocalBackend do
   # The compaction JSON (keep_recent + cheap summariser policy_ir): subzeroclaw
   # seals async via /v1/compact when set; absent → no compaction.
   defp maybe_add_compact_extra_env(config) do
-    case config_json(config, :compact_extra) do
+    case OciCli.config_json(config, :compact_extra) do
       nil -> []
       json -> [{~c"SUBZEROCLAW_COMPACT_EXTRA", String.to_charlist(json)}]
     end
@@ -273,15 +275,6 @@ defmodule Genswarms.Backends.LocalBackend do
     case Map.get(config, :model) do
       nil -> nil
       model -> Jason.encode!(%{"model" => model})
-    end
-  end
-
-  defp config_json(config, key) do
-    case Map.get(config, key) do
-      nil -> nil
-      v when is_binary(v) -> v
-      v when is_map(v) -> Jason.encode!(v)
-      _ -> nil
     end
   end
 

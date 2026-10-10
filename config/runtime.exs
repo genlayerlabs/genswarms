@@ -42,6 +42,10 @@ config :genswarms,
   # Directory that API-supplied config_path values must stay within. Unset →
   # the server's working directory. See Genswarms.Config.PathGuard.
   swarm_config_dir: System.get_env("GENSWARMS_SWARM_CONFIG_DIR"),
+  # HTTP node-name admission. Dynamic names have a VM-lifetime cap; restricted
+  # mode accepts existing names only. Parsed fail-closed by Config.RequestNames.
+  restricted_names: System.get_env("GENSWARMS_RESTRICTED_NAMES"),
+  max_dynamic_names: System.get_env("GENSWARMS_MAX_DYNAMIC_NAMES"),
   # API auth token. When set, every REST/WebSocket request must present
   # `Authorization: Bearer <token>`. When unset, only loopback callers are
   # allowed (see Genswarms.Auth). The CLI sends this token automatically.

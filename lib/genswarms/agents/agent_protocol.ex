@@ -85,6 +85,8 @@ defmodule Genswarms.Agents.AgentProtocol do
       {:error, _} = error ->
         error
     end
+  rescue
+    ArgumentError -> {:error, :unknown_name}
   end
 
   @doc """
@@ -115,9 +117,7 @@ defmodule Genswarms.Agents.AgentProtocol do
 
     send_messages =
       Regex.scan(send_pattern, output)
-      |> Enum.map(fn [_full, target, content] ->
-        %{type: :send, to: String.to_atom(target), content: String.trim(content)}
-      end)
+      |> Enum.flat_map(&parse_send/1)
 
     broadcast_messages =
       Regex.scan(broadcast_pattern, output)
@@ -126,6 +126,12 @@ defmodule Genswarms.Agents.AgentProtocol do
       end)
 
     send_messages ++ broadcast_messages
+  end
+
+  defp parse_send([_full, target, content]) do
+    [%{type: :send, to: String.to_existing_atom(target), content: String.trim(content)}]
+  rescue
+    ArgumentError -> []
   end
 
   # Remove swarm message markers from output for cleaner display
@@ -200,13 +206,13 @@ defmodule Genswarms.Agents.AgentProtocol do
 
   defp normalize_message(type, msg) do
     %{
-      type: String.to_atom(type),
+      type: String.to_existing_atom(type),
       raw: msg
     }
   end
 
   defp maybe_to_atom(nil), do: nil
-  defp maybe_to_atom(s) when is_binary(s), do: String.to_atom(s)
+  defp maybe_to_atom(s) when is_binary(s), do: String.to_existing_atom(s)
   defp maybe_to_atom(a) when is_atom(a), do: a
 
   # ── turn stdout grammar ─────────────────────────────────────────────────────

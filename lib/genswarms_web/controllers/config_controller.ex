@@ -5,7 +5,7 @@ defmodule GenswarmsWeb.ConfigController do
 
   use GenswarmsWeb, :controller
 
-  alias Genswarms.Config.{Loader, SwarmConfig}
+  alias Genswarms.Config.{Loader, PathGuard}
 
   @doc """
   Validates a swarm configuration.
@@ -16,7 +16,7 @@ defmodule GenswarmsWeb.ConfigController do
   Returns validation result with any errors found.
   """
   def validate(conn, %{"config" => config}) when is_map(config) do
-    case SwarmConfig.parse(config) do
+    case Loader.load_map(config, allocate: false) do
       {:ok, parsed} ->
         json(conn, %{
           valid: true,
@@ -34,33 +34,12 @@ defmodule GenswarmsWeb.ConfigController do
   end
 
   def validate(conn, %{"config_path" => path}) do
-    expanded_path = Path.expand(path)
+    case PathGuard.safe_config_path(path) do
+      {:ok, safe_path} ->
+        validate_file(conn, safe_path)
 
-    unless File.exists?(expanded_path) do
-      conn
-      |> put_status(:not_found)
-      |> json(%{
-        valid: false,
-        errors: ["File not found: #{path}"]
-      })
-    else
-      case Loader.load(expanded_path) do
-        {:ok, parsed} ->
-          json(conn, %{
-            valid: true,
-            config_path: expanded_path,
-            config: summarize_config(parsed)
-          })
-
-        {:error, reason} ->
-          conn
-          |> put_status(:bad_request)
-          |> json(%{
-            valid: false,
-            config_path: expanded_path,
-            errors: format_validation_errors(reason)
-          })
-      end
+      {:error, _} ->
+        conn |> put_status(:bad_request) |> json(%{valid: false, errors: ["Invalid config_path"]})
     end
   end
 
@@ -70,7 +49,7 @@ defmodule GenswarmsWeb.ConfigController do
     # config_path on the server instead.
     case normalize_content_format(format) do
       {:ok, format_atom} ->
-        case Loader.load_string(content, format_atom) do
+        case Loader.load_string(content, format_atom, allocate: false) do
           {:ok, parsed} ->
             json(conn, %{valid: true, format: format, config: summarize_config(parsed)})
 
@@ -109,6 +88,23 @@ defmodule GenswarmsWeb.ConfigController do
   end
 
   # Private helpers
+
+  defp validate_file(conn, path) do
+    case Loader.load(path) do
+      {:ok, parsed} ->
+        json(conn, %{valid: true, config_path: path, config: summarize_config(parsed)})
+
+      {:error, {:file_not_found, _}} ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{valid: false, errors: ["File not found: #{path}"]})
+
+      {:error, reason} ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{valid: false, config_path: path, errors: format_validation_errors(reason)})
+    end
+  end
 
   # Request content may only be data formats; .exs (executable) is rejected.
   defp normalize_content_format("json"), do: {:ok, :json}
