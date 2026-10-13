@@ -4,16 +4,20 @@ description: >-
   Develop and extend genswarms — the Elixir/OTP swarm orchestrator. Load this
   before adding a backend or an object, or touching the IR control plane, the
   OTP supervision tree, the messaging layer, the daemon/SQLite coordination, or
-  the Phoenix API. Orients and points into AGENTS.md, CLAUDE.md and docs/. To
-  merely operate a swarm, use genswarms-use.
+  the Phoenix API. Orients and links to upstream AGENTS.md, CLAUDE.md, and hosted
+  docs. To merely operate a swarm, use genswarms-use.
 ---
 
 # Contributing to genswarms
 
-genswarms orchestrates subzeroclaw agents under OTP supervision. Read `AGENTS.md`
-(the coding-agent contract) and `CLAUDE.md` (the codebase quick reference) first —
-this skill orients the two most common extensions (a backend, an object) and the
-invariants around them; `docs/architecture.md` and `docs/intermediate-representation.md`
+genswarms orchestrates subzeroclaw agents under OTP supervision. Read upstream
+[AGENTS.md](https://github.com/genlayerlabs/genswarms/blob/main/AGENTS.md)
+(the coding-agent contract) and
+[CLAUDE.md](https://github.com/genlayerlabs/genswarms/blob/main/CLAUDE.md)
+(the codebase quick reference) first. This skill orients the two most common
+extensions (a backend, an object) and the invariants around them;
+[Architecture](https://genswarms.com/docs/architecture/) and
+[Intermediate representation](https://genswarms.com/docs/intermediate-representation/)
 are the deep references.
 
 ## The shape of the system
@@ -24,7 +28,8 @@ are the deep references.
   hosting `AgentServer {swarm, agent}` and `ObjectServer {swarm, object}`, and
   `SwarmManager` (lifecycle GenServer). Agents and objects share one supervisor
   and registry keyed `{swarm_name, name}`. The diagrams in the README/CLAUDE are
-  simplified; `docs/architecture.md` states the real tree — trust it.
+  simplified; [Architecture](https://genswarms.com/docs/architecture/) states the
+  real tree — trust it.
 - **Daemon + SQLite:** swarms run as independent OS processes; the CLI/API and
   daemons coordinate through `.genswarms/swarms.db` (`swarms`, `events`, `tasks`),
   daemons polling the task queue (~500ms).
@@ -58,14 +63,16 @@ truth (`start/2`, `stop/1`, `send_input/2`, `deploy_skills/2`, `health_check/1`,
 3. If the backend supports untrusted content, wire `network: :isolated` (the
    existing modes: bwrap `:host_socat`, docker `:docker_sidecar`; Apple fails
    closed).
-4. Tests (a Mock-backed test where possible) + `docs/backends.md`.
+4. Tests (a Mock-backed test where possible) +
+   [Backends](https://genswarms.com/docs/backends/).
 
 A new backend is not a one-liner — the concern is spread across the codebase
 (shotgun surgery): beyond `backend_module/1`, expect to touch `backend_config/1`,
 `determine_mode/1` (`lib/genswarms/objects/object_server.ex`), the `@type backend`,
 the IR round-trip (`FromConfig`/`ToConfig`), and the CLI/status + web controllers.
-`AGENTS.md` (§ Configuration, the backend argument builders) enumerates the full
-set — read it before starting, and budget for the smear.
+[AGENTS.md](https://github.com/genlayerlabs/genswarms/blob/main/AGENTS.md)
+(Configuration, backend argument builders) enumerates the full set — read it
+before starting, and budget for the smear.
 
 ## Add an object
 
@@ -76,7 +83,7 @@ An object is a deterministic, non-agentic node in the topology. Implement
 returns `{:reply|:send|:broadcast|:noreply|:send_many|:multi, …, state}`; the
 `ObjectServer` GenServer hosts it under the same `AgentSupervisor` as agents. Add
 it to the swarm config `objects:` list and wire it into the topology. See
-`docs/objects.md`.
+[Objects](https://genswarms.com/docs/objects/).
 
 ## Messaging
 
@@ -84,7 +91,8 @@ Agents address each other with `@target:` prefixes in stdout, parsed by
 `AgentProtocol.parse_output/1`; sandboxed agents deliver via files
 (`{workspace}/.inbox/…`, `.outbox/…`) polled by `LogWatcher` (~500ms), with the
 `swarm-msg` helper mounted in. System objects `:metrics`, `:tick`, `:gateway` are
-always routable regardless of topology edges. See `docs/messaging.md`.
+always routable regardless of topology edges. See
+[Messaging](https://genswarms.com/docs/messaging/).
 
 ## Dev loop
 
@@ -95,17 +103,27 @@ mix test                       # mock backend => LLM-free; single file: mix test
 mix format
 mix escript.build              # → ./genswarms
 mix phx.server                 # the API in dev
-nix build .#agentContainer-<preset>   # container images (base|code|data|node|python|web)
+nix build .#agentContainer-<name>     # images: base|web|code|data|full|python|node|devops
 ```
 
-Docs site: `mkdocs.yml` over `docs/`. If you change config parsing, backends, or
-the IR, update the matching `docs/` page and the tests — `AGENTS.md` states the
-expected test coverage per area.
+Docs site: [genswarms.com/docs](https://genswarms.com/docs/) is generated from
+`mkdocs.yml` and the repository docs directory. If you change config parsing,
+backends, or the IR, update the matching docs page and the tests —
+[AGENTS.md](https://github.com/genlayerlabs/genswarms/blob/main/AGENTS.md)
+states the expected test coverage per area.
 
 ## Where to read more
 
-- `AGENTS.md` — the coding-agent contract (test expectations, backend/IR change rules).
-- `CLAUDE.md` — build/dev commands, architecture, config DSL, env vars.
-- `docs/architecture.md` — the real supervision tree and per-swarm layout.
-- `docs/intermediate-representation.md` — `swarm.state` / `swarm.overlay` / the Gate.
-- `docs/backends.md`, `docs/objects.md`, `docs/messaging.md`, `docs/security.md`, `docs/testing.md`.
+- [AGENTS.md](https://github.com/genlayerlabs/genswarms/blob/main/AGENTS.md)
+  — the coding-agent contract (test expectations, backend/IR change rules).
+- [CLAUDE.md](https://github.com/genlayerlabs/genswarms/blob/main/CLAUDE.md)
+  — build/dev commands, architecture, config DSL, env vars.
+- [Architecture](https://genswarms.com/docs/architecture/) — the real supervision
+  tree and per-swarm layout.
+- [Intermediate representation](https://genswarms.com/docs/intermediate-representation/)
+  — `swarm.state` / `swarm.overlay` / the Gate.
+- [Backends](https://genswarms.com/docs/backends/),
+  [Objects](https://genswarms.com/docs/objects/),
+  [Messaging](https://genswarms.com/docs/messaging/),
+  [Security](https://genswarms.com/docs/security/),
+  [Testing](https://genswarms.com/docs/testing/).
