@@ -454,21 +454,28 @@ defmodule Genswarms.Backends.Tmux.Runners.Bwrap do
       else: {:error, {:invalid_extra_store_paths, paths}}
   end
 
-  defp environment(config, launch) do
+  @doc false
+  def environment(config, launch) do
     with {:ok, names} <- RunnerHelpers.pass_env(config),
          {:ok, configured} <- RunnerHelpers.runner_env(config),
          {:ok, passed} <- fetch_passed_env(names),
          {:ok, launch_env} <- validate_launch_env(Map.get(launch, :env, [])) do
+      # What the operator configures wins over these: a sandbox on a host whose tools live
+      # elsewhere (a Nix profile, say) needs its own PATH, and used to have it overwritten.
+      defaults = [
+        {"PATH", "/bin:/usr/bin:/usr/local/bin"},
+        {"TERM", "xterm-256color"}
+      ]
+
+      # The agent's home is part of the isolation and is never taken from configuration.
       fixed = [
         {"HOME", "/root"},
-        {"PATH", "/bin:/usr/bin:/usr/local/bin"},
-        {"TERM", "xterm-256color"},
         {"XDG_CONFIG_HOME", "/root/.config"},
         {"XDG_DATA_HOME", "/root/.local/share"},
         {"XDG_STATE_HOME", "/root/.local/state"}
       ]
 
-      {:ok, dedupe_env(configured ++ passed ++ launch_env ++ fixed)}
+      {:ok, dedupe_env(defaults ++ configured ++ passed ++ launch_env ++ fixed)}
     end
   end
 

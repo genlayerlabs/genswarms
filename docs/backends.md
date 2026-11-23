@@ -208,12 +208,24 @@ not currently forwarded through the public WebSocket channel.
 | `submit_max_attempts` / `submit_check_max_errors` | Total Enter attempts / cursor-query errors before attention | `2` / `3` |
 | `history_lines` / `state_lines` | Captured history / visible tail used for state recognition | `200` / `24` |
 | `quiet_ready_fallback` | Allow a stable non-empty screen to count as ready | `false` |
+| `receipt_reminder_after_ms` / `max_receipt_reminders` | Screen still this long with a turn open: remind the client to write its receipt / how many reminders before attention (`turn_not_closed`); `0` disables | `600000` / `2` |
+| `resume_recovered_after_ms` | After a reconnect finds a turn open, screen still this long: tell the client to continue it; `0` disables | `30000` |
 | `max_reply_bytes` | Maximum accepted `reply.md` size | 1 MiB |
 
 Dangerous bypass flags are never enabled implicitly. A blocked trust or
 permission prompt moves the agent to `blocked` so a human can attach and decide.
 Because a TUI is not a machine protocol, prompt recognition is deliberately
 conservative; `quiet_ready_fallback` is opt-in.
+
+A turn ends only when the client writes its completion receipt. A client can
+give its final answer and stop without writing it, and a client reattached
+after an orchestrator restart waits at its prompt with the turn still open. In
+both cases the worker speaks to the client again once the screen has been still
+for the configured time: `turn_resumed` after a reconnect, `receipt_reminder`
+otherwise (both arrive as `running` lifecycle events with that `reason`). A
+client that is working keeps changing the screen and is never interrupted. When
+the reminders are used up the turn is reported as `needs_attention` with reason
+`turn_not_closed`.
 
 ### Per-agent Docker and bwrap runners
 

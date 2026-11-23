@@ -31,7 +31,9 @@ defmodule Genswarms.Backends.Tmux.SessionWorker do
     last_submission_error: nil,
     last_capture: nil,
     stable_since: nil,
-    last_receipt_error: nil
+    last_receipt_error: nil,
+    receipt_reminders: 0,
+    recovered: false
   ]
 
   @type phase ::
@@ -73,6 +75,7 @@ defmodule Genswarms.Backends.Tmux.SessionWorker do
         socket: session.socket,
         client: adapter.client(),
         current_turn: incomplete,
+        recovered: incomplete != nil,
         phase: if(incomplete, do: :needs_attention, else: :starting),
         stable_since: monotonic_ms()
       }
@@ -113,6 +116,8 @@ defmodule Genswarms.Backends.Tmux.SessionWorker do
                submit_check_errors: 0,
                last_submission_error: nil,
                last_receipt_error: nil,
+               receipt_reminders: 0,
+               recovered: false,
                stable_since: monotonic_ms()
            }}
 
@@ -319,6 +324,7 @@ defmodule Genswarms.Backends.Tmux.SessionWorker do
             state
             |> verify_submission()
             |> evaluate_visible_state(visible)
+            |> watch_open_turn(visible)
         end
 
       {:error, reason} ->
@@ -424,6 +430,104 @@ defmodule Genswarms.Backends.Tmux.SessionWorker do
         last_submission_error: nil
     }
   end
+
+  # A turn ends only when the client writes its receipt. A client can give its final answer
+  # and stop without writing it, or come back from a restart of the orchestrator waiting at
+  # its prompt with the turn still open. Left alone, the turn would stay open for good and
+  # the agent would accept nothing else. So a turn that is open while the screen has been
+  # still for long enough is spoken to: first to resume it after a restart, then to remind
+  # the client of the receipt, a bounded number of times, and after that it is reported.
+  defp watch_open_turn(%{current_turn: nil} = state, _visible), do: state
+
+  defp watch_open_turn(%{current_nudge: nudge} = state, _visible) when not is_nil(nudge),
+    do: state
+
+  defp watch_open_turn(%{phase: :needs_attention, recovered: true} = state, visible) do
+    after_ms = non_negative(Map.get(state.config, :resume_recovered_after_ms), 30_000)
+
+    if after_ms > 0 and still_for?(state, after_ms) and not blocked?(state, visible),
+      do: speak_to_open_turn(state, :turn_resumed),
+      else: state
+  end
+
+  defp watch_open_turn(%{phase: :running} = state, visible) do
+    after_ms = non_negative(Map.get(state.config, :receipt_reminder_after_ms), 600_000)
+    limit = non_negative(Map.get(state.config, :max_receipt_reminders), 2)
+
+    cond do
+      after_ms == 0 or not still_for?(state, after_ms) or blocked?(state, visible) ->
+        state
+
+      state.receipt_reminders < limit ->
+        speak_to_open_turn(state, :receipt_reminder)
+
+      true ->
+        receipt_needs_attention(state, :turn_not_closed)
+    end
+  end
+
+  defp watch_open_turn(state, _visible), do: state
+
+  defp still_for?(state, ms), do: monotonic_ms() - (state.stable_since || monotonic_ms()) >= ms
+  defp blocked?(state, visible), do: state.adapter.blocked?(visible, state.config)
+
+  defp speak_to_open_turn(state, reason) do
+    text = open_turn_text(state.current_turn, reason)
+
+    case Command.send_text(state.config, state.pane_id, text) do
+      :ok ->
+        next = %{
+          state
+          | phase: :running,
+            recovered: false,
+            receipt_reminders: state.receipt_reminders + 1,
+            current_nudge: text,
+            last_submit_at: monotonic_ms(),
+            submit_attempts: 1,
+            submit_check_errors: 0,
+            last_submission_error: nil,
+            last_receipt_error: nil,
+            stable_since: monotonic_ms()
+        }
+
+        emit(next, {
+          :lifecycle,
+          :running,
+          turn_metadata(next, next.current_turn)
+          |> Map.put(:reason, reason)
+          |> Map.put(:receipt_reminders, next.receipt_reminders)
+        })
+
+        next
+
+      {:error, _reason} ->
+        # Nothing was lost: the turn is still open and the next quiet period tries again.
+        %{state | stable_since: monotonic_ms()}
+    end
+  end
+
+  # One line, beginning like the first nudge so a client treats it as the same turn.
+  defp open_turn_text(turn, reason) do
+    task = Map.get(turn, :runtime_task_path) || turn.task_path
+    reply = Map.get(turn, :runtime_reply_path) || turn.reply_path
+    done = Map.get(turn, :runtime_done_path) || turn.done_path
+
+    opening =
+      case reason do
+        :turn_resumed ->
+          "the orchestrator restarted while this turn was open. If the work in `#{task}` is unfinished, continue it."
+
+        :receipt_reminder ->
+          "this turn is still open: its completion receipt was never written. If the work in `#{task}` is unfinished, finish it."
+      end
+
+    "GenSwarms turn #{turn.id}: #{opening} Then write your final response to `#{reply}` and " <>
+      "{\"status\":\"completed\"} to `#{done}.tmp`, renamed to `#{done}`."
+  end
+
+  defp non_negative(value, _default) when is_integer(value) and value >= 0, do: value
+  defp non_negative(false, _default), do: 0
+  defp non_negative(_value, default), do: default
 
   defp evaluate_visible_state(%{phase: :needs_attention} = state, _visible), do: state
 

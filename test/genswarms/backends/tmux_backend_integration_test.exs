@@ -228,6 +228,129 @@ defmodule Genswarms.Backends.TmuxBackendIntegrationTest do
     assert :ok = TmuxBackend.destroy(second_ref)
   end
 
+  test "a client that stops without its receipt is reminded, and the turn then completes",
+       context do
+    backend_id = make_ref()
+
+    config =
+      backend_config(context, backend_id)
+      |> Map.merge(%{fake_mode: "late", receipt_reminder_after_ms: 150})
+
+    assert {:ok, ref} = TmuxBackend.start("worker", config)
+    assert_receive {:genswarms_backend_event, ^backend_id, {:lifecycle, :ready, _}}, 2_000
+
+    assert {:ok, %{turn_id: turn_id}} =
+             TmuxBackend.send_input(ref, Jason.encode!(%{type: "task", content: "forget"}))
+
+    assert_receive {:genswarms_backend_event, ^backend_id,
+                    {:lifecycle, :running,
+                     %{turn_id: ^turn_id, reason: :receipt_reminder, receipt_reminders: 1}}},
+                   2_000
+
+    assert_receive {:genswarms_backend_event, ^backend_id,
+                    {:turn_completed, ^turn_id, reply, _metadata}},
+                   2_000
+
+    assert reply == "fake reply for #{turn_id}\n"
+    assert :ok = TmuxBackend.destroy(ref)
+  end
+
+  test "a turn that stays open after its reminders is reported, once", context do
+    backend_id = make_ref()
+
+    config =
+      backend_config(context, backend_id)
+      |> Map.merge(%{
+        fake_mode: "idle_hold",
+        receipt_reminder_after_ms: 120,
+        max_receipt_reminders: 1
+      })
+
+    assert {:ok, ref} = TmuxBackend.start("worker", config)
+    assert_receive {:genswarms_backend_event, ^backend_id, {:lifecycle, :ready, _}}, 2_000
+
+    assert {:ok, %{turn_id: turn_id}} =
+             TmuxBackend.send_input(ref, Jason.encode!(%{type: "task", content: "never"}))
+
+    assert_receive {:genswarms_backend_event, ^backend_id,
+                    {:lifecycle, :running, %{turn_id: ^turn_id, reason: :receipt_reminder}}},
+                   2_000
+
+    assert_receive {:genswarms_backend_event, ^backend_id,
+                    {:lifecycle, :needs_attention, %{turn_id: ^turn_id, reason: :turn_not_closed}}},
+                   2_000
+
+    refute_receive {:genswarms_backend_event, ^backend_id,
+                    {:lifecycle, :needs_attention, %{reason: :turn_not_closed}}},
+                   400
+
+    assert %{phase: :needs_attention} = TmuxBackend.session_info(ref)
+    assert :ok = TmuxBackend.destroy(ref)
+  end
+
+  test "reminders can be switched off", context do
+    backend_id = make_ref()
+
+    config =
+      backend_config(context, backend_id)
+      |> Map.merge(%{fake_mode: "idle_hold", receipt_reminder_after_ms: 0})
+
+    assert {:ok, ref} = TmuxBackend.start("worker", config)
+    assert_receive {:genswarms_backend_event, ^backend_id, {:lifecycle, :ready, _}}, 2_000
+
+    assert {:ok, %{turn_id: turn_id}} =
+             TmuxBackend.send_input(ref, Jason.encode!(%{type: "task", content: "hold"}))
+
+    assert_receive {:genswarms_backend_event, ^backend_id,
+                    {:lifecycle, :running, %{turn_id: ^turn_id}}},
+                   1_000
+
+    refute_receive {:genswarms_backend_event, ^backend_id,
+                    {:lifecycle, :running, %{reason: :receipt_reminder}}},
+                   400
+
+    assert %{phase: :running} = TmuxBackend.session_info(ref)
+    assert :ok = TmuxBackend.destroy(ref)
+  end
+
+  test "a turn left open across a reconnect is resumed once the client is quiet", context do
+    first_id = make_ref()
+    config = backend_config(context, first_id) |> Map.put(:fake_mode, "late")
+
+    assert {:ok, ref} = TmuxBackend.start("worker", config)
+    assert_receive {:genswarms_backend_event, ^first_id, {:lifecycle, :ready, _}}, 2_000
+
+    assert {:ok, %{turn_id: turn_id}} =
+             TmuxBackend.send_input(ref, Jason.encode!(%{type: "task", content: "interrupted"}))
+
+    assert_receive {:genswarms_backend_event, ^first_id, {:lifecycle, :running, _}}, 1_000
+    assert :ok = TmuxBackend.disconnect(ref)
+
+    second_id = make_ref()
+
+    reconnect =
+      backend_config(context, second_id)
+      |> Map.merge(%{fake_mode: "late", resume_recovered_after_ms: 150})
+
+    assert {:ok, second_ref} = TmuxBackend.start("worker", reconnect)
+
+    assert_receive {:genswarms_backend_event, ^second_id,
+                    {:lifecycle, :needs_attention,
+                     %{reason: :incomplete_turn_recovered, turn_id: ^turn_id}}},
+                   2_000
+
+    assert_receive {:genswarms_backend_event, ^second_id,
+                    {:lifecycle, :running, %{turn_id: ^turn_id, reason: :turn_resumed}}},
+                   2_000
+
+    assert_receive {:genswarms_backend_event, ^second_id,
+                    {:turn_completed, ^turn_id, reply, _metadata}},
+                   2_000
+
+    assert reply == "fake reply for #{turn_id}\n"
+    assert :ok = TmuxBackend.destroy(second_ref)
+  end
+
   test "refuses to reuse a live pane with changed client launch arguments", context do
     config = backend_config(context, make_ref())
     assert {:ok, ref} = TmuxBackend.start("worker", config)
