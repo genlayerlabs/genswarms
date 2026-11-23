@@ -462,9 +462,15 @@ defmodule Genswarms.Backends.Tmux.Runners.Bwrap do
          {:ok, launch_env} <- validate_launch_env(Map.get(launch, :env, [])) do
       # What the operator configures wins over these: a sandbox on a host whose tools live
       # elsewhere (a Nix profile, say) needs its own PATH, and used to have it overwritten.
+      ca_bundle = "/etc/ssl/certs/ca-bundle.crt"
+
       defaults = [
         {"PATH", "/bin:/usr/bin:/usr/local/bin"},
-        {"TERM", "xterm-256color"}
+        {"TERM", "xterm-256color"},
+        {"SSL_CERT_FILE", ca_bundle},
+        {"GIT_SSL_CAINFO", ca_bundle},
+        # OTP parses the path as an Erlang string literal.
+        {"ERL_AFLAGS", ~s(-public_key cacerts_path '"#{ca_bundle}"')}
       ]
 
       # The agent's home is part of the isolation and is never taken from configuration.
