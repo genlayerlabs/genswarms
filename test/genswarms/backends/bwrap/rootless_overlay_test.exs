@@ -100,9 +100,9 @@ defmodule Genswarms.Backends.Bwrap.RootlessOverlayTest do
   @tag :integration
   test "the production root argv binds a writable materialized root with zero privileges",
        %{tmp: tmp} do
-    if System.find_executable("bwrap") == nil do
-      IO.puts("Skipping: bwrap not installed")
-    else
+    bwrap = System.find_executable("bwrap")
+
+    if bwrap && File.dir?("/nix/store") do
       base = Path.join(tmp, "base")
       File.mkdir_p!(base)
       File.write!(Path.join(base, "f.txt"), "lower\n")
@@ -115,7 +115,7 @@ defmodule Genswarms.Backends.Bwrap.RootlessOverlayTest do
 
       {out, code} =
         System.cmd(
-          System.find_executable("bwrap"),
+          bwrap,
           [
             "--unshare-user",
             "--unshare-pid",
@@ -148,6 +148,8 @@ defmodule Genswarms.Backends.Bwrap.RootlessOverlayTest do
       assert out =~ "READ=lower"
       assert File.read!(Path.join(merged, "w.txt")) == "w\n"
       assert :ok = OverlayManager.cleanup_overlay("integration")
+    else
+      IO.puts("Skipping: bwrap and /nix/store are required")
     end
   end
 end
