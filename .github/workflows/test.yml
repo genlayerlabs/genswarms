@@ -20,10 +20,8 @@ jobs:
           otp-version: "27.3"
           elixir-version: "1.18.4"
       - name: Install local transport tools
-        run: sudo apt-get update && sudo apt-get install -y bubblewrap jq socat tmux
-      - uses: cachix/install-nix-action@d698718aa798980d17dd749f03beae0b51183399 # v31
+        run: sudo apt-get update && sudo apt-get install -y jq socat tmux
       - run: mix local.hex --force && mix local.rebar --force
       - run: mix deps.get
-      # The rootless overlay fixture bind-mounts /nix/store to run sh.
-      - run: nix shell --inputs-from . nixpkgs#bash --command mix test
+      - run: mix test
       - run: mix escript.build
