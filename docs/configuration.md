@@ -154,6 +154,7 @@ through IR, whether declared in backend options or the agent's `config`.
 | `dangerously_bypass` / `auto_approve` | boolean | `false` | Explicit unsafe client modes; never enabled by default. |
 | `poll_interval_ms` / `ready_quiet_ms` | positive integer | `250` / `1000` | Tmux observation timing. Quiet readiness is ignored unless `quiet_ready_fallback: true`. |
 | `submit_delay_ms` / `submit_retry_after_ms` | non-negative / positive integer | `100` / `1000` | Separates literal input from the first Enter, then bounds the active-cursor verification grace. |
+| `receipt_reminder_after_ms` / `max_receipt_reminders` / `resume_recovered_after_ms` | non-negative integer | `600000` / `2` / `30000` | When a tmux turn stays open with the screen still: remind the client of its receipt, how many times, and how soon to resume a turn found open after a reconnect. `0` disables. |
 | `submit_max_attempts` / `submit_check_max_errors` | positive integer | `2` / `3` | Bounded Enter-only recovery and cursor-query failures before `needs_attention`. |
 
 For example, this JSON shape creates an attachable OpenCode pane backed by its

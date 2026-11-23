@@ -261,6 +261,29 @@ defmodule Genswarms.Backends.Tmux.RunnersTest do
     assert File.read!(env_path) =~ ~s(GH_TOKEN='dummy'"'"'quoted)
   end
 
+  test "bwrap lets configured PATH and TERM replace the defaults and never the agent's home",
+       ctx do
+    config =
+      base_config(ctx)
+      |> Map.put(:runner_env, %{
+        "PATH" => "/run/current-system/sw/bin:/bin",
+        "HOME" => "/somewhere/else",
+        "SSL_CERT_FILE" => "/etc/ssl/certs/ca-bundle.crt"
+      })
+
+    assert {:ok, pairs} = Bwrap.environment(config, %{env: []})
+    env = Map.new(pairs)
+
+    assert env["PATH"] == "/run/current-system/sw/bin:/bin"
+    assert env["SSL_CERT_FILE"] == "/etc/ssl/certs/ca-bundle.crt"
+    assert env["TERM"] == "xterm-256color"
+    assert env["HOME"] == "/root"
+    assert env["XDG_CONFIG_HOME"] == "/root/.config"
+
+    assert {:ok, defaults} = Bwrap.environment(base_config(ctx), %{env: []})
+    assert Map.new(defaults)["PATH"] == "/bin:/usr/bin:/usr/local/bin"
+  end
+
   test "large bwrap commands use a private NUL argv file without shell parsing", ctx do
     marker = Path.join(ctx.root, "must-not-exist")
 
