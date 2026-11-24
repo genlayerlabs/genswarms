@@ -63,23 +63,30 @@ defmodule Genswarms.Backends.Bwrap.RootlessLauncherScriptTest do
   @script Path.join(:code.priv_dir(:genswarms), "bwrap-rootless-launch.sh")
 
   test "the launcher applies RLIMIT_AS and execs the tail with args intact" do
-    {out, 0} =
-      System.cmd("sh", [
-        @script,
-        "65536",
-        "19",
-        "--",
-        "sh",
-        "-c",
-        "echo \"AS=$(ulimit -v) TAIL=$*\"",
-        "_",
-        "hello",
-        "a; rm -rf /"
-      ])
+    if :os.type() != {:unix, :linux} do
+      IO.puts(
+        "Skipping: RLIMIT_AS via `ulimit -v` is not settable on #{inspect(:os.type())} " <>
+          "(bwrap itself is Linux-only; this asserts Linux-specific ulimit behavior)"
+      )
+    else
+      {out, 0} =
+        System.cmd("sh", [
+          @script,
+          "65536",
+          "19",
+          "--",
+          "sh",
+          "-c",
+          "echo \"AS=$(ulimit -v) TAIL=$*\"",
+          "_",
+          "hello",
+          "a; rm -rf /"
+        ])
 
-    assert out =~ "AS=65536"
-    # the shell-metachar arg reaches the tail as ONE untouched token
-    assert out =~ "TAIL=hello a; rm -rf /"
+      assert out =~ "AS=65536"
+      # the shell-metachar arg reaches the tail as ONE untouched token
+      assert out =~ "TAIL=hello a; rm -rf /"
+    end
   end
 
   test "a zero limit means unlimited (no ulimit clamp)" do
