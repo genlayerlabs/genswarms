@@ -97,57 +97,66 @@ defmodule Genswarms.Backends.Bwrap.RootlessOverlayTest do
     refute "--overlay-src" in cgroup_args
   end
 
+  # The sandbox mounts the Nix store to make the shell and its dependencies available.
+  @bwrap System.find_executable("bwrap")
+  @nix_shell (with true <- File.dir?("/nix/store"),
+                   sh when is_binary(sh) <- System.find_executable("sh"),
+                   readlink when is_binary(readlink) <- System.find_executable("readlink"),
+                   {path, 0} <- System.cmd(readlink, ["-f", sh]),
+                   path = String.trim(path),
+                   true <- String.starts_with?(path, "/nix/store/") do
+                path
+              else
+                _ -> nil
+              end)
+
   @tag :integration
+  @tag skip: is_nil(@bwrap) or is_nil(@nix_shell)
   test "the production root argv binds a writable materialized root with zero privileges",
        %{tmp: tmp} do
-    if System.find_executable("bwrap") == nil do
-      IO.puts("Skipping: bwrap not installed")
-    else
-      base = Path.join(tmp, "base")
-      File.mkdir_p!(base)
-      File.write!(Path.join(base, "f.txt"), "lower\n")
-      sh = Path.expand(:os.cmd(~c"readlink -f $(command -v sh)") |> to_string() |> String.trim())
+    base = Path.join(tmp, "base")
+    File.mkdir_p!(base)
+    File.write!(Path.join(base, "f.txt"), "lower\n")
 
-      assert {:ok, agent_dir, ^base} =
-               OverlayManager.setup_overlay("integration", [{:custom, base}], :rootless)
+    assert {:ok, agent_dir, ^base} =
+             OverlayManager.setup_overlay("integration", [{:custom, base}], :rootless)
 
-      merged = Path.join(agent_dir, "merged")
+    merged = Path.join(agent_dir, "merged")
 
-      {out, code} =
-        System.cmd(
-          System.find_executable("bwrap"),
-          [
-            "--unshare-user",
-            "--unshare-pid",
-            "--uid",
-            "1000",
-            "--gid",
-            "1000",
-            "--bind",
-            merged,
-            "/",
-            "--dev",
-            "/dev",
-            "--proc",
-            "/proc",
-            "--tmpfs",
-            "/tmp",
-            "--ro-bind",
-            "/nix/store",
-            "/nix/store",
-            "--die-with-parent",
-            "--",
-            sh,
-            "-c",
-            "read x < /f.txt && echo READ=$x && echo w > /w.txt"
-          ],
-          stderr_to_stdout: true
-        )
+    {out, code} =
+      System.cmd(
+        @bwrap,
+        [
+          "--unshare-user",
+          "--unshare-pid",
+          "--uid",
+          "1000",
+          "--gid",
+          "1000",
+          "--bind",
+          merged,
+          "/",
+          "--dev",
+          "/dev",
+          "--proc",
+          "/proc",
+          "--tmpfs",
+          "/tmp",
+          "--ro-bind",
+          "/nix/store",
+          "/nix/store",
+          "--die-with-parent",
+          "--",
+          @nix_shell,
+          "-c",
+          "read x < /f.txt && echo READ=$x && echo w > /w.txt"
+        ],
+        stderr_to_stdout: true
+      )
 
-      assert code == 0, "bwrap materialized root failed: #{out}"
-      assert out =~ "READ=lower"
-      assert File.read!(Path.join(merged, "w.txt")) == "w\n"
-      assert :ok = OverlayManager.cleanup_overlay("integration")
-    end
+    assert code == 0, "bwrap materialized root failed: #{out}"
+    assert out =~ "READ=lower"
+    assert File.read!(Path.join(merged, "w.txt")) == "w\n"
+    assert :ok = OverlayManager.cleanup_overlay("integration")
   end
 end
