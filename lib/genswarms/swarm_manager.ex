@@ -73,10 +73,39 @@ defmodule Genswarms.SwarmManager do
 
   @doc """
   Gets the status of a swarm.
+
+  The manager only answers with its own bookkeeping (status, timestamps,
+  config counts). The per-process part -- `agents`, `objects` and
+  `agent_counts`, which ask every agent and object for `:get_status` -- is
+  collected afterwards in the CALLING process, never inside the manager.
+
+  Doing that fan-out inside the manager deadlocked it against any object
+  that calls back into the manager (e.g. `add_agent/3` from a handler):
+  the manager waited on the object's `:get_status` while the object waited
+  on the manager, until the 5 s call timeouts fired, stalling every manager
+  call for the duration. Outside the manager the caller may still wait for
+  a busy process, but nothing waits on the caller, so there is no cycle.
   """
   @spec status(String.t()) :: {:ok, map()} | {:error, :not_found}
   def status(swarm_name) do
-    GenServer.call(__MODULE__, {:status, swarm_name})
+    with {:ok, status} <- GenServer.call(__MODULE__, {:status, swarm_name}) do
+      {:ok, put_runtime_status(status, swarm_name)}
+    end
+  end
+
+  # A swarm still running its init callbacks reports no processes: those
+  # callbacks may themselves be waiting for this manager.
+  defp put_runtime_status(%{runtime_pending: true} = status, _swarm_name), do: status
+
+  defp put_runtime_status(status, swarm_name) do
+    agents = AgentSupervisor.list_agents(swarm_name)
+
+    %{
+      status
+      | agents: agents,
+        agent_counts: Enum.frequencies_by(agents, & &1.state),
+        objects: ObjectSupervisor.list_objects(swarm_name)
+    }
   end
 
   @doc """
@@ -367,25 +396,18 @@ defmodule Genswarms.SwarmManager do
         {:reply, {:error, :not_found}, state}
 
       swarm_info ->
-        # A status request must not synchronously wait on an init callback;
-        # that callback may itself be waiting for this manager.
-        {agents, agent_counts, objects} =
-          if swarm_info.status == :starting do
-            {[], %{}, []}
-          else
-            {AgentSupervisor.list_agents(swarm_name), AgentSupervisor.count_by_state(swarm_name),
-             ObjectSupervisor.list_objects(swarm_name)}
-          end
-
+        # Never call agents or objects from here: any of them may be blocked
+        # calling this manager. status/1 fills the per-process fields in the
+        # caller (see put_runtime_status/2).
         status = %{
           name: swarm_name,
           status: swarm_info.status,
           runtime_pending: swarm_info.status == :starting,
           started_at: swarm_info.started_at,
           config_path: Map.get(swarm_info, :config_path),
-          agents: agents,
-          objects: objects,
-          agent_counts: agent_counts,
+          agents: [],
+          objects: [],
+          agent_counts: %{},
           config: %{
             agent_count: length(swarm_info.config.agents),
             object_count: length(swarm_info.config.objects || []),
