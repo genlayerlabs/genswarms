@@ -261,27 +261,38 @@ defmodule Genswarms.Backends.Tmux.RunnersTest do
     assert File.read!(env_path) =~ ~s(GH_TOKEN='dummy'"'"'quoted)
   end
 
-  test "bwrap lets configured PATH and TERM replace the defaults and never the agent's home",
+  test "bwrap lets configured tool settings replace defaults and keeps the agent home fixed",
        ctx do
     config =
       base_config(ctx)
       |> Map.put(:runner_env, %{
         "PATH" => "/run/current-system/sw/bin:/bin",
         "HOME" => "/somewhere/else",
-        "SSL_CERT_FILE" => "/etc/ssl/certs/ca-bundle.crt"
+        "SSL_CERT_FILE" => "/custom/certs.pem",
+        "GIT_SSL_CAINFO" => "/custom/git-certs.pem",
+        "ERL_AFLAGS" => "+S 2"
       })
 
     assert {:ok, pairs} = Bwrap.environment(config, %{env: []})
     env = Map.new(pairs)
 
     assert env["PATH"] == "/run/current-system/sw/bin:/bin"
-    assert env["SSL_CERT_FILE"] == "/etc/ssl/certs/ca-bundle.crt"
+    assert env["SSL_CERT_FILE"] == "/custom/certs.pem"
+    assert env["GIT_SSL_CAINFO"] == "/custom/git-certs.pem"
+    assert env["ERL_AFLAGS"] == "+S 2"
     assert env["TERM"] == "xterm-256color"
     assert env["HOME"] == "/root"
     assert env["XDG_CONFIG_HOME"] == "/root/.config"
+  end
 
-    assert {:ok, defaults} = Bwrap.environment(base_config(ctx), %{env: []})
-    assert Map.new(defaults)["PATH"] == "/bin:/usr/bin:/usr/local/bin"
+  test "bwrap defaults Git and Erlang trust to the sandbox CA bundle", ctx do
+    assert {:ok, pairs} = Bwrap.environment(base_config(ctx), %{env: []})
+    env = Map.new(pairs)
+
+    assert env["PATH"] == "/bin:/usr/bin:/usr/local/bin"
+    assert env["SSL_CERT_FILE"] == "/etc/ssl/certs/ca-bundle.crt"
+    assert env["GIT_SSL_CAINFO"] == env["SSL_CERT_FILE"]
+    assert env["ERL_AFLAGS"] == ~s(-public_key cacerts_path '"/etc/ssl/certs/ca-bundle.crt"')
   end
 
   test "large bwrap commands use a private NUL argv file without shell parsing", ctx do
