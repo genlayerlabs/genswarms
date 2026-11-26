@@ -337,8 +337,9 @@ object — both ends must share one kernel:
 
 Endpoint allowlist: the forwarder destination is the resolved endpoint, and a
 per-agent `:endpoint` is attacker-influenceable (dynamic add-agent API). So a
-per-agent endpoint is honored only if its host is allowlisted — the server's own
-endpoint host, or `GENSWARMS_ALLOWED_ENDPOINTS` (comma-separated hosts). The
+per-agent endpoint is honored only if it is allowlisted — the server's own
+endpoint host *on its own port*, or a `GENSWARMS_ALLOWED_ENDPOINTS` entry
+(comma-separated; `host` = any port, `host:port` = that port only). The
 operator's env/default endpoint is always trusted. An isolated agent with a
 disallowed endpoint fails to start (fail closed), never forwarding to an arbitrary
 host.

@@ -63,22 +63,36 @@ defmodule Genswarms.Property.SwarmConfigPropertyTest do
     end
   end
 
-  property "an accepted config only has edges between declared nodes" do
+  # Agent and object names drawn from one pool, as atoms or strings, so
+  # duplicates (including :pc_a vs "pc_a", agent vs object) come up often.
+  defp node_name, do: one_of([member_of(@names), map(member_of(@names), &String.to_atom/1)])
+
+  # An unloaded handler module is accepted (it may live in the host app).
+  defp object_gen, do: map(node_name(), &%{name: &1, handler: PropConfig.NotLoadedHandler})
+
+  property "an accepted config has unique node names and only edges between them" do
     check all(
             agents <-
-              map(
-                list_of(agent_gen(), min_length: 1, max_length: 5),
-                &Enum.uniq_by(&1, fn a -> a.name end)
+              list_of(map({agent_gen(), node_name()}, fn {a, n} -> %{a | name: n} end),
+                min_length: 1,
+                max_length: 5
               ),
+            objects <- list_of(object_gen(), max_length: 2),
             topology <- list_of(edge_gen(), max_length: 8)
           ) do
-      declared = MapSet.new(agents, & &1.name)
+      names = Enum.map(agents ++ objects, &to_string(&1.name))
+      unique? = names == Enum.uniq(names)
+      declared = MapSet.new(names)
       all_declared? = Enum.all?(topology, fn {a, b} -> a in declared and b in declared end)
 
-      case SwarmConfig.parse(%{name: "prop-config", agents: agents, topology: topology}) do
+      config = %{name: "prop-config", agents: agents, objects: objects, topology: topology}
+
+      case SwarmConfig.parse(config) do
         {:ok, config} ->
-          assert all_declared?
-          assert Enum.map(config.agents, & &1.name) == Enum.map(agents, &String.to_atom(&1.name))
+          assert unique? and all_declared?
+
+          assert Enum.map(config.agents, & &1.name) ==
+                   Enum.map(agents, &String.to_atom(to_string(&1.name)))
 
           adjacency = SwarmConfig.build_adjacency_map(config.topology)
 
@@ -87,35 +101,84 @@ defmodule Genswarms.Property.SwarmConfigPropertyTest do
             assert to in Map.fetch!(adjacency, from)
           end
 
+        {:error, {:duplicate_name, name}} ->
+          refute unique?
+          assert Enum.count(names, &(&1 == name)) > 1
+
         {:error, _} ->
-          refute all_declared?
+          refute unique? and all_declared?
       end
     end
   end
 
-  describe "known bugs" do
-    @describetag :known_bug
+  # A value an agent could plausibly write for `network`: the reserved words in
+  # any case/padding, near-misses, and docker-style network names.
+  defp network_value do
+    word =
+      one_of([
+        member_of(~w(open none isolated isolate Isolated ISOLATED None OPEN my-net bridge)),
+        map(
+          {member_of(~w(open none isolated)), list_of(boolean(), length: 8),
+           member_of(["", " "])},
+          fn {w, flips, pad} ->
+            w
+            |> String.graphemes()
+            |> Enum.zip(flips ++ List.duplicate(false, 8))
+            |> Enum.map_join(fn {c, up?} -> if up?, do: String.upcase(c), else: c end)
+            |> Kernel.<>(pad)
+          end
+        )
+      ])
 
-    property "two nodes can never share a name" do
-      check all(agents <- list_of(agent_gen(), min_length: 2, max_length: 5)) do
-        names = Enum.map(agents, & &1.name)
+    one_of([word, map(word, &String.to_atom/1)])
+  end
 
-        case SwarmConfig.parse(%{name: "prop-config", agents: agents}) do
-          {:ok, _} -> assert names == Enum.uniq(names)
-          {:error, _} -> :ok
+  property "a network setting is accepted only if the backend honours it as written" do
+    check all(
+            value <- network_value(),
+            backend <-
+              member_of([:bwrap, {:bwrap, %{}}, nil, {:docker, "img"}, :local, {:tmux, :codex}]),
+            where <- member_of([:config, :backend])
+          ) do
+      agent =
+        case {where, backend} do
+          {:backend, {:bwrap, _}} ->
+            %{name: "pc_a", backend: {:bwrap, %{network: value}}}
+
+          {:backend, {:docker, img}} ->
+            %{name: "pc_a", backend: {:docker, img, %{network: value}}}
+
+          {_, nil} ->
+            %{name: "pc_a", config: %{network: value}}
+
+          _ ->
+            %{name: "pc_a", backend: backend, config: %{network: value}}
         end
+
+      exact? = to_string(value) in ~w(open none isolated)
+
+      near_miss? =
+        not exact? and String.downcase(String.trim(to_string(value))) in ~w(open none isolated)
+
+      bwrap? = backend in [:bwrap, {:bwrap, %{}}, nil]
+
+      accepted? =
+        match?({:ok, _}, SwarmConfig.parse(%{name: "prop-config", agents: [agent]}))
+
+      cond do
+        near_miss? -> refute accepted?
+        bwrap? -> assert accepted? == to_string(value) in ~w(open isolated)
+        true -> assert accepted?
       end
     end
+  end
 
-    test "a misspelled network setting is rejected, not treated as open" do
-      for value <- ["Isolated", "ISOLATED", "isolate", :Isolated] do
-        agent = %{name: "pc_a", backend: :bwrap, config: %{network: value}}
-        result = SwarmConfig.parse(%{name: "prop-config", agents: [agent]})
+  test "a misspelled network setting is rejected, not treated as open" do
+    for value <- ["Isolated", "ISOLATED", "isolate", :Isolated] do
+      agent = %{name: "pc_a", backend: :bwrap, config: %{network: value}}
+      result = SwarmConfig.parse(%{name: "prop-config", agents: [agent]})
 
-        assert match?({:error, _}, result) or
-                 Genswarms.Backends.EgressGuard.isolated?(agent.config),
-               "network: #{inspect(value)} was accepted and means an open network"
-      end
+      assert {:error, {:invalid_network, ^value}} = result
     end
   end
 end

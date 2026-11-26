@@ -105,6 +105,18 @@ defmodule Genswarms.Agents.AgentProtocolTest do
       assert {:error, _} = AgentProtocol.decode("not json")
     end
 
+    test "returns error for a non-text field instead of raising" do
+      for json <- [
+            ~s({"type": "send", "to": 0}),
+            ~s({"type": "send", "to": true}),
+            ~s({"type": "message", "from": [1]}),
+            ~s({"type": "output", "content": null}),
+            ~s({"type": 5})
+          ] do
+        assert {:error, :invalid_field} = AgentProtocol.decode(json)
+      end
+    end
+
     test "returns error for missing type" do
       json = ~s({"content": "no type field"})
       assert {:error, :missing_type} = AgentProtocol.decode(json)

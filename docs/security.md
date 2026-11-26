@@ -169,11 +169,13 @@ enough for that agent's input.
 ### Endpoint allowlist
 
 A per-agent `:endpoint` is honored as the isolated forwarder's destination only
-if its host is allowlisted:
+if its host and port are allowlisted. The server's own endpoint authorises its
+host **on its own port only** — with `SUBZEROCLAW_ENDPOINT=http://localhost:11434/...`,
+a per-agent `http://localhost:4000/...` (the orchestrator API) is refused.
 
 | Variable | Effect |
 |----------|--------|
-| `GENSWARMS_ALLOWED_ENDPOINTS` | comma-separated hosts a per-agent endpoint may point at (in addition to the server's own endpoint host) |
+| `GENSWARMS_ALLOWED_ENDPOINTS` | comma-separated entries a per-agent endpoint may point at: `host` (any port on that host) or `host:port` (that port only; bracket IPv6, e.g. `[::1]:8080`). Malformed entries are ignored. |
 
 The operator's env/default endpoint is always trusted. An isolated agent whose
 endpoint is not allowed **fails to start** rather than forwarding to an arbitrary

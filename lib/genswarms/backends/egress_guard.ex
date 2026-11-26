@@ -42,9 +42,10 @@ defmodule Genswarms.Backends.EgressGuard do
   The forwarder destination is the resolved endpoint, and a per-agent `:endpoint`
   is attacker-influenceable (the dynamic add-agent API). To stop an isolated agent
   being pinned to an untrusted host (which would turn the forwarder itself into an
-  exfiltration channel), a per-agent endpoint is honored only if its host is
-  allowlisted — the server's own endpoint host, or `GENSWARMS_ALLOWED_ENDPOINTS`
-  (comma-separated). The operator-controlled env/default endpoint is always
+  exfiltration channel), a per-agent endpoint is honored only if it is
+  allowlisted — the server's own endpoint host *and port*, or an entry in
+  `GENSWARMS_ALLOWED_ENDPOINTS` (comma-separated `host` = any port, or
+  `host:port` = that port only). The operator-controlled env/default endpoint is always
   trusted. An isolated agent whose endpoint is not allowed fails to start
   (fail closed) rather than forwarding to an arbitrary destination.
   """
@@ -128,8 +129,8 @@ defmodule Genswarms.Backends.EgressGuard do
 
     * No per-agent `:endpoint` → the operator-controlled env/default endpoint
       (always allowed).
-    * A per-agent `:endpoint` → honored only if its host is allowlisted (the
-      server's own endpoint host, or `GENSWARMS_ALLOWED_ENDPOINTS`). Otherwise
+    * A per-agent `:endpoint` → honored only if its host and port are
+      allowlisted (see `allowed_endpoints/0`). Otherwise
       `{:error, {:endpoint_not_allowed, endpoint}}` — fail closed, so an isolated
       agent is never pinned to an untrusted exfiltration target.
   """
@@ -152,30 +153,57 @@ defmodule Genswarms.Backends.EgressGuard do
   end
 
   @doc """
-  Hosts a per-agent config may point an isolated forwarder at: the server's own
-  endpoint host plus `GENSWARMS_ALLOWED_ENDPOINTS` (comma-separated hosts).
+  `{host, port | :any}` pairs a per-agent config may point an isolated forwarder
+  at. Hosts are lowercased.
+
+    * The server's own endpoint authorises its host **and port** only — another
+      service on the same host (e.g. the orchestrator API next to a local model)
+      is not an LLM endpoint.
+    * `GENSWARMS_ALLOWED_ENDPOINTS` (comma-separated) entries are `host` (any
+      port on that host) or `host:port` (that port only; bracket IPv6 hosts).
+      Malformed entries are dropped (fail closed).
   """
-  @spec allowed_endpoint_hosts() :: [String.t()]
-  def allowed_endpoint_hosts do
-    server_host =
+  @spec allowed_endpoints() :: [{String.t(), pos_integer() | :any}]
+  def allowed_endpoints do
+    server =
       case endpoint_target(operator_endpoint()) do
-        {:ok, {host, _port}} -> [String.downcase(host)]
+        {:ok, {host, port}} -> [{String.downcase(host), port}]
         _ -> []
       end
 
     configured =
       (System.get_env("GENSWARMS_ALLOWED_ENDPOINTS") || "")
       |> String.split(",", trim: true)
-      |> Enum.map(&(&1 |> String.trim() |> String.downcase()))
-      |> Enum.reject(&(&1 == ""))
+      |> Enum.map(&String.trim/1)
+      |> Enum.flat_map(&parse_allowed_entry/1)
 
-    Enum.uniq(server_host ++ configured)
+    Enum.uniq(server ++ configured)
+  end
+
+  defp parse_allowed_entry(""), do: []
+
+  defp parse_allowed_entry(entry) do
+    case URI.new("//" <> entry) do
+      # "host:" parses with no port; refuse it rather than widen it to any port.
+      {:ok, %URI{host: host, port: port, userinfo: nil, path: nil, query: nil, fragment: nil}}
+      when is_binary(host) and host != "" and (is_nil(port) or port in 1..65_535) ->
+        if is_nil(port) and String.ends_with?(entry, ":"),
+          do: [],
+          else: [{String.downcase(host), port || :any}]
+
+      _ ->
+        []
+    end
   end
 
   defp endpoint_host_allowed?(url) do
     case endpoint_target(url) do
-      {:ok, {host, _port}} -> String.downcase(host) in allowed_endpoint_hosts()
-      _ -> false
+      {:ok, {host, port}} ->
+        host = String.downcase(host)
+        Enum.any?(allowed_endpoints(), fn {h, p} -> h == host and p in [:any, port] end)
+
+      _ ->
+        false
     end
   end
 

@@ -226,6 +226,38 @@ defmodule Genswarms.Config.SwarmConfigTest do
         assert {:ok, _} = SwarmConfig.parse(config)
       end
     end
+
+    test "rejects two nodes with the same name, comparing as strings" do
+      assert {:error, {:duplicate_name, "a"}} =
+               SwarmConfig.parse(%{name: "s", agents: [%{name: :a}, %{name: "a"}]})
+
+      assert {:error, {:duplicate_name, "a"}} =
+               SwarmConfig.parse(%{
+                 name: "s",
+                 agents: [%{name: :a, backend: :mock}],
+                 objects: [%{name: "a", handler: NotLoaded.Handler}]
+               })
+    end
+
+    test "rejects network near-misses everywhere and non-modes on bwrap" do
+      parse = fn agent -> SwarmConfig.parse(%{name: "s", agents: [Map.put(agent, :name, :a)]}) end
+
+      for value <- ["Isolated", :NONE, "open "] do
+        assert {:error, {:invalid_network, ^value}} =
+                 parse.(%{backend: {:docker, "img"}, config: %{network: value}})
+      end
+
+      assert {:error, {:invalid_network, :none}} = parse.(%{config: %{network: :none}})
+
+      assert {:error, {:invalid_network, "my-net"}} =
+               parse.(%{backend: {:bwrap, %{network: "my-net"}}})
+
+      for value <- [:isolated, "isolated", :open, "open"],
+          do: assert({:ok, _} = parse.(%{backend: :bwrap, config: %{network: value}}))
+
+      for value <- [:none, "none", "my-net", :isolated],
+          do: assert({:ok, _} = parse.(%{backend: {:docker, "img", %{network: value}}}))
+    end
   end
 
   describe "build_adjacency_map/1" do

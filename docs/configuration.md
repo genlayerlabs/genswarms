@@ -138,7 +138,7 @@ through IR, whether declared in backend options or the agent's `config`.
 | `api_key` / `model` / `endpoint` | string | env/provider defaults | LLM settings passed through to real backends. Prefer top-level `model` / `endpoint` for normal configs. |
 | `request_extra` / `compact_extra` | JSON string or map | none | Advanced subzeroclaw request/compaction routing payloads. |
 | `presets` | list of atoms | `[:base]` | The same agent-level `presets` key (above), forwarded to the sandbox. The bwrap backend falls back to `[:base]` when none are given. |
-| `network` | `:open` \| `:none` \| `:isolated` \| string | `:open` | Subzeroclaw Docker/bwrap use `:isolated` for LLM-only egress. An isolated tmux TUI runner supports `:none` (no network); Docker also accepts a named network. Tmux TUI runners reject `:isolated` until their clients have a safe LLM-forwarding contract. Apple container also rejects `:isolated`. See [Security › network isolation](security.md#agent-network-isolation). |
+| `network` | `:open` \| `:none` \| `:isolated` \| string | `:open` | Subzeroclaw Docker/bwrap use `:isolated` for LLM-only egress. An isolated tmux TUI runner supports `:none` (no network); Docker also accepts a named network. Tmux TUI runners reject `:isolated` until their clients have a safe LLM-forwarding contract. Apple container also rejects `:isolated`. The bwrap backend (the default) accepts only `open`/`isolated`. Mis-cased or padded reserved words (`"Isolated"`, `:NONE`, `"open "`) are rejected at parse time on every backend, since they would otherwise mean an open network. See [Security › network isolation](security.md#agent-network-isolation). |
 | `client` / `resume` | tmux client / boolean or string | required / `false` | Select a coding TUI and optionally resume its latest/named conversation. |
 | `runner` | `:host` \| `:docker` \| `:bwrap` | `:host` | Where a tmux pane executes its coding client. tmux itself remains host-side and attachable. |
 | `client_source` | `:runtime` \| `:host_nix` | Docker: `:runtime`; bwrap: `:host_nix` | Use a client already in the isolated runtime, or mount the selected host Nix closure read-only. |
@@ -330,7 +330,9 @@ authoring details and built-in skills.
 
 ```elixir
 %{
-  # Required: unique identifier (letter-led, alphanumeric/_/-)
+  # Required: unique identifier (letter-led, alphanumeric/_/-).
+  # Agent and object names must also be unique across the swarm
+  # (:a and "a" are the same name) — duplicates fail with {:duplicate_name, name}.
   name: "example-swarm",
 
   agents: [

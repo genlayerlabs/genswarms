@@ -69,19 +69,20 @@ defmodule Genswarms.Property.AgentProtocolPropertyTest do
     end
   end
 
-  property "decode never crashes" do
-    check all(data <- one_of([binary(), string(:printable), json_object(text())])) do
-      assert match?({:ok, _}, AgentProtocol.decode(data)) or
-               match?({:error, _}, AgentProtocol.decode(data))
-    end
-  end
-
-  # Shrinks to {"type":"send","to":0}: a non-text field raises instead of erroring.
-  @tag :known_bug
-  property "decode never crashes on JSON with fields of the wrong type" do
-    check all(data <- json_object(one_of([text(), integer(), boolean(), constant(nil)]))) do
-      assert match?({:ok, _}, AgentProtocol.decode(data)) or
-               match?({:error, _}, AgentProtocol.decode(data))
+  # Fields may be text or any other JSON type ({"type":"send","to":0} used to raise).
+  property "decode never crashes, and rejects any non-text field" do
+    check all(
+            data <-
+              one_of([
+                binary(),
+                string(:printable),
+                json_object(one_of([text(), integer(), boolean(), constant(nil)]))
+              ])
+          ) do
+      case AgentProtocol.decode(data) do
+        {:ok, _} -> assert Enum.all?(Map.values(Jason.decode!(data)), &is_binary/1)
+        {:error, _} -> :ok
+      end
     end
   end
 
