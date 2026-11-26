@@ -419,7 +419,7 @@ defmodule Mix.Tasks.Genswarms.Start.Daemon do
     tasks = SwarmRegistry.get_pending_tasks(swarm_name)
 
     Enum.each(tasks, fn task ->
-      case SwarmManager.send_task(swarm_name, task.agent, task.task) do
+      case deliver_task(swarm_name, task) do
         :ok ->
           SwarmRegistry.mark_task_processed(task.id)
 
@@ -427,6 +427,21 @@ defmodule Mix.Tasks.Genswarms.Start.Daemon do
             swarm: swarm_name,
             agent: task.agent,
             metadata: %{task_id: task.id, task: String.slice(task.task, 0, 100)}
+          )
+
+        {:failed, reason} ->
+          # Permanent failure: retrying every poll would never succeed (or,
+          # after an exit, could re-crash the agent), so drop the task.
+          SwarmRegistry.mark_task_processed(task.id)
+
+          SwarmRegistry.log_event(
+            :error,
+            :agent,
+            :task_failed,
+            "Dropped task for #{task.agent}: #{inspect(reason)}",
+            swarm: swarm_name,
+            agent: task.agent,
+            metadata: %{task_id: task.id, reason: inspect(reason)}
           )
 
         {:error, reason} ->
@@ -442,6 +457,17 @@ defmodule Mix.Tasks.Genswarms.Start.Daemon do
           )
       end
     end)
+  end
+
+  # One bad task must not kill the daemon loop: an unknown agent or an exit
+  # (call timeout, agent crash) is a permanent failure for that task.
+  defp deliver_task(swarm_name, task) do
+    case SwarmManager.send_task(swarm_name, task.agent, task.task) do
+      {:error, :agent_not_found} -> {:failed, :agent_not_found}
+      other -> other
+    end
+  catch
+    :exit, reason -> {:failed, {:exit, reason}}
   end
 end
 

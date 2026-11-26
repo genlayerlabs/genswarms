@@ -147,12 +147,16 @@ defmodule Genswarms.Agents.AgentServer do
   it is never sent to the backend and travels with this task's automatic reply
   to the sink's `handle_agent_reply/4` callback, even across queued turns.
   Omit it to retain the ordinary plain-text `handle_message/3` delivery.
+
+  Returns `{:error, :agent_not_found}` when no such agent is registered.
   """
   def send_task(swarm_name, agent_name, task, opts \\ []) do
     GenServer.call(
       via_tuple(swarm_name, agent_name),
       {:send_task, task, Keyword.get(opts, :reply_context)}
     )
+  catch
+    :exit, {:noproc, _} -> {:error, :agent_not_found}
   end
 
   @doc """

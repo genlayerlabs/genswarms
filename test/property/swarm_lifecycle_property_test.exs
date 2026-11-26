@@ -70,7 +70,7 @@ defmodule Genswarms.Property.SwarmLifecyclePropertyTest do
     end
   end
 
-  defp assert_consistent(swarm, history, strict_edges?) do
+  defp assert_consistent(swarm, history) do
     {:ok, config} = SwarmManager.get_full_config(swarm)
     {:ok, adjacency} = Router.get_topology(swarm)
 
@@ -87,12 +87,12 @@ defmodule Genswarms.Property.SwarmLifecyclePropertyTest do
     assert router_edges == MapSet.new(config.topology),
            "router edges differ from the config #{context}"
 
-    for {from, to} <- router_edges, strict_edges? do
+    for {from, to} <- router_edges do
       assert from in live and to in live, "edge #{from} -> #{to} touches a dead node #{context}"
     end
   end
 
-  defp check_ops(ops, strict_edges?) do
+  defp check_ops(ops) do
     swarm = "prop-life-#{System.unique_integer([:positive])}"
     SwarmRegistry.clear_overlay(swarm)
 
@@ -105,12 +105,12 @@ defmodule Genswarms.Property.SwarmLifecyclePropertyTest do
       })
 
     try do
-      assert_consistent(swarm, [], strict_edges?)
+      assert_consistent(swarm, [])
 
       Enum.reduce(ops, [], fn op, history ->
         run_op(op, swarm)
         history = history ++ [op]
-        assert_consistent(swarm, history, strict_edges?)
+        assert_consistent(swarm, history)
         history
       end)
     after
@@ -124,19 +124,10 @@ defmodule Genswarms.Property.SwarmLifecyclePropertyTest do
 
   property "manager, router and live processes always agree" do
     check all(ops <- list_of(op_gen(), max_length: 12)) do
-      check_ops(ops, false)
+      check_ops(ops)
     end
   end
 
-  # Shrinks to one add_edges call naming a node that was never created.
-  @tag :known_bug
-  property "no edge ever points at a node that does not exist" do
-    check all(ops <- list_of(op_gen(), max_length: 12)) do
-      check_ops(ops, true)
-    end
-  end
-
-  @tag :known_bug
   test "sending a task to an agent that does not exist returns an error" do
     swarm = "prop-life-task-#{System.unique_integer([:positive])}"
 
@@ -149,6 +140,7 @@ defmodule Genswarms.Property.SwarmLifecyclePropertyTest do
     on_exit(fn -> SwarmManager.stop(swarm) end)
 
     # The daemon's task poller calls exactly this; an exit here stops the daemon.
-    assert {:error, _} = SwarmManager.send_task(swarm, "pl_no_such_agent", "hello")
+    assert {:error, :agent_not_found} =
+             SwarmManager.send_task(swarm, "pl_no_such_agent", "hello")
   end
 end
