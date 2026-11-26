@@ -468,10 +468,13 @@ defmodule Mix.Tasks.Genswarms.Start.Daemon do
     case SwarmManager.send_task(swarm_name, task.agent, task.task) do
       {:error, :agent_not_found} ->
         # A declared agent that is not registered is restarting: keep the task
-        # pending. Only an undeclared name is a permanent failure.
-        if declared_agent?(swarm_name, task.agent),
-          do: {:error, :agent_restarting},
-          else: {:failed, :agent_not_found}
+        # pending. Only a name known to be undeclared is a permanent failure;
+        # if the manager cannot answer, keep the task pending too.
+        case declared_agent?(swarm_name, task.agent) do
+          true -> {:error, :agent_restarting}
+          false -> {:failed, :agent_not_found}
+          :unknown -> {:error, :agent_lookup_failed}
+        end
 
       other ->
         other
@@ -485,6 +488,9 @@ defmodule Mix.Tasks.Genswarms.Start.Daemon do
       {:ok, config} -> Enum.any?(config.agents, &(&1.name == agent))
       _ -> false
     end
+  catch
+    # The task was never sent, so a failed lookup must not count as delivery.
+    :exit, _ -> :unknown
   end
 
   # Unknown names stay strings (never interned), so they cannot be declared.

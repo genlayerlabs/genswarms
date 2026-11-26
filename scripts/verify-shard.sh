@@ -32,8 +32,9 @@ case "${1:-}" in
       curl -fsSL -o "$jar" https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar ||
         finish error "step=download"
     fi
-    set_of() { local out="" i; for i in $(seq 1 "$2"); do out="$out${out:+, }$1$i"; done; echo "{$out}"; }
-    bad_set() { local out="" i; for i in $(seq $((tasks - bad + 1)) "$tasks"); do out="$out${out:+, }t$i"; done; echo "{$out}"; }
+    set_of() { local out="" i=1; while [ "$i" -le "$2" ]; do out="$out${out:+, }$1$i"; i=$((i + 1)); done; echo "{$out}"; }
+    # No `seq` here: with zero bad tasks macOS `seq 2 1` counts downward.
+    bad_set() { local out="" i=$((tasks - bad + 1)); while [ "$i" -le "$tasks" ]; do out="$out${out:+, }t$i"; i=$((i + 1)); done; echo "{$out}"; }
     work="$(mktemp -d)"; cp verification/tla/SwarmDaemon.tla "$work/"
     {
       echo "CONSTANTS"
