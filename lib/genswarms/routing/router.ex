@@ -26,10 +26,25 @@ defmodule Genswarms.Routing.Router do
   # Maximum messages to keep in log
   @max_log_size 1000
 
+  # Topologies are written through to this table so they survive a Router
+  # restart. The message log is not persisted.
+  @table :genswarms_router_topologies
+
   # Client API
 
   def start_link(_opts) do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
+  end
+
+  @doc """
+  Creates the topology table. Called by `Genswarms.Application` before the
+  supervision tree starts, so the table outlives Router restarts. A Router
+  started standalone creates (and owns) it itself.
+  """
+  @spec create_table() :: :ok
+  def create_table do
+    :ets.new(@table, [:named_table, :public, :set])
+    :ok
   end
 
   @doc """
@@ -160,18 +175,25 @@ defmodule Genswarms.Routing.Router do
 
   @impl true
   def init(_opts) do
-    {:ok, %__MODULE__{}}
+    if :ets.whereis(@table) == :undefined, do: create_table()
+    {:ok, %__MODULE__{topologies: Map.new(:ets.tab2list(@table))}}
   end
 
   @impl true
   def handle_call({:register_topology, swarm_name, topology}, _from, state) do
-    adjacency_map = SwarmConfig.build_adjacency_map(topology)
-    new_topologies = Map.put(state.topologies, swarm_name, adjacency_map)
+    # A config may list an edge twice; keep each target once so a single
+    # remove_edges/remove_node fully drops it.
+    adjacency_map =
+      topology
+      |> SwarmConfig.build_adjacency_map()
+      |> Map.new(fn {from, targets} -> {from, Enum.uniq(targets)} end)
+
     Logger.info("Registered topology for swarm #{swarm_name}: #{inspect(adjacency_map)}")
-    {:reply, :ok, %{state | topologies: new_topologies}}
+    {:reply, :ok, put_topology(state, swarm_name, adjacency_map)}
   end
 
   def handle_call({:unregister_topology, swarm_name}, _from, state) do
+    :ets.delete(@table, swarm_name)
     new_topologies = Map.delete(state.topologies, swarm_name)
     Logger.info("Unregistered topology for swarm #{swarm_name}")
     {:reply, :ok, %{state | topologies: new_topologies}}
@@ -189,8 +211,7 @@ defmodule Genswarms.Routing.Router do
             if to in targets, do: acc, else: Map.put(acc, from, [to | targets])
           end)
 
-        new_topologies = Map.put(state.topologies, swarm_name, new_adjacency)
-        {:reply, :ok, %{state | topologies: new_topologies}}
+        {:reply, :ok, put_topology(state, swarm_name, new_adjacency)}
     end
   end
 
@@ -214,8 +235,7 @@ defmodule Genswarms.Routing.Router do
             end
           end)
 
-        new_topologies = Map.put(state.topologies, swarm_name, new_adjacency)
-        {:reply, :ok, %{state | topologies: new_topologies}}
+        {:reply, :ok, put_topology(state, swarm_name, new_adjacency)}
     end
   end
 
@@ -232,8 +252,7 @@ defmodule Genswarms.Routing.Router do
           |> Enum.reject(fn {_from, targets} -> targets == [] end)
           |> Map.new()
 
-        new_topologies = Map.put(state.topologies, swarm_name, new_adjacency)
-        {:reply, :ok, %{state | topologies: new_topologies}}
+        {:reply, :ok, put_topology(state, swarm_name, new_adjacency)}
     end
   end
 
@@ -265,6 +284,20 @@ defmodule Genswarms.Routing.Router do
   end
 
   @impl true
+  # Non-text content (e.g. a JSON object from the API) would crash this
+  # singleton on String.slice; drop it the way an invalid route is dropped.
+  def handle_cast({:route, swarm_name, from, to, content}, state)
+      when not is_binary(content) do
+    drop_invalid_content(swarm_name, from, to)
+    {:noreply, state}
+  end
+
+  def handle_cast({:broadcast, swarm_name, from, content}, state)
+      when not is_binary(content) do
+    drop_invalid_content(swarm_name, from, :all)
+    {:noreply, state}
+  end
+
   def handle_cast({:route, swarm_name, from, to, content}, state) do
     {:noreply, do_route(swarm_name, from, to, content, nil, state)}
   end
@@ -503,6 +536,24 @@ defmodule Genswarms.Routing.Router do
       corr,
       Ask.error_envelope(corr, code, message)
     )
+  end
+
+  defp drop_invalid_content(swarm_name, from, to) do
+    Logger.warning(
+      "Dropped message #{from} -> #{to} in swarm #{swarm_name}: content is not a string"
+    )
+
+    emit_telemetry(:invalid_route, %{
+      swarm: swarm_name,
+      from: from,
+      to: to,
+      reason: :invalid_content
+    })
+  end
+
+  defp put_topology(state, swarm_name, adjacency) do
+    :ets.insert(@table, {swarm_name, adjacency})
+    %{state | topologies: Map.put(state.topologies, swarm_name, adjacency)}
   end
 
   defp add_to_log(state, entry) do

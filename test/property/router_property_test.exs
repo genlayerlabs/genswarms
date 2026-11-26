@@ -81,26 +81,14 @@ defmodule Genswarms.Property.RouterPropertyTest do
 
   property "routes exactly the messages that have an edge" do
     check all(
-            initial <- uniq_list_of(edge_gen(), max_length: 6),
+            initial <- list_of(edge_gen(), max_length: 6),
             ops <- list_of(op_gen(), max_length: 30)
           ) do
       check_against_model(initial, ops)
     end
   end
 
-  describe "known bugs" do
-    @describetag :known_bug
-
-    # Shrinks to: register [{a, b}, {a, b}], remove it once, the edge is still there.
-    property "an edge listed twice in the config can still be removed" do
-      check all(
-              initial <- list_of(edge_gen(), max_length: 6),
-              ops <- list_of(op_gen(), max_length: 30)
-            ) do
-        check_against_model(initial, ops)
-      end
-    end
-
+  describe "router resilience" do
     test "router survives a message whose content is not text" do
       swarm = "prop-router-crash-#{System.unique_integer([:positive])}"
       :ok = Router.register_topology(swarm, [{:pn0, :pn1}])
@@ -109,6 +97,7 @@ defmodule Genswarms.Property.RouterPropertyTest do
 
       # What POST /api/swarms/:name/message passes through for {"content": {}}.
       Router.route(swarm, :pn0, :pn1, %{})
+      Router.broadcast(swarm, :pn0, %{})
 
       refute_receive {:DOWN, ^ref, :process, ^pid, _}, 500
       assert {:ok, _} = Router.get_topology(swarm)
