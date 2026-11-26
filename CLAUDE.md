@@ -297,7 +297,7 @@ namespace; docker uses a normal bridge) and can therefore reach the orchestrator
 API on `localhost`/the host plus the open internet. Set `network: :isolated` in
 an agent's `config` to contain that (supported on **bwrap** and **docker**; Apple
 `container` fails closed because it does not expose matching egress-forwarding
-semantics):
+semantics; `:local` and `:ssh` cannot isolate and reject it at config validation):
 
 ```elixir
 %{name: :researcher, backend: :bwrap,            config: %{network: :isolated}}

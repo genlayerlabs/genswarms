@@ -436,4 +436,31 @@ defmodule Genswarms.Config.SwarmConfigTest do
       assert SwarmConfig.atomize_config_keys(nil) == nil
     end
   end
+
+  describe "review follow-ups" do
+    test "an edge listed twice is kept once" do
+      assert {:ok, config} =
+               SwarmConfig.parse(%{
+                 name: "dup-edges",
+                 agents: [%{name: :a, backend: :mock}, %{name: :b, backend: :mock}],
+                 topology: [{:a, :b}, {"a", "b"}, {:b, :a}]
+               })
+
+      assert config.topology == [{:a, :b}, {:b, :a}]
+    end
+
+    test "network: :isolated is rejected on backends that cannot isolate" do
+      for backend <- [:local, {:local, %{}}, {:ssh, "user@host"}, {:ssh, "user@host", %{}}],
+          value <- [:isolated, "isolated"] do
+        agent = %{name: :a, backend: backend, config: %{network: value}}
+
+        assert {:error, {:invalid_network, ^value}} =
+                 SwarmConfig.parse(%{name: "iso", agents: [agent]}),
+               "#{inspect(backend)} accepted network: #{inspect(value)}"
+      end
+
+      assert {:ok, _} =
+               SwarmConfig.parse(%{name: "iso", agents: [%{name: :a, backend: :local}]})
+    end
+  end
 end

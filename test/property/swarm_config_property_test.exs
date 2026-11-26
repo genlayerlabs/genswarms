@@ -168,6 +168,8 @@ defmodule Genswarms.Property.SwarmConfigPropertyTest do
       cond do
         near_miss? -> refute accepted?
         bwrap? -> assert accepted? == to_string(value) in ~w(open isolated)
+        # :local cannot isolate, so it must refuse rather than run open.
+        backend == :local -> assert accepted? == (to_string(value) != "isolated")
         true -> assert accepted?
       end
     end

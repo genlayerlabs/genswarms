@@ -9,6 +9,8 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 log="$(mktemp)"
+work=""
+trap 'rm -rf "$log" ${work:+"$work"}' EXIT
 finish() { echo "SHARD_RESULT status=$1 job=\"$job\" $2"; exit 0; }
 
 job="$*"
@@ -47,8 +49,8 @@ case "${1:-}" in
     } >"$work/Shard.cfg"
     extra=()
     [ "$mode" = sim ] && extra=(-simulate -depth 200 -seed "$seed")
-    (cd "$work" && timeout "$seconds" java -XX:+UseParallelGC -Xmx5g -cp "$jar" tlc2.TLC \
-      -deadlock -workers auto -metadir "$work/states" -config Shard.cfg "${extra[@]}" SwarmDaemon.tla) >"$log" 2>&1
+    (cd "$work" && timeout "$seconds" java -XX:+UseParallelGC -Xmx5g -Djava.io.tmpdir="$work" -cp "$jar" tlc2.TLC \
+      -deadlock -workers auto -metadir "$work/states" -config Shard.cfg ${extra[@]+"${extra[@]}"} SwarmDaemon.tla) >"$log" 2>&1
     code=$?
     grep -E 'Error|violated|No error|states generated|distinct states found, 0|Progress' "$log" | tail -8
     states="$(grep -oE '[0-9,]+ states (generated|checked)' "$log" | tail -1)"
@@ -56,7 +58,7 @@ case "${1:-}" in
       sed -n '/^Error/,$p' "$log" | head -80
       finish fail "states=\"$states\""
     elif grep -q 'No error has been found' "$log"; then finish pass "states=\"$states\""
-    elif [ $code -eq 124 ] && [ "$mode" = sim ]; then finish pass "states=\"$states\" note=time-boxed-walk"
+    elif [ $code -eq 124 ] && [ "$mode" = sim ] && [ -n "$states" ]; then finish pass "states=\"$states\" note=time-boxed-walk"
     elif [ $code -eq 124 ]; then finish timeout "states=\"$states\""
     else tail -20 "$log"; finish error "exit=$code"
     fi

@@ -490,12 +490,23 @@ defmodule Genswarms.Config.SwarmConfig do
     [backend_config(backend), Map.get(node, :config)]
     |> Enum.filter(&(is_map(&1) and Map.has_key?(&1, :network)))
     |> Enum.map(& &1.network)
-    |> Enum.find(&(near_miss_network?(&1) or (bwrap? and &1 not in @bwrap_networks)))
+    |> Enum.find(
+      &(near_miss_network?(&1) or (bwrap? and &1 not in @bwrap_networks) or
+          (unsandboxed?(backend) and &1 in [:isolated, "isolated"]))
+    )
     |> case do
       nil -> :ok
       value -> {:error, {:invalid_network, value}}
     end
   end
+
+  # These backends run the agent with the host's network and cannot isolate it;
+  # accepting `:isolated` would silently mean open (fail closed instead).
+  defp unsandboxed?(:local), do: true
+  defp unsandboxed?({:local, _}), do: true
+  defp unsandboxed?({:ssh, _}), do: true
+  defp unsandboxed?({:ssh, _, _}), do: true
+  defp unsandboxed?(_), do: false
 
   defp near_miss_network?(value) when is_atom(value),
     do: near_miss_network?(Atom.to_string(value))
@@ -728,9 +739,11 @@ defmodule Genswarms.Config.SwarmConfig do
   end
 
   defp normalize_topology(topology, normalize) do
-    Enum.map(topology, fn {from, to} ->
-      {normalize.(from), normalize.(to)}
-    end)
+    # An edge listed twice is one edge; duplicates would let the manager and
+    # the router disagree after a single remove.
+    topology
+    |> Enum.map(fn {from, to} -> {normalize.(from), normalize.(to)} end)
+    |> Enum.uniq()
   end
 
   defp normalize_objects(objects, normalize) do

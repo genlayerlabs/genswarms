@@ -20,13 +20,16 @@ tla() {
       https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar
   fi
 
+  local failed=0
   for config in ${TLA_CONFIGS:-Fixed FixedLarge}; do
     echo "== TLC: $config"
+    # `tla && props` runs this function with errexit off, so track failure here.
     (cd verification/tla &&
       java -XX:+UseParallelGC ${TLC_HEAP:+-Xmx$TLC_HEAP} -cp "$TLA_JAR" tlc2.TLC \
         -deadlock -workers "${TLC_WORKERS:-auto}" -metadir "$(mktemp -d)" \
-        -config "$config.cfg" SwarmDaemon.tla)
+        -config "$config.cfg" SwarmDaemon.tla) || failed=1
   done
+  return "$failed"
 }
 
 props() {

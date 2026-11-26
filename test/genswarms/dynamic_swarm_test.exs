@@ -637,4 +637,24 @@ defmodule Genswarms.DynamicSwarmTest do
       SwarmRegistry.clear_overlay(swarm_name)
     end
   end
+
+  test "a duplicated seed edge is removed from manager and router together" do
+    swarm = "dup-edge-#{System.unique_integer([:positive])}"
+
+    {:ok, ^swarm} =
+      SwarmManager.start_from_config(%{
+        name: swarm,
+        agents: [%{name: :alpha, backend: :mock}],
+        objects: [%{name: :sink, handler: NoopHandler}],
+        topology: [{:alpha, :sink}, {:alpha, :sink}]
+      })
+
+    on_exit(fn -> SwarmManager.stop(swarm) end)
+
+    :ok = SwarmManager.remove_topology_edges(swarm, [{:alpha, :sink}])
+
+    {:ok, config} = SwarmManager.get_full_config(swarm)
+    assert config.topology == []
+    assert {:ok, %{}} == Router.get_topology(swarm)
+  end
 end

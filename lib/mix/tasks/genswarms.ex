@@ -430,18 +430,22 @@ defmodule Mix.Tasks.Genswarms.Start.Daemon do
           )
 
         {:failed, reason} ->
-          # Permanent failure: retrying every poll would never succeed (or,
-          # after an exit, could re-crash the agent), so drop the task.
+          # Permanent failure: no such agent is declared, so retrying every
+          # poll would never succeed.
+          SwarmRegistry.mark_task_processed(task.id)
+          log_task_failed(:error, swarm_name, task, "Dropped task for #{task.agent}", reason)
+
+        {:unconfirmed, reason} ->
+          # The call exited after the task may already have reached the agent
+          # (e.g. a reply timeout). Do not redeliver; do not claim it was dropped.
           SwarmRegistry.mark_task_processed(task.id)
 
-          SwarmRegistry.log_event(
-            :error,
-            :agent,
-            :task_failed,
-            "Dropped task for #{task.agent}: #{inspect(reason)}",
-            swarm: swarm_name,
-            agent: task.agent,
-            metadata: %{task_id: task.id, reason: inspect(reason)}
+          log_task_failed(
+            :warning,
+            swarm_name,
+            task,
+            "Task for #{task.agent} was sent but not confirmed; not retrying",
+            reason
           )
 
         {:error, reason} ->
@@ -459,15 +463,47 @@ defmodule Mix.Tasks.Genswarms.Start.Daemon do
     end)
   end
 
-  # One bad task must not kill the daemon loop: an unknown agent or an exit
-  # (call timeout, agent crash) is a permanent failure for that task.
+  # One bad task must not kill the daemon loop.
   defp deliver_task(swarm_name, task) do
     case SwarmManager.send_task(swarm_name, task.agent, task.task) do
-      {:error, :agent_not_found} -> {:failed, :agent_not_found}
-      other -> other
+      {:error, :agent_not_found} ->
+        # A declared agent that is not registered is restarting: keep the task
+        # pending. Only an undeclared name is a permanent failure.
+        if declared_agent?(swarm_name, task.agent),
+          do: {:error, :agent_restarting},
+          else: {:failed, :agent_not_found}
+
+      other ->
+        other
     end
   catch
-    :exit, reason -> {:failed, {:exit, reason}}
+    :exit, reason -> {:unconfirmed, exit_kind(reason)}
+  end
+
+  defp declared_agent?(swarm_name, agent) when is_atom(agent) do
+    case SwarmManager.get_full_config(swarm_name) do
+      {:ok, config} -> Enum.any?(config.agents, &(&1.name == agent))
+      _ -> false
+    end
+  end
+
+  # Unknown names stay strings (never interned), so they cannot be declared.
+  defp declared_agent?(_swarm_name, _agent), do: false
+
+  # The full exit reason of a GenServer.call carries the call arguments, i.e.
+  # the task text. Log only its kind.
+  defp exit_kind({kind, {GenServer, :call, _}}) when is_atom(kind), do: kind
+  defp exit_kind(kind) when is_atom(kind), do: kind
+  defp exit_kind(_), do: :exit
+
+  # An unknown agent name is caller-supplied and stays a string; keep it out
+  # of the `agent` column, which event readers convert to an atom.
+  defp log_task_failed(level, swarm_name, task, message, reason) do
+    SwarmRegistry.log_event(level, :agent, :task_failed, "#{message}: #{inspect(reason)}",
+      swarm: swarm_name,
+      agent: if(is_atom(task.agent), do: task.agent),
+      metadata: %{task_id: task.id, agent: to_string(task.agent), reason: inspect(reason)}
+    )
   end
 end
 

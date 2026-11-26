@@ -7,7 +7,8 @@
 (*     INSERT OR REPLACE once it has booted (lib/mix/tasks/genswarms.ex).  *)
 (*   - the poller delivers a pending task, then marks it processed, with   *)
 (*     no claim step (process_pending_tasks/1).                            *)
-(*   - a task for an agent that does not exist exits the daemon.           *)
+(*   - a task for an agent that does not exist is dropped with an error    *)
+(*     event (it used to exit the daemon).                                 *)
 (*   - status writes match the row by name only (mark_stopped/1,           *)
 (*     mark_crashed/1 in lib/genswarms/cli/swarm_registry.ex).             *)
 (*                                                                         *)
@@ -94,18 +95,20 @@ Queue(t) ==
 
 Bump(t) == [delivered EXCEPT ![t] = IF @ < 2 THEN @ + 1 ELSE @]
 
-(* Today: read pending, deliver. A bad task exits the daemon. *)
+(* Today: read pending, deliver. A task for an undeclared agent is marked  *)
+(* processed with an error event and the daemon keeps polling (modelled as *)
+(* "failed"). Before that fix it exited the daemon on every restart.       *)
 Deliver(d, t) ==
   /\ ~Fixed
   /\ proc[d] = "running" /\ phase[d] = "idle" /\ task[t] = "pending"
   /\ IF t \in BadTasks
-       THEN /\ proc' = [proc EXCEPT ![d] = "dead"]
+       THEN /\ task' = [task EXCEPT ![t] = "failed"]
             /\ UNCHANGED <<phase, hold, delivered>>
        ELSE /\ delivered' = Bump(t)
             /\ phase' = [phase EXCEPT ![d] = "sent"]
             /\ hold' = [hold EXCEPT ![d] = t]
-            /\ UNCHANGED proc
-  /\ UNCHANGED <<row, task, faults>>
+            /\ UNCHANGED task
+  /\ UNCHANGED <<proc, row, faults>>
 
 (* Proposed: claim first; a bad task is marked failed. *)
 Claim(d, t) ==

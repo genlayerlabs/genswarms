@@ -34,7 +34,7 @@ tasks, pid-guarded status writes).
 | Config | Expected result |
 |--------|-----------------|
 | `Current.cfg` | `OneLiveDaemon`, `AtMostOnce`, `RowTracksDaemon` all violated |
-| `CurrentLiveness.cfg` | `EveryTaskResolved` violated (a task for a missing agent loops forever) |
+| `CurrentLiveness.cfg` | no errors (before the missing-agent fix, `EveryTaskResolved` was violated) |
 | `Fixed.cfg` | no errors |
 | `FixedLarge.cfg` | no errors; takes long, meant for a big machine |
 
