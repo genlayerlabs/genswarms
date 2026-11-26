@@ -77,7 +77,9 @@ defmodule Genswarms.Agents.AgentProtocol do
   def decode(data) when is_binary(data) do
     case Jason.decode(data) do
       {:ok, %{"type" => type} = msg} ->
-        {:ok, normalize_message(type, msg)}
+        if text_fields?(msg),
+          do: {:ok, normalize_message(type, msg)},
+          else: {:error, :invalid_field}
 
       {:ok, _} ->
         {:error, :missing_type}
@@ -211,9 +213,15 @@ defmodule Genswarms.Agents.AgentProtocol do
     }
   end
 
+  # Every field normalize_message/2 reads must be a string when present; JSON
+  # numbers, booleans, null, arrays and objects are rejected, not normalized.
+  @text_fields ~w(type to from content command state)
+  defp text_fields?(msg) do
+    Enum.all?(@text_fields, &(not Map.has_key?(msg, &1) or is_binary(msg[&1])))
+  end
+
   defp maybe_to_atom(nil), do: nil
   defp maybe_to_atom(s) when is_binary(s), do: String.to_existing_atom(s)
-  defp maybe_to_atom(a) when is_atom(a), do: a
 
   # ── turn stdout grammar ─────────────────────────────────────────────────────
   # This module is the SINGLE owner of the agent-stdout grammar: the SWARM_MSG

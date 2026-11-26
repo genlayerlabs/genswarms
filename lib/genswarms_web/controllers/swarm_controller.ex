@@ -472,12 +472,13 @@ defmodule GenswarmsWeb.SwarmController do
 
     # Try in-process first, fall back to task queue for daemon swarms
     result =
-      try do
-        SwarmManager.send_task(swarm_name, agent_name, task)
-      catch
-        :exit, {:noproc, _} ->
+      case SwarmManager.send_task(swarm_name, agent_name, task) do
+        {:error, :agent_not_found} ->
           # Daemon swarm - queue task in SQLite for daemon to pick up
           SwarmRegistry.queue_task(swarm_name, agent_name, task)
+
+        other ->
+          other
       end
 
     case result do

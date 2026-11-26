@@ -190,6 +190,7 @@ defmodule Genswarms.Config.SwarmConfig do
     with {:ok, name} <- validate_name(config),
          {:ok, agents} <- validate_agents(config),
          {:ok, objects} <- validate_objects(config),
+         :ok <- validate_unique_names(agents ++ objects),
          {:ok, topology} <- validate_topology(config, agents, objects),
          {:ok, options} <- validate_options(config) do
       {:ok,
@@ -415,6 +416,7 @@ defmodule Genswarms.Config.SwarmConfig do
        when (is_binary(name) or is_atom(name)) and name != "" do
     with :ok <- validate_agent_name(name),
          :ok <- validate_backend(backend),
+         :ok <- validate_network(agent),
          :ok <- validate_skills(agent),
          :ok <- validate_tools(agent),
          :ok <- validate_presets(agent) do
@@ -426,6 +428,7 @@ defmodule Genswarms.Config.SwarmConfig do
   defp validate_agent(%{name: name} = agent)
        when (is_binary(name) or is_atom(name)) and name != "" do
     with :ok <- validate_agent_name(name),
+         :ok <- validate_network(agent),
          :ok <- validate_skills(agent),
          :ok <- validate_tools(agent),
          :ok <- validate_presets(agent) do
@@ -470,6 +473,58 @@ defmodule Genswarms.Config.SwarmConfig do
   defp validate_backend(:mock), do: :ok
   defp validate_backend({:mock, opts}) when is_map(opts), do: :ok
   defp validate_backend(backend), do: {:error, {:invalid_backend, backend}}
+
+  # `network` is a mode (open / none / isolated) or, for docker, Apple container
+  # and tmux runners, a network name. A near-miss of a reserved word ("Isolated",
+  # :NONE) would be read as a network name or ignored — an open network — so it
+  # is rejected. bwrap (the default backend) only honours open/isolated; any other
+  # value there would silently mean open, so it is rejected too. Checked on the
+  # backend options and the agent config, which overrides them at start.
+  @network_modes ~w(open none isolated)
+  @bwrap_networks [nil, :open, "open", :isolated, "isolated"]
+
+  defp validate_network(node) do
+    backend = Map.get(node, :backend, :bwrap)
+    bwrap? = backend == :bwrap or match?({:bwrap, _}, backend)
+
+    [backend_config(backend), Map.get(node, :config)]
+    |> Enum.filter(&(is_map(&1) and Map.has_key?(&1, :network)))
+    |> Enum.map(& &1.network)
+    |> Enum.find(
+      &(near_miss_network?(&1) or (bwrap? and &1 not in @bwrap_networks) or
+          (unsandboxed?(backend) and &1 in [:isolated, "isolated"]))
+    )
+    |> case do
+      nil -> :ok
+      value -> {:error, {:invalid_network, value}}
+    end
+  end
+
+  # These backends run the agent with the host's network and cannot isolate it;
+  # accepting `:isolated` would silently mean open (fail closed instead).
+  defp unsandboxed?(:local), do: true
+  defp unsandboxed?({:local, _}), do: true
+  defp unsandboxed?({:ssh, _}), do: true
+  defp unsandboxed?({:ssh, _, _}), do: true
+  defp unsandboxed?(_), do: false
+
+  defp near_miss_network?(value) when is_atom(value),
+    do: near_miss_network?(Atom.to_string(value))
+
+  defp near_miss_network?(value) when is_binary(value),
+    do: value not in @network_modes and String.downcase(String.trim(value)) in @network_modes
+
+  defp near_miss_network?(_), do: false
+
+  # Names are compared as strings so :a and "a" collide.
+  defp validate_unique_names(nodes) do
+    names = Enum.map(nodes, &to_string(&1.name))
+
+    case names -- Enum.uniq(names) do
+      [] -> :ok
+      [duplicate | _] -> {:error, {:duplicate_name, duplicate}}
+    end
+  end
 
   defp validate_tmux_client(client) do
     if Genswarms.Backends.Tmux.Adapters.known_client?(client),
@@ -650,9 +705,9 @@ defmodule Genswarms.Config.SwarmConfig do
   # Docker/SSH object with backend (no handler required)
   defp validate_object(%{name: name, backend: backend} = object)
        when (is_binary(name) or is_atom(name)) and name != "" do
-    case validate_backend(backend) do
-      :ok -> {:ok, object}
-      error -> error
+    with :ok <- validate_backend(backend),
+         :ok <- validate_network(%{backend: backend}) do
+      {:ok, object}
     end
   end
 
@@ -684,9 +739,11 @@ defmodule Genswarms.Config.SwarmConfig do
   end
 
   defp normalize_topology(topology, normalize) do
-    Enum.map(topology, fn {from, to} ->
-      {normalize.(from), normalize.(to)}
-    end)
+    # An edge listed twice is one edge; duplicates would let the manager and
+    # the router disagree after a single remove.
+    topology
+    |> Enum.map(fn {from, to} -> {normalize.(from), normalize.(to)} end)
+    |> Enum.uniq()
   end
 
   defp normalize_objects(objects, normalize) do

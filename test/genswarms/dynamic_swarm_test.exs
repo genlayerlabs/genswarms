@@ -150,6 +150,26 @@ defmodule Genswarms.DynamicSwarmTest do
       assert {:error, :swarm_not_found} =
                SwarmManager.add_topology_edges("nope", [{:a, :b}])
     end
+
+    test "rejects edges to undeclared nodes and applies none of them", %{swarm: swarm} do
+      assert {:error, {:invalid_topology, [{:unknown_agent, :never_created}]}} =
+               SwarmManager.add_topology_edges(swarm, [{:sink, :alpha}, {:alpha, :never_created}])
+
+      {:ok, conns} = Router.get_connections(swarm, :sink)
+      refute :alpha in conns
+      assert {:ok, %{topology: [{:alpha, :sink}]}} = SwarmManager.get_full_config(swarm)
+    end
+
+    test "add_agent rejects connections to undeclared nodes", %{swarm: swarm} do
+      assert {:error, {:invalid_topology, [{:unknown_agent, :ghost}]}} =
+               SwarmManager.add_agent(swarm, %{name: :beta, backend: :mock},
+                 connections: [:sink],
+                 incoming: [:ghost]
+               )
+
+      assert [] = Registry.lookup(Genswarms.AgentRegistry, {swarm, :beta})
+      assert {:ok, %{topology: [{:alpha, :sink}]}} = SwarmManager.get_full_config(swarm)
+    end
   end
 
   describe "add_object/3" do
@@ -290,6 +310,16 @@ defmodule Genswarms.DynamicSwarmTest do
         assert :ok = wait_unregistered(swarm, name)
         assert [] = Registry.lookup(Genswarms.AgentRegistry, {swarm, name})
       end
+    end
+
+    test "replicas skip template edges to nodes the same scale removed", %{swarm: swarm} do
+      :ok = SwarmManager.add_topology_edges(swarm, [{:alpha, :alpha}])
+
+      assert {:ok, %{added: [:alpha_1, :alpha_2], removed: [:alpha], failed: []}} =
+               SwarmManager.scale_agent_group(swarm, :alpha, 2)
+
+      {:ok, config} = SwarmManager.get_full_config(swarm)
+      assert Enum.sort(config.topology) == [{:alpha_1, :sink}, {:alpha_2, :sink}]
     end
 
     test "returns error if no template exists", %{swarm: swarm} do
@@ -606,5 +636,25 @@ defmodule Genswarms.DynamicSwarmTest do
       SwarmManager.stop(swarm_name)
       SwarmRegistry.clear_overlay(swarm_name)
     end
+  end
+
+  test "a duplicated seed edge is removed from manager and router together" do
+    swarm = "dup-edge-#{System.unique_integer([:positive])}"
+
+    {:ok, ^swarm} =
+      SwarmManager.start_from_config(%{
+        name: swarm,
+        agents: [%{name: :alpha, backend: :mock}],
+        objects: [%{name: :sink, handler: NoopHandler}],
+        topology: [{:alpha, :sink}, {:alpha, :sink}]
+      })
+
+    on_exit(fn -> SwarmManager.stop(swarm) end)
+
+    :ok = SwarmManager.remove_topology_edges(swarm, [{:alpha, :sink}])
+
+    {:ok, config} = SwarmManager.get_full_config(swarm)
+    assert config.topology == []
+    assert {:ok, %{}} == Router.get_topology(swarm)
   end
 end

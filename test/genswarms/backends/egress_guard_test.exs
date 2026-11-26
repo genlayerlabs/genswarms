@@ -93,13 +93,41 @@ defmodule Genswarms.Backends.EgressGuardTest do
                EgressGuard.resolve_allowed_endpoint(%{endpoint: "https://evil.test/v1"})
     end
 
-    test "allowed_endpoint_hosts includes the server host and configured hosts" do
-      System.put_env("GENSWARMS_ALLOWED_ENDPOINTS", "Foo.Example.COM ,bar.test")
-      hosts = EgressGuard.allowed_endpoint_hosts()
-      assert "llm.server.test" in hosts
-      # normalized to lowercase + trimmed
-      assert "foo.example.com" in hosts
-      assert "bar.test" in hosts
+    test "allowed_endpoints pins the server host to its port; configured hosts may carry one" do
+      System.put_env(
+        "GENSWARMS_ALLOWED_ENDPOINTS",
+        "Foo.Example.COM ,bar.test:8443, [::1]:11434, bad:, bad:0, bad:x, u@bad, bad/p"
+      )
+
+      assert EgressGuard.allowed_endpoints() == [
+               {"llm.server.test", 443},
+               # normalized to lowercase + trimmed; a bare host allows any port
+               {"foo.example.com", :any},
+               {"bar.test", 8443},
+               {"::1", 11434}
+             ]
+    end
+
+    test "the server's own host on another port is rejected" do
+      System.put_env("SUBZEROCLAW_ENDPOINT", "http://localhost:11434/v1/chat")
+
+      assert {:ok, _} =
+               EgressGuard.resolve_allowed_endpoint(%{endpoint: "http://LOCALHOST:11434/x"})
+
+      assert {:error, {:endpoint_not_allowed, _}} =
+               EgressGuard.resolve_allowed_endpoint(%{endpoint: "http://localhost:4000/api"})
+    end
+
+    test "a host:port entry allows that port only; a bare host allows any port" do
+      System.put_env("GENSWARMS_ALLOWED_ENDPOINTS", "pinned.test:8443,open.test")
+
+      assert {:ok, _} =
+               EgressGuard.resolve_allowed_endpoint(%{endpoint: "https://pinned.test:8443"})
+
+      assert {:error, {:endpoint_not_allowed, _}} =
+               EgressGuard.resolve_allowed_endpoint(%{endpoint: "https://pinned.test/v1"})
+
+      assert {:ok, _} = EgressGuard.resolve_allowed_endpoint(%{endpoint: "http://open.test:9/v1"})
     end
 
     test "start_forwarder refuses a disallowed endpoint without writing .curlrc" do

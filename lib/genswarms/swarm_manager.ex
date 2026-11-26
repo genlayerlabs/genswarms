@@ -463,6 +463,7 @@ defmodule Genswarms.SwarmManager do
 
       swarm_info ->
         with :ok <- Genswarms.IR.Gate.validate_add_agent(swarm_info.config, spec),
+             :ok <- validate_new_node_edges(swarm_info.config, spec, opts),
              {:ok, name, new_info} <- do_add_agent(swarm_name, swarm_info, spec, opts) do
           new_state = put_swarm(state, swarm_name, new_info)
 
@@ -502,18 +503,17 @@ defmodule Genswarms.SwarmManager do
         {:reply, {:error, :swarm_not_found}, state}
 
       swarm_info ->
-        case do_add_object(swarm_name, swarm_info, spec, opts) do
-          {:ok, name, new_info} ->
-            new_state = put_swarm(state, swarm_name, new_info)
+        with :ok <- validate_new_node_edges(swarm_info.config, spec, opts),
+             {:ok, name, new_info} <- do_add_object(swarm_name, swarm_info, spec, opts) do
+          new_state = put_swarm(state, swarm_name, new_info)
 
-            saved =
-              maybe_persist(opts, swarm_name, :add_object, normalize_spec_for_overlay(spec, opts))
+          saved =
+            maybe_persist(opts, swarm_name, :add_object, normalize_spec_for_overlay(spec, opts))
 
-            broadcast_topology_changed(swarm_name)
-            mutation_reply(saved, {:ok, name}, new_state)
-
-          {:error, _} = err ->
-            {:reply, err, state}
+          broadcast_topology_changed(swarm_name)
+          mutation_reply(saved, {:ok, name}, new_state)
+        else
+          {:error, _} = err -> {:reply, err, state}
         end
     end
   end
@@ -565,19 +565,18 @@ defmodule Genswarms.SwarmManager do
         {:reply, {:error, :swarm_not_found}, state}
 
       swarm_info ->
-        case Router.add_edges(swarm_name, edges) do
-          :ok ->
-            new_config =
-              update_in_config_topology(swarm_info.config, edges, &Enum.uniq(&1 ++ edges))
+        with :ok <- validate_edge_nodes(swarm_info.config, edges),
+             :ok <- Router.add_edges(swarm_name, edges) do
+          new_config =
+            update_in_config_topology(swarm_info.config, edges, &Enum.uniq(&1 ++ edges))
 
-            new_info = %{swarm_info | config: new_config}
-            new_state = put_swarm(state, swarm_name, new_info)
-            saved = maybe_persist(opts, swarm_name, :add_topology_edges, %{edges: edges})
-            broadcast_topology_changed(swarm_name)
-            mutation_reply(saved, :ok, new_state)
-
-          err ->
-            {:reply, err, state}
+          new_info = %{swarm_info | config: new_config}
+          new_state = put_swarm(state, swarm_name, new_info)
+          saved = maybe_persist(opts, swarm_name, :add_topology_edges, %{edges: edges})
+          broadcast_topology_changed(swarm_name)
+          mutation_reply(saved, :ok, new_state)
+        else
+          err -> {:reply, err, state}
         end
     end
   end
@@ -1470,11 +1469,16 @@ defmodule Genswarms.SwarmManager do
           Enum.reduce(to_add, {[], [], info_after_remove}, fn name, {add_acc, fail_acc, info} ->
             new_spec = derive_agent_spec(template, base_name, name)
 
-            # Auto-connect new agent matching existing template's topology edges
+            # Auto-connect new agent matching existing template's topology edges,
+            # skipping peers that no longer exist (e.g. removed above)
+            live = node_names(info.config)
             connections = derived_connections(swarm_info.config.topology, template_name(template))
             incoming = derived_incoming(swarm_info.config.topology, template_name(template))
 
-            opts = [connections: connections, incoming: incoming]
+            opts = [
+              connections: Enum.filter(connections, &known_node?(live, &1)),
+              incoming: Enum.filter(incoming, &known_node?(live, &1))
+            ]
 
             case do_add_agent(swarm_name, info, new_spec, opts) do
               {:ok, _name, new_info} -> {[name | add_acc], fail_acc, new_info}
@@ -1583,6 +1587,38 @@ defmodule Genswarms.SwarmManager do
       [] -> false
       _ -> true
     end
+  end
+
+  # Names of the swarm's declared agents and objects, as strings.
+  defp node_names(config) do
+    MapSet.new(config.agents ++ (config.objects || []), &to_string(&1.name))
+  end
+
+  # Live mutations may only wire declared nodes (plus `adding`, the node being
+  # added). Same error shape as config-time topology validation.
+  defp validate_edge_nodes(config, edges, adding \\ []) do
+    known = Enum.into(adding, node_names(config), &to_string/1)
+
+    unknown =
+      for {from, to} <- edges,
+          node <- [from, to],
+          not known_node?(known, node),
+          uniq: true,
+          do: {:unknown_agent, node}
+
+    if unknown == [], do: :ok, else: {:error, {:invalid_topology, unknown}}
+  end
+
+  defp known_node?(known, node) when is_atom(node) or is_binary(node),
+    do: to_string(node) in known
+
+  defp known_node?(_known, _node), do: false
+
+  defp validate_new_node_edges(config, spec, opts) do
+    name = Map.get(spec, :name)
+    out_edges = for to <- Keyword.get(opts, :connections, []), do: {name, to}
+    in_edges = for from <- Keyword.get(opts, :incoming, []), do: {from, name}
+    validate_edge_nodes(config, out_edges ++ in_edges, [name])
   end
 
   defp update_in_config_topology(config, edges, _merge_fun) do

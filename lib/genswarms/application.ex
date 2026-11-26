@@ -48,6 +48,10 @@ defmodule Genswarms.Application do
     # buffer or pool here).
     children = children ++ Genswarms.Observability.EventStore.child_specs()
 
+    # Owned by this long-lived application process so topologies survive a
+    # Router restart.
+    Genswarms.Routing.Router.create_table()
+
     opts = [strategy: :one_for_one, name: Genswarms.Supervisor]
     result = Supervisor.start_link(children, opts)
 
