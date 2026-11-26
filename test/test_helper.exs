@@ -24,6 +24,6 @@ if seconds = System.get_env("PROPERTY_SECONDS") do
   Application.put_env(:stream_data, :max_run_time, String.to_integer(seconds) * 1000)
 end
 
-# :known_bug tests document confirmed defects and fail today.
+# :known_bug tests state a rule the code does not keep yet.
 # Run them with `mix test --include known_bug`.
 ExUnit.start(exclude: [:known_bug])

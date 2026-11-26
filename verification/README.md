@@ -8,8 +8,8 @@ Random-input tests against the real code. They run with the normal suite:
 
 ```bash
 mix test test/property                      # 100 random cases per rule
-PROPERTY_RUNS=200000 mix test test/property # long run
-mix test test/property --include known_bug  # also run the tests that fail today
+PROPERTY_RUNS=200000 mix test test/property # long run, fixed count
+PROPERTY_SECONDS=90 mix test test/property  # long run, fixed time per property
 ```
 
 | File | Rule |
@@ -21,9 +21,8 @@ mix test test/property --include known_bug  # also run the tests that fail today
 | `task_queue_property_test.exs` | The SQLite queue returns exactly the unprocessed tasks, in order |
 | `swarm_lifecycle_property_test.exs` | Manager config, router edges and live processes always agree |
 
-Tests tagged `:known_bug` state a rule the code breaks today. They are excluded
-by default so the suite stays green; each one should lose its tag in the commit
-that fixes the bug.
+A test tagged `:known_bug` states a rule the code does not keep yet; such tests
+are excluded by default (`--include known_bug` runs them). There are none today.
 
 ## TLA+ model (`verification/tla/`)
 
@@ -50,3 +49,7 @@ TLC_WORKERS=8 TLC_HEAP=64g scripts/verify.sh tla
 ```
 
 Needs `java` for the models and either `mix` or `docker` for the tests.
+
+`scripts/verify-shard.sh` runs one short, self-contained job (one test file with a
+seed, or one model size) and prints a single `SHARD_RESULT` line, for fanning
+many jobs out across machines.
