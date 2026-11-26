@@ -53,7 +53,10 @@ defmodule Genswarms.MixProject do
       {:bandit, "~> 1.0"},
 
       # SQLite for registry
-      {:exqlite, "~> 0.13"}
+      {:exqlite, "~> 0.13"},
+
+      # Property-based tests
+      {:stream_data, "~> 1.1", only: :test}
     ]
   end
 
